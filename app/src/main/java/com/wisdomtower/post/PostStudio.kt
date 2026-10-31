@@ -458,6 +458,7 @@ private fun ColumnScope.StudioDetails(
     val layout = remember(doc.templateId, doc.size) { spec.layout(doc.size) }
     val slots = remember(doc.templateId, doc.size) { layout.slots.filter { it.literal == null }.map { it.slot }.distinct() }
     var selectedWordSlot by rememberSaveable(doc.templateId) { mutableStateOf(slots.firstOrNull().orEmpty()) }
+    var activePhotoControl by rememberSaveable(doc.templateId) { mutableStateOf("Zoom") }
 
     // ---- Words ----
     if (activeCategory == "Words") StudioSection("Words", spec.name + ". Your words stay when you switch template.") {
@@ -562,11 +563,7 @@ private fun ColumnScope.StudioDetails(
             }
         }
         if (doc.backgroundPhotoUri != null) {
-            PostLabeledSlider("Background image opacity", doc.backgroundPhotoOpacity, 0f..1f,
-                "${(doc.backgroundPhotoOpacity * 100).toInt()}%") {
-                onDoc(doc.copy(backgroundPhotoOpacity = it))
-            }
-            PostSmallLabel("100% = fully visible · 0% = hidden, revealing the color or gradient beneath.")
+            PostSmallLabel("Adjust opacity with the shared control below.")
         }
     }
 
@@ -588,13 +585,52 @@ private fun ColumnScope.StudioDetails(
             }
         }
         if (doc.photoUri != null && photoArea != null) {
-            PostLabeledSlider("Zoom", doc.photoZoom, 1f..3f, "x" + String.format("%.1f", doc.photoZoom)) { onDoc(doc.copy(photoZoom = it)) }
-            PostLabeledSlider("Move left or right", doc.photoFocusX, 0f..1f, "") { onDoc(doc.copy(photoFocusX = it)) }
-            PostLabeledSlider("Move up or down", doc.photoFocusY, 0f..1f, "") { onDoc(doc.copy(photoFocusY = it)) }
-            val dim = if (doc.photoDim >= 0) doc.photoDim else photoArea.dim
-            PostLabeledSlider("Darkness", dim.toFloat(), 0f..230f, dim.toString()) { onDoc(doc.copy(photoDim = it.toInt())) }
+            PostSmallLabel("Use the shared control below to zoom, position or darken this photo.")
             if (doc.photoDim >= 0) {
                 TextButton(onClick = { onDoc(doc.copy(photoDim = -1)) }) { Text("Use the template darkness") }
+            }
+        }
+    }
+
+    if (activeCategory == "Photo") {
+        val photoDim = if (doc.photoDim >= 0) doc.photoDim.toFloat() else (photoArea?.dim ?: 0).toFloat()
+        val controls = buildList {
+            if (doc.photoUri != null && photoArea != null) addAll(listOf("Zoom", "Move X", "Move Y", "Darkness"))
+            if (doc.backgroundPhotoUri != null) add("BG opacity")
+        }
+        if (controls.isNotEmpty()) {
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                controls.forEach { control ->
+                    FilterChip(selected = activePhotoControl == control, onClick = { activePhotoControl = control }, label = { Text(control) })
+                }
+            }
+            val current = when (activePhotoControl) {
+                "Zoom" -> doc.photoZoom
+                "Move X" -> doc.photoFocusX
+                "Move Y" -> doc.photoFocusY
+                "Darkness" -> photoDim
+                "BG opacity" -> doc.backgroundPhotoOpacity
+                else -> doc.photoZoom
+            }
+            val range = when (activePhotoControl) {
+                "Zoom" -> 1f..3f
+                "Darkness" -> 0f..230f
+                else -> 0f..1f
+            }
+            val display = when (activePhotoControl) {
+                "Zoom" -> "x" + String.format("%.1f", current)
+                "Darkness" -> current.toInt().toString()
+                "BG opacity" -> "${(current * 100).toInt()}%"
+                else -> "${(current * 100).toInt()}%"
+            }
+            PostLabeledSlider(activePhotoControl, current, range, display) { value ->
+                when (activePhotoControl) {
+                    "Zoom" -> onDoc(doc.copy(photoZoom = value))
+                    "Move X" -> onDoc(doc.copy(photoFocusX = value))
+                    "Move Y" -> onDoc(doc.copy(photoFocusY = value))
+                    "Darkness" -> onDoc(doc.copy(photoDim = value.toInt()))
+                    "BG opacity" -> onDoc(doc.copy(backgroundPhotoOpacity = value))
+                }
             }
         }
     }

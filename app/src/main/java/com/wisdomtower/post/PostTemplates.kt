@@ -744,6 +744,7 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
             listOf(
                 box(PostSlots.EYEBROW, .02f, .06f, .8f, .06f, .026f, PostFont.BOLD, PostTone.ACCENT, caps = true),
                 box(PostSlots.HEADLINE, .02f, .15f, .92f, .34f, .078f, PostFont.DISPLAY, PostTone.TEXT),
+                mark("\\u2197", .84f, waveY + .005f, .10f, .075f, .070f, PostFont.DISPLAY, PostTone.LIGHT),
                 abox(PostSlots.BODY, .04f, waveY + .09f, .92f, .87f - waveY, .038f, PostFont.REGULAR, PostTone.LIGHT)
             ),
             footerLight = true,

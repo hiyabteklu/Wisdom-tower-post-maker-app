@@ -204,8 +204,10 @@ object PostRenderer {
             doc.backgroundPhotoUri?.let { drawBackgroundPhoto(context, canvas, it, doc.backgroundPhotoOpacity, w, h, decodeTo) }
             stop()
 
-            layout.decor.filter { !it.overPhoto }.forEach { drawDecor(canvas, it, colors, w, h, unit) }
             val photoArea = layout.photo
+            // a frame picked on the post only applies to a photo window that does not fill the whole post
+            val frame = doc.photoFrame?.takeIf { photoArea != null && photoArea.w < 0.99f && photoArea.h < 0.99f }
+            layout.decor.filter { !it.overPhoto }.forEach { drawDecor(canvas, it, colors, w, h, unit, frame) }
             val photoUri = doc.photoUri
             if (photoArea != null && photoUri != null) drawPhoto(context, canvas, photoUri, photoArea, doc, colors, w, h, unit, decodeTo)
             stop()
@@ -382,7 +384,13 @@ object PostRenderer {
 
     // ---- shapes ----
 
-    private fun drawDecor(canvas: Canvas, d: DecorBox, c: Colors, w: Int, h: Int, unit: Float) {
+    /**
+     * frame: the photo frame chosen on the post (null when none, or when the photo window fills the whole post).
+     * A shape marked frameBack 1 is drawn in that frame's shape instead of its own, so the backing of the photo matches the photo.
+     * A shape marked frameBack 2 is a leftover piece of such a backing and is skipped.
+     */
+    private fun drawDecor(canvas: Canvas, d: DecorBox, c: Colors, w: Int, h: Int, unit: Float, frame: PhotoFrame? = null) {
+        if (d.frameBack == 2 && frame != null) return
         val r = RectF(d.x * w, d.y * h, (d.x + d.w) * w, (d.y + d.h) * h)
         if (r.width() <= 0f || r.height() <= 0f) return
         val startColor = withAlpha(toneColor(c, d.tone), d.alpha)
@@ -396,6 +404,11 @@ object PostRenderer {
             paint.color = startColor
         }
         if (d.shadow) paint.setShadowLayer(unit * 0.022f, 0f, unit * 0.010f, Color.argb(75, 0, 0, 0))
+
+        if (d.frameBack == 1 && frame != null) {
+            canvas.drawPath(PostEngine.framePath(frame, r, unit), paint)
+            return
+        }
 
         when (d.shape) {
             DecorShape.RECT -> canvas.drawRect(r, paint)
@@ -603,7 +616,8 @@ object PostRenderer {
     /**
      * Crops the photo to fill the area (zoom and focus come from the post), then lays a dim layer over it so light text stays readable.
      * A frame picked on the post (rounded, arch, pill, circle, stacked) replaces the template's own shape on windows that do not
-     * fill the whole post. The frame edge is cut with a mask so it stays smooth.
+     * fill the whole post. The photo is drawn into its own layer and everything OUTSIDE the frame shape is erased from that layer,
+     * so the photo really takes the shape (a plain DST_IN mask only changes the pixels the shape itself covers, which left the rectangle).
      */
     private fun drawPhoto(
         context: Context, canvas: Canvas, uri: String, area: PostPhotoArea, doc: PostDoc,
@@ -650,10 +664,12 @@ object PostRenderer {
             canvas.drawRect(dest, dim)
         }
         if (framePath != null) {
+            // erase everything outside the shape: fill the inverse of the path with DST_OUT (the layer's clip is the photo bounds)
+            val outside = Path(framePath).apply { fillType = Path.FillType.INVERSE_WINDING }
             val maskPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-            maskPaint.xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
+            maskPaint.xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_OUT)
             maskPaint.color = Color.BLACK
-            canvas.drawPath(framePath, maskPaint)
+            canvas.drawPath(outside, maskPaint)
         }
         bmp.recycle()
         canvas.restoreToCount(layerSave)

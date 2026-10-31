@@ -727,6 +727,62 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
         )
     },
 
+    // Editorial announcement: a high-contrast notice with a clear title panel and action strip.
+    template(
+        "notice-editorial", "Editorial announcement", "Announcement",
+        mapOf(
+            PostSlots.EYEBROW to "IMPORTANT UPDATE",
+            PostSlots.HEADLINE to "Something worth knowing",
+            PostSlots.BODY to "A clear message with the details people need to remember.",
+            PostSlots.BUTTON to "READ THE UPDATE"
+        )
+    ) {
+        val panelY = if (story) .22f else .21f
+        val panelH = if (story) .34f else .36f
+        TemplateLayout(
+            PostBase.LIGHT,
+            listOf(
+                DecorBox(DecorShape.RECT, 0f, panelY, 1f, panelH, PostTone.BLUE),
+                DecorBox(DecorShape.RECT, 0f, panelY, .025f, panelH, PostTone.RED),
+                DecorBox(DecorShape.ROUND, .08f, .72f, .84f, .105f, PostTone.RED, radius = .025f, shadow = true),
+                DecorBox(DecorShape.RECT, .08f, .65f, .18f, .006f, PostTone.BLUE)
+            ),
+            listOf(
+                abox(PostSlots.EYEBROW, .09f, panelY + .035f, .82f, .055f, .023f, PostFont.BOLD, PostTone.LIGHT_MUTED, caps = true),
+                abox(PostSlots.HEADLINE, .09f, panelY + .105f, .82f, panelH - .12f, .073f, PostFont.DISPLAY, PostTone.LIGHT),
+                abox(PostSlots.BODY, .09f, .61f, .82f, .10f, .034f, PostFont.REGULAR, PostTone.TEXT),
+                abox(PostSlots.BUTTON, .10f, .735f, .80f, .075f, .034f, PostFont.BOLD, PostTone.LIGHT, centered = true, caps = true)
+            )
+        )
+    },
+
+    // Study tip: editorial numbered layout with an oversized marker and a strong reading column.
+    template(
+        "study-tip-editorial", "Editorial study tip", "Study tip",
+        mapOf(
+            PostSlots.EYEBROW to "THE STUDY METHOD",
+            PostSlots.NUMBER to "01",
+            PostSlots.HEADLINE to "Recall beats rereading",
+            PostSlots.BODY to "Close your notes. Write what you remember. Then reopen the chapter and fill the gaps."
+        )
+    ) {
+        TemplateLayout(
+            PostBase.LIGHT,
+            listOf(
+                DecorBox(DecorShape.RECT, .08f, .23f, .018f, .49f, PostTone.RED),
+                DecorBox(DecorShape.RECT, .08f, .20f, .18f, .006f, PostTone.BLUE),
+                DecorBox(DecorShape.ROUND, .68f, .20f, .23f, .16f, PostTone.BLUE, radius = .025f),
+                DecorBox(DecorShape.RING, .70f, .22f, .19f, .12f, PostTone.RED, 235, stroke = .004f)
+            ),
+            listOf(
+                abox(PostSlots.EYEBROW, .08f, .16f, .84f, .04f, .022f, PostFont.BOLD, PostTone.RED, caps = true),
+                abox(PostSlots.NUMBER, .12f, .25f, .48f, .25f, .18f, PostFont.DISPLAY, PostTone.BLUE),
+                abox(PostSlots.HEADLINE, .12f, .51f, .78f, .18f, .062f, PostFont.DISPLAY, PostTone.TEXT),
+                abox(PostSlots.BODY, .12f, .70f, .78f, .14f, .032f, PostFont.REGULAR, PostTone.MUTED)
+            )
+        )
+    },
+
     // 23. Event: a ticket with notches and a dotted tear line, date below
     template(
         "event-ticket", "Event ticket", "Event",

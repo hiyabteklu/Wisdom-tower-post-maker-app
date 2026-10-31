@@ -66,7 +66,15 @@ data class DecorBox(
     val angle: Float = 90f,
     /** Line width for RING, as a fraction of the shorter side. */
     val stroke: Float = 0f,
-    val shadow: Boolean = false
+    val shadow: Boolean = false,
+    /**
+     * 0 = a plain shape.
+     * 1 = the backing of the template's photo (a halo, a card, an arch behind it): when a photo frame is chosen on the post it is drawn
+     *     in that frame's shape, so the backing and the photo always match. Its own x, y, w, h, color and gradient are kept.
+     * 2 = a leftover piece of such a backing (the flat lower half of an arch): not drawn when a photo frame is chosen.
+     * Only used on shapes drawn under the photo, and only applies when the photo window does not fill the whole post.
+     */
+    val frameBack: Int = 0
 )
 
 /** Where the post photo is drawn (canvas fractions) and how dark the dim layer on top of it is, 0 to 255. */

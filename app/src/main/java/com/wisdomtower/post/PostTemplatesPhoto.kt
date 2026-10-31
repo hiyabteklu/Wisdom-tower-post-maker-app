@@ -11,6 +11,8 @@ import kotlin.math.min
  *
  * Every layout has its own placement for 1:1, 4:3 and 9:16. Any other size (4:5 later) falls into the 1:1 branch until it gets its own.
  * Anything that must show above the photo is marked overPhoto, because shapes without it are drawn under the photo.
+ * The shapes that sit directly behind the photo (halo, card, arch) are marked frameBack, so when a different photo frame is chosen
+ * on the post they take that frame's shape and stay matched to the photo (see DecorBox.frameBack).
  */
 
 /**
@@ -55,11 +57,11 @@ private fun phText(
     centered: Boolean = false, caps: Boolean = false
 ) = SlotBox(slot, x, y, w, h, size, font, tone, centered, caps)
 
-/** A rounded block. radius is a fraction of the shorter side. over = drawn above the photo. */
+/** A rounded block. radius is a fraction of the shorter side. over = drawn above the photo. frameBack = 1 when it is the backing of the photo. */
 private fun phBlock(
     x: Float, y: Float, w: Float, h: Float, radius: Float, tone: PostTone, alpha: Int = 255,
-    over: Boolean = false, to: PostTone? = null, alphaTo: Int = -1, angle: Float = 90f, shadow: Boolean = false
-) = DecorBox(DecorShape.ROUND, x, y, w, h, tone, alpha, radius, over, to, alphaTo, angle, 0f, shadow)
+    over: Boolean = false, to: PostTone? = null, alphaTo: Int = -1, angle: Float = 90f, shadow: Boolean = false, frameBack: Int = 0
+) = DecorBox(DecorShape.ROUND, x, y, w, h, tone, alpha, radius, over, to, alphaTo, angle, 0f, shadow, frameBack)
 
 private fun phBar(x: Float, y: Float, w: Float, h: Float, tone: PostTone, alpha: Int = 255, over: Boolean = false) =
     DecorBox(DecorShape.RECT, x, y, w, h, tone, alpha, 0f, over)
@@ -67,10 +69,13 @@ private fun phBar(x: Float, y: Float, w: Float, h: Float, tone: PostTone, alpha:
 /** Corner radius (a fraction of the shorter side) that turns a box into a stadium, or into the round top of an arch. */
 private fun phHalfSide(size: PostSize, w: Float, h: Float): Float = min(w * size.width, h * size.height) / 2f / PHU
 
-/** An arch (round top, flat bottom) in one flat color. Built from a round block and a rectangle so the bottom stays square. */
+/**
+ * An arch (round top, flat bottom) in one flat color. Built from a round block and a rectangle so the bottom stays square.
+ * The round block is the backing that follows a chosen frame; the flat lower half is dropped then (frameBack 2).
+ */
 private fun phArch(size: PostSize, x: Float, y: Float, w: Float, h: Float, tone: PostTone): List<DecorBox> = listOf(
-    phBlock(x, y, w, h, phHalfSide(size, w, h), tone),
-    DecorBox(DecorShape.RECT, x, y + h / 2f, w, h / 2f, tone)
+    phBlock(x, y, w, h, phHalfSide(size, w, h), tone, frameBack = 1),
+    DecorBox(DecorShape.RECT, x, y + h / 2f, w, h / 2f, tone, frameBack = 2)
 )
 
 /** A soft circle of light centered on canvas fractions; r is a fraction of the shorter side. */
@@ -225,7 +230,7 @@ private fun cardLayout(size: PostSize): TemplateLayout {
     return TemplateLayout(
         PostBase.LIGHT,
         listOf(
-            phBlock(px, py, pw, ph, .05f, PostTone.GLOW, 150),
+            phBlock(px, py, pw, ph, .05f, PostTone.GLOW, 150, frameBack = 1),
             phBlock(cx, cy, cw, ch, .035f, PostTone.LIGHT, over = true, shadow = true)
         ),
         slots,
@@ -253,7 +258,7 @@ private fun stackLayout(size: PostSize): TemplateLayout {
     )
     return TemplateLayout(
         PostBase.PRIMARY,
-        listOf(phBlock(px, py, pw, ph, .05f, PostTone.LIGHT, 60)),
+        listOf(phBlock(px, py, pw, ph, .05f, PostTone.LIGHT, 60, frameBack = 1)),
         slots,
         photo = PostPhotoArea(px, py, pw, ph, 15),
         backdrop = Backdrop(PostTone.ACCENT, PostTone.DEEP, 140f)
@@ -364,8 +369,8 @@ private fun pillLayout(size: PostSize): TemplateLayout {
         PostBase.LIGHT,
         listOf(
             phGlow(size, px + pw / 2f, py + ph / 2f, .42f, PostTone.GLOW, PostTone.TINT, 150),
-            phBlock(hx, hy, hw, hh, phHalfSide(size, hw, hh), PostTone.ACCENT, to = PostTone.GLOW, angle = 135f),
-            phBlock(px, py, pw, ph, phHalfSide(size, pw, ph), PostTone.LIGHT)
+            phBlock(hx, hy, hw, hh, phHalfSide(size, hw, hh), PostTone.ACCENT, to = PostTone.GLOW, angle = 135f, frameBack = 1),
+            phBlock(px, py, pw, ph, phHalfSide(size, pw, ph), PostTone.LIGHT, frameBack = 1)
         ),
         slots,
         photo = PostPhotoArea(px, py, pw, ph, 10),

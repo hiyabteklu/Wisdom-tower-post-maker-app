@@ -121,11 +121,23 @@ object PostDraftStore {
     fun isBookmarked(context: Context, templateId: String): Boolean =
         templateId in loadIndex(context).bookmarks
 
+    fun clearDraft(context: Context, templateId: String) {
+        draftFile(context, templateId).delete()
+        val old = loadIndex(context)
+        writeIndex(
+            context,
+            old.copy(
+                lastEditedAt = old.lastEditedAt - templateId,
+                draftVersions = old.draftVersions - templateId,
+                lastOpenedTemplateId = templateId
+            )
+        )
+    }
+
     fun reset(context: Context, templateId: String, size: PostSize): PostDoc {
         val template = postTemplate(templateId)
-        val factory = PostDoc(templateId = template.id, size = size, texts = template.samples)
-        saveDraft(context, factory)
-        return factory
+        clearDraft(context, templateId)
+        return PostDoc(templateId = template.id, size = size, texts = template.samples)
     }
 
     fun isEdited(context: Context, templateId: String): Boolean =

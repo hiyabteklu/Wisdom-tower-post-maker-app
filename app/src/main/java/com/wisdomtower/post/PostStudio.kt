@@ -6,6 +6,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -83,6 +84,7 @@ private val OptionsAreaHeight = 124.dp
  * The editor (UI_UX_PLAN.md section 4.2). Nothing here scrolls vertically.
  * From the top: title row (name, bookmark, Library, Brand), size row (with Reset and Save), the live preview (takes all spare height
  * and shrinks when the keyboard opens), one shared slider, the category tabs, and one options row. Every category is one horizontal row.
+ * On the Icons tab the preview takes gestures: drag moves the selected icon, pinch resizes it.
  * edited: this template differs from its factory look (shows a dot and the Reset button).
  * onBringWords: copies the words of the last template you edited into this one; null when there is nothing to bring.
  * bookmarked / onToggleBookmark: the Saved row of the Library. onOpenLibrary: back to the Library home.
@@ -109,6 +111,7 @@ fun PostStudioScreen(
     val groupChoice = remember { mutableStateMapOf<EditorTab, String>() }
     var moveLogoOn by remember { mutableStateOf(false) }
     var footerItem by remember { mutableStateOf(0) }
+    var selectedIcon by remember { mutableStateOf(0) }
     var showSave by remember { mutableStateOf(false) }
 
     val spec = postTemplate(doc.templateId)
@@ -117,7 +120,12 @@ fun PostStudioScreen(
     val photoArea = layout.photo
     val groups = editorGroups(tab, doc, slots, photoArea != null, onBringWords != null)
     val group = groupChoice[tab]?.takeIf { key -> key != "bring" && groups.any { it.key == key } } ?: groups.first().key
-    val slider = editorSlider(tab, group, doc, photoArea?.dim, onDoc)
+    val iconsOn = tab == EditorTab.ICONS
+    val slider = if (iconsOn) {
+        if (group == "size") iconSizeSlider(doc, selectedIcon, onDoc) else null
+    } else {
+        editorSlider(tab, group, doc, photoArea?.dim, onDoc)
+    }
     val moving = moveLogoOn && tab == EditorTab.LOGO
 
     PostTheme {
@@ -125,7 +133,7 @@ fun PostStudioScreen(
             Column(Modifier.fillMaxSize().padding(padding).imePadding()) {
                 TitleRow(doc, edited, bookmarked, onToggleBookmark, onOpenLibrary, onOpenBrand, onOpenOldStudio)
                 SizeRow(doc, onDoc, edited, onReset) { showSave = true }
-                PreviewPane(doc, brand, moving, onDoc, Modifier.weight(1f))
+                PreviewPane(doc, brand, moving, onDoc, iconsOn, selectedIcon, Modifier.weight(1f))
                 SliderRow(slider)
                 Row(
                     Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
@@ -156,17 +164,21 @@ fun PostStudioScreen(
                     }
                     Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
                         key(tab, group) {
-                            EditorOptions(
-                                tab, group, doc, onDoc, brand, onBrand,
-                                hasPhotoArea = photoArea != null,
-                                onPickPhoto = onPickPhoto,
-                                onPickBackgroundPhoto = onPickBackgroundPhoto,
-                                onPickLogo = onPickLogo,
-                                moveLogo = moveLogoOn,
-                                onMoveLogo = { moveLogoOn = it },
-                                footerItem = footerItem,
-                                onFooterItem = { footerItem = it }
-                            )
+                            if (iconsOn) {
+                                IconOptions(group, doc, onDoc, selectedIcon) { selectedIcon = it }
+                            } else {
+                                EditorOptions(
+                                    tab, group, doc, onDoc, brand, onBrand,
+                                    hasPhotoArea = photoArea != null,
+                                    onPickPhoto = onPickPhoto,
+                                    onPickBackgroundPhoto = onPickBackgroundPhoto,
+                                    onPickLogo = onPickLogo,
+                                    moveLogo = moveLogoOn,
+                                    onMoveLogo = { moveLogoOn = it },
+                                    footerItem = footerItem,
+                                    onFooterItem = { footerItem = it }
+                                )
+                            }
                         }
                     }
                 }
@@ -267,9 +279,18 @@ private fun SliderRow(slider: EditorSlider?) {
 }
 
 @Composable
-private fun PreviewPane(doc: PostDoc, brand: PostBrand, moveLogo: Boolean, onDoc: (PostDoc) -> Unit, modifier: Modifier) {
+private fun PreviewPane(
+    doc: PostDoc,
+    brand: PostBrand,
+    moveLogo: Boolean,
+    onDoc: (PostDoc) -> Unit,
+    iconEdit: Boolean,
+    selectedIcon: Int,
+    modifier: Modifier
+) {
     val liveDoc by rememberUpdatedState(doc)
     val liveOnDoc by rememberUpdatedState(onDoc)
+    val liveSelected by rememberUpdatedState(selectedIcon)
     val context = LocalContext.current
     var preview by remember { mutableStateOf<Bitmap?>(null) }
     var overflow by remember { mutableStateOf<List<String>>(emptyList()) }
@@ -303,6 +324,15 @@ private fun PreviewPane(doc: PostDoc, brand: PostBrand, moveLogo: Boolean, onDoc
                                     style = Stroke(width = 3.dp.toPx())
                                 )
                             }
+                            if (iconEdit && selectedIcon in doc.icons.indices) {
+                                val ic = doc.icons[selectedIcon]
+                                drawCircle(
+                                    color = Color.White,
+                                    radius = ic.size * minOf(size.width, size.height) / 2f + 4.dp.toPx(),
+                                    center = Offset(ic.cx * size.width, ic.cy * size.height),
+                                    style = Stroke(width = 2.dp.toPx())
+                                )
+                            }
                         }
                         .pointerInput(moveLogo) {
                             if (moveLogo) {
@@ -322,6 +352,31 @@ private fun PreviewPane(doc: PostDoc, brand: PostBrand, moveLogo: Boolean, onDoc
                                         liveOnDoc(liveDoc.copy(logoCx = (change.position.x / size.width).coerceIn(0f, 1f), logoCy = (change.position.y / size.height).coerceIn(0f, 1f)))
                                     }
                                 )
+                            }
+                        }
+                        .pointerInput(iconEdit) {
+                            if (iconEdit) {
+                                // Drag moves the selected icon, pinch resizes it. Gestures arrive faster than the screen redraws,
+                                // so for a few milliseconds the last post we sent is newer than liveDoc: build on that one.
+                                var last: PostDoc? = null
+                                var lastAt = 0L
+                                detectTransformGestures { _, pan, zoom, _ ->
+                                    val now = System.nanoTime()
+                                    val base = if (last != null && now - lastAt < 150_000_000L) last!! else liveDoc
+                                    val i = liveSelected
+                                    if (i in base.icons.indices) {
+                                        val ic = base.icons[i]
+                                        val moved = ic.copy(
+                                            cx = (ic.cx + pan.x / size.width).coerceIn(0f, 1f),
+                                            cy = (ic.cy + pan.y / size.height).coerceIn(0f, 1f),
+                                            size = (ic.size * zoom).coerceIn(0.04f, 0.9f)
+                                        )
+                                        val next = base.copy(icons = base.icons.mapIndexed { n, old -> if (n == i) moved else old })
+                                        last = next
+                                        lastAt = now
+                                        liveOnDoc(next)
+                                    }
+                                }
                             }
                         }
                 )

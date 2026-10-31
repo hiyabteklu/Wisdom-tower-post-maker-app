@@ -1,0 +1,518 @@
+package com.wisdomtower.post
+
+import android.content.Intent
+import android.graphics.Bitmap
+import android.util.LruCache
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.PhotoLibrary
+import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import kotlin.math.abs
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+private val thumbCache = LruCache<String, Bitmap>(48)
+private val AccentPresets = listOf("#176B4D", "#0E7490", "#1D4ED8", "#7C3AED", "#BE185D", "#C2410C", "#B45309", "#0F172A")
+
+/**
+ * One screen. The top part never scrolls: size chips, the live preview, and a strip of template cards you swipe
+ * sideways. Everything below it scrolls up and down: your words, look, photo, logo, social icons and export.
+ */
+@Composable
+fun PostStudioScreen(
+    doc: PostDoc,
+    onDoc: (PostDoc) -> Unit,
+    brand: PostBrand,
+    onBrand: (PostBrand) -> Unit,
+    onPickPhoto: () -> Unit,
+    onPickLogo: () -> Unit,
+    onOpenBrand: () -> Unit,
+    onOpenOldStudio: () -> Unit
+) {
+    var moveLogo by remember { mutableStateOf(false) }
+    PostTheme {
+        Scaffold(containerColor = PostPalette.Ink) { padding ->
+            BoxWithConstraints(Modifier.fillMaxSize().padding(padding).imePadding()) {
+                val previewHeight = maxHeight * 0.34f
+                Column(Modifier.fillMaxSize()) {
+                    StudioTopRow(doc, onDoc, onOpenBrand)
+                    PreviewPane(doc, brand, previewHeight, moveLogo, onDoc)
+                    TemplateStrip(doc, brand, onDoc)
+                    Column(
+                        Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        StudioDetails(doc, onDoc, brand, onBrand, onPickPhoto, onPickLogo, onOpenBrand, onOpenOldStudio, moveLogo, { moveLogo = it })
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StudioTopRow(doc: PostDoc, onDoc: (PostDoc) -> Unit, onOpenBrand: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("Wisdom Tower Post", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = PostPalette.Text, modifier = Modifier.weight(1f))
+        PostSize.values().forEach { size ->
+            FilterChip(
+                selected = doc.size == size,
+                onClick = { onDoc(doc.copy(size = size)) },
+                label = { Text(size.label, fontSize = 12.sp) },
+                modifier = Modifier.padding(start = 6.dp)
+            )
+        }
+        IconButton(onClick = onOpenBrand) {
+            Icon(Icons.Outlined.Palette, contentDescription = "Brand and social icons", tint = PostPalette.Mint)
+        }
+    }
+}
+
+@Composable
+private fun PreviewPane(doc: PostDoc, brand: PostBrand, height: Dp, moveLogo: Boolean, onDoc: (PostDoc) -> Unit) {
+    val liveDoc by rememberUpdatedState(doc)
+    val liveOnDoc by rememberUpdatedState(onDoc)
+    val context = LocalContext.current
+    var preview by remember { mutableStateOf<Bitmap?>(null) }
+    var overflow by remember { mutableStateOf<List<String>>(emptyList()) }
+
+    LaunchedEffect(doc, brand) {
+        delay(120)
+        val result = withContext(Dispatchers.Default) { PostRenderer.thumbnail(context, doc, brand, 960) }
+        preview = result.bitmap
+        overflow = result.overflow
+    }
+
+    Box(Modifier.fillMaxWidth().height(height).padding(horizontal = 12.dp, vertical = 4.dp), contentAlignment = Alignment.Center) {
+        val bmp = preview
+        if (bmp == null) {
+            CircularProgressIndicator(color = PostPalette.Mint)
+        } else {
+            Box(contentAlignment = Alignment.BottomCenter) {
+                Image(
+                    bitmap = bmp.asImageBitmap(),
+                    contentDescription = "Post preview",
+                    modifier = Modifier.aspectRatio(bmp.width.toFloat() / bmp.height).clip(RoundedCornerShape(10.dp))
+                        .drawWithContent {
+                            drawContent()
+                            val cx = doc.logoCx
+                            val cy = doc.logoCy
+                            if (moveLogo && cx != null && cy != null) {
+                                drawCircle(
+                                    color = Color.White,
+                                    radius = 22.dp.toPx(),
+                                    center = Offset(cx * size.width, cy * size.height),
+                                    style = Stroke(width = 3.dp.toPx())
+                                )
+                            }
+                        }
+                        .pointerInput(moveLogo) {
+                            if (moveLogo) {
+                                detectTapGestures { p ->
+                                    liveOnDoc(liveDoc.copy(logoCx = (p.x / size.width).coerceIn(0f, 1f), logoCy = (p.y / size.height).coerceIn(0f, 1f)))
+                                }
+                            }
+                        }
+                        .pointerInput(moveLogo) {
+                            if (moveLogo) {
+                                detectDragGestures(
+                                    onDragStart = { p ->
+                                        liveOnDoc(liveDoc.copy(logoCx = (p.x / size.width).coerceIn(0f, 1f), logoCy = (p.y / size.height).coerceIn(0f, 1f)))
+                                    },
+                                    onDrag = { change, _ ->
+                                        change.consume()
+                                        liveOnDoc(liveDoc.copy(logoCx = (change.position.x / size.width).coerceIn(0f, 1f), logoCy = (change.position.y / size.height).coerceIn(0f, 1f)))
+                                    }
+                                )
+                            }
+                        }
+                )
+                if (overflow.isNotEmpty()) {
+                    Text(
+                        "Text shrunk to fit: " + overflow.joinToString { PostSlots.label(it) },
+                        fontSize = 10.sp,
+                        color = PostPalette.Ink,
+                        modifier = Modifier.padding(6.dp).background(PostPalette.Gold, RoundedCornerShape(8.dp)).padding(horizontal = 8.dp, vertical = 2.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TemplateStrip(doc: PostDoc, brand: PostBrand, onDoc: (PostDoc) -> Unit) {
+    val state = rememberLazyListState()
+    val index = PostTemplates.indexOfFirst { it.id == doc.templateId }.coerceAtLeast(0)
+    LaunchedEffect(doc.templateId) {
+        if (state.layoutInfo.visibleItemsInfo.none { it.index == index }) state.animateScrollToItem(index)
+    }
+    LazyRow(
+        state = state,
+        contentPadding = PaddingValues(horizontal = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
+    ) {
+        items(PostTemplates, key = { it.id }) { spec ->
+            TemplateCard(spec, doc.size, brand, doc.accentHex, spec.id == doc.templateId) { onDoc(doc.withTemplate(spec)) }
+        }
+    }
+}
+
+@Composable
+private fun TemplateCard(
+    spec: PostTemplateSpec,
+    size: PostSize,
+    brand: PostBrand,
+    accentHex: String?,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val context = LocalContext.current
+    val ratio = size.width.toFloat() / size.height
+    val thumbH = 104.dp
+    val thumbW = thumbH * ratio
+    val thumb by produceState<Bitmap?>(null, spec.id, size, brand, accentHex) {
+        val key = spec.id + "|" + size.name + "|" + brand.hashCode() + "|" + accentHex
+        val cached = thumbCache.get(key)
+        if (cached != null) {
+            value = cached
+        } else {
+            val made = withContext(Dispatchers.Default) {
+                val sample = PostDoc(templateId = spec.id, size = size, texts = spec.samples, accentHex = accentHex)
+                PostRenderer.thumbnail(context, sample, brand, 300).bitmap
+            }
+            thumbCache.put(key, made)
+            value = made
+        }
+    }
+    val shape = RoundedCornerShape(10.dp)
+    Column(
+        Modifier.width(maxOf(thumbW, 84.dp)).clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            Modifier.width(thumbW).height(thumbH).clip(shape)
+                .background(PostPalette.Surface)
+                .border(if (selected) 2.dp else 1.dp, if (selected) PostPalette.Mint else PostPalette.Line, shape)
+        ) {
+            thumb?.let {
+                Image(
+                    bitmap = it.asImageBitmap(),
+                    contentDescription = spec.name,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            spec.name,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            color = if (selected) PostPalette.Mint else PostPalette.Text
+        )
+        Text(spec.family, fontSize = 9.sp, color = PostPalette.Muted, maxLines = 1)
+    }
+}
+
+@Composable
+private fun StudioSection(title: String, subtitle: String? = null, content: @Composable ColumnScope.() -> Unit) {
+    Card(colors = CardDefaults.cardColors(containerColor = PostPalette.Surface), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(title, fontWeight = FontWeight.Bold, color = PostPalette.Text)
+            if (subtitle != null) PostSmallLabel(subtitle)
+            content()
+        }
+    }
+}
+
+@Composable
+private fun ColumnScope.StudioDetails(
+    doc: PostDoc,
+    onDoc: (PostDoc) -> Unit,
+    brand: PostBrand,
+    onBrand: (PostBrand) -> Unit,
+    onPickPhoto: () -> Unit,
+    onPickLogo: () -> Unit,
+    onOpenBrand: () -> Unit,
+    onOpenOldStudio: () -> Unit,
+    moveLogo: Boolean,
+    onMoveLogo: (Boolean) -> Unit
+) {
+    val context = LocalContext.current
+    val spec = postTemplate(doc.templateId)
+    val layout = remember(doc.templateId, doc.size) { spec.layout(doc.size) }
+    val slots = remember(doc.templateId, doc.size) { layout.slots.filter { it.literal == null }.map { it.slot }.distinct() }
+
+    // ---- Words ----
+    StudioSection("Words", spec.name + ". Your words stay when you switch template.") {
+        slots.forEach { slot ->
+            OutlinedTextField(
+                value = doc.texts[slot].orEmpty(),
+                onValueChange = { onDoc(doc.withText(slot, it)) },
+                label = { Text(PostSlots.label(slot)) },
+                minLines = when (slot) {
+                    PostSlots.HEADLINE, PostSlots.BODY -> 2
+                    PostSlots.LIST -> 4
+                    else -> 1
+                },
+                maxLines = when (slot) {
+                    PostSlots.LIST -> 8
+                    PostSlots.EYEBROW, PostSlots.NUMBER, PostSlots.BUTTON -> 2
+                    else -> 5
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        if (layout.social != null) PostSmallLabel("The big icons on this poster come from Social icons below.")
+    }
+
+    // ---- Fonts ----
+    FontsSection(doc, onDoc)
+
+    // ---- Look ----
+    StudioSection("Look") {
+        RichRow(doc, onDoc)
+        PostSmallLabel("Text size")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("Small" to 0.9f, "Medium" to 1f, "Large" to 1.12f).forEach { (name, scale) ->
+                FilterChip(
+                    selected = abs(doc.textScale - scale) < 0.01f,
+                    onClick = { onDoc(doc.copy(textScale = scale)) },
+                    label = { Text(name) }
+                )
+            }
+        }
+        PostSmallLabel("Accent color (first circle = your brand color)")
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PostSwatch(brand.primaryHex, doc.accentHex == null) { onDoc(doc.copy(accentHex = null)) }
+            AccentPresets.forEach { hex ->
+                PostSwatch(hex, doc.accentHex.equals(hex, ignoreCase = true)) { onDoc(doc.copy(accentHex = hex)) }
+            }
+        }
+        PostHexField("Own accent (#RRGGBB)", doc.accentHex ?: brand.primaryHex) { onDoc(doc.copy(accentHex = it)) }
+        PostHexField("Text color (#RRGGBB)", doc.textHex ?: brand.darkHex) { onDoc(doc.copy(textHex = it)) }
+        if (doc.textHex != null) {
+            TextButton(onClick = { onDoc(doc.copy(textHex = null)) }) { Text("Use the brand text color") }
+        }
+
+        PostSmallLabel("Background")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(BgMode.TEMPLATE to "Template", BgMode.SOLID to "Solid", BgMode.GRADIENT to "Gradient").forEach { (mode, name) ->
+                FilterChip(selected = doc.bgMode == mode, onClick = { onDoc(doc.copy(bgMode = mode)) }, label = { Text(name) })
+            }
+        }
+        if (doc.bgMode != BgMode.TEMPLATE) {
+            PostHexField(if (doc.bgMode == BgMode.SOLID) "Background (#RRGGBB)" else "Gradient start (#RRGGBB)", doc.bgStartHex) {
+                onDoc(doc.copy(bgStartHex = it))
+            }
+        }
+        if (doc.bgMode == BgMode.GRADIENT) {
+            PostHexField("Gradient end (#RRGGBB)", doc.bgEndHex) { onDoc(doc.copy(bgEndHex = it)) }
+            PostLabeledSlider("Direction", doc.bgAngle.toFloat(), 0f..360f, doc.bgAngle.toString() + " deg") {
+                onDoc(doc.copy(bgAngle = it.toInt()))
+            }
+        }
+        if (doc.bgMode != BgMode.TEMPLATE) {
+            PostSmallLabel("Light templates use dark text and dark ones use light text. Pick colors that keep it readable.")
+        }
+    }
+
+    // ---- Photo ----
+    val photoArea = layout.photo
+    StudioSection(
+        "Photo",
+        if (photoArea != null) "This template shows your photo."
+        else "This template has no photo area. Try Quote on photo, Subject cover or Photo announcement."
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            OutlinedButton(onClick = onPickPhoto) {
+                Icon(Icons.Outlined.PhotoLibrary, contentDescription = null)
+                Spacer(Modifier.width(6.dp))
+                Text(if (doc.photoUri != null) "Replace photo" else "Pick photo")
+            }
+            if (doc.photoUri != null) {
+                TextButton(onClick = { onDoc(doc.copy(photoUri = null)) }) { Text("Remove") }
+            }
+        }
+        if (doc.photoUri != null && photoArea != null) {
+            PostLabeledSlider("Zoom", doc.photoZoom, 1f..3f, "x" + String.format("%.1f", doc.photoZoom)) { onDoc(doc.copy(photoZoom = it)) }
+            PostLabeledSlider("Move left or right", doc.photoFocusX, 0f..1f, "") { onDoc(doc.copy(photoFocusX = it)) }
+            PostLabeledSlider("Move up or down", doc.photoFocusY, 0f..1f, "") { onDoc(doc.copy(photoFocusY = it)) }
+            val dim = if (doc.photoDim >= 0) doc.photoDim else photoArea.dim
+            PostLabeledSlider("Darkness", dim.toFloat(), 0f..230f, dim.toString()) { onDoc(doc.copy(photoDim = it.toInt())) }
+            if (doc.photoDim >= 0) {
+                TextButton(onClick = { onDoc(doc.copy(photoDim = -1)) }) { Text("Use the template darkness") }
+            }
+        }
+    }
+
+    // ---- Logo ----
+    StudioSection("Logo and footer") {
+        PostSwitchRow("Show logo", doc.showLogo) { onDoc(doc.copy(showLogo = it)) }
+        PostSwitchRow("Show footer icons", doc.showFooter) { onDoc(doc.copy(showFooter = it)) }
+        PostSmallLabel("Logo corner and size")
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            LogoCorner.values().forEach { corner ->
+                FilterChip(
+                    selected = brand.logoCorner == corner,
+                    onClick = { onBrand(brand.copy(logoCorner = corner)) },
+                    label = { Text(corner.name.lowercase().replaceFirstChar { it.uppercase() }) }
+                )
+            }
+            listOf("S" to 0.8f, "M" to 1f, "L" to 1.25f).forEach { (name, scale) ->
+                FilterChip(
+                    selected = abs(brand.logoScale - scale) < 0.01f,
+                    onClick = { onBrand(brand.copy(logoScale = scale)) },
+                    label = { Text(name) }
+                )
+            }
+        }
+        OutlinedButton(onClick = onPickLogo, modifier = Modifier.fillMaxWidth()) {
+            Text(if (brand.logoPath != null) "Replace logo" else "Pick logo from phone")
+        }
+        LogoMoveRow(doc, onDoc, moveLogo, onMoveLogo)
+        TextButton(onClick = onOpenBrand) { Text("Brand colors and logo settings") }
+    }
+
+    // ---- Social icons ----
+    StudioSection("Social icons", "Used in the footer of every post and big on the Social posters.") {
+        FooterEditor(brand, onBrand)
+    }
+
+    // ---- Export ----
+    var chosen by remember { mutableStateOf(setOf(doc.size)) }
+    var png by remember { mutableStateOf(true) }
+    var busy by remember { mutableStateOf(false) }
+    var status by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+
+    fun runExport(share: Boolean) {
+        val sizes = PostSize.values().filter { it in chosen }.ifEmpty { listOf(doc.size) }
+        busy = true
+        status = null
+        scope.launch {
+            val outcome = runCatching { withContext(Dispatchers.Default) { PostExport.save(context, doc, brand, sizes, png) } }
+            busy = false
+            val saved = outcome.getOrNull()
+            if (saved == null) {
+                status = "Export failed: " + (outcome.exceptionOrNull()?.localizedMessage ?: "unknown error")
+            } else {
+                val warn = saved.overflow.entries.joinToString("\n") { (s, names) ->
+                    s.label + ": text had to shrink in " + names.joinToString { PostSlots.label(it) }
+                }
+                status = "Saved " + saved.uris.size + " file(s) to Pictures/Wisdom Tower Post" + (if (warn.isEmpty()) "" else "\n" + warn)
+                if (share) {
+                    val intent = Intent(Intent.ACTION_SEND_MULTIPLE)
+                    intent.type = "image/*"
+                    intent.putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(saved.uris))
+                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    context.startActivity(Intent.createChooser(intent, "Share post"))
+                }
+            }
+        }
+    }
+
+    StudioSection("Save", "Tick one size or all three. Every size is laid out again, not stretched.") {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PostSize.values().forEach { size ->
+                FilterChip(
+                    selected = size in chosen,
+                    onClick = { chosen = if (size in chosen) chosen - size else chosen + size },
+                    label = { Text(size.label) }
+                )
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(selected = png, onClick = { png = true }, label = { Text("PNG") })
+            FilterChip(selected = !png, onClick = { png = false }, label = { Text("JPG") })
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { runExport(false) }, enabled = !busy, modifier = Modifier.weight(1f)) {
+                Icon(Icons.Outlined.Download, contentDescription = null)
+                Spacer(Modifier.width(6.dp))
+                Text(if (busy) "Saving..." else "Save")
+            }
+            OutlinedButton(onClick = { runExport(true) }, enabled = !busy, modifier = Modifier.weight(1f)) {
+                Icon(Icons.Outlined.Share, contentDescription = null)
+                Spacer(Modifier.width(6.dp))
+                Text("Save and share")
+            }
+        }
+        status?.let { Text(it, fontSize = 12.sp, color = PostPalette.Muted) }
+    }
+
+    TextButton(onClick = onOpenOldStudio, modifier = Modifier.fillMaxWidth()) { Text("Open the old layer studio") }
+    Spacer(Modifier.height(24.dp))
+}

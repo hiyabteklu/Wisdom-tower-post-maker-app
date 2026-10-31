@@ -1,0 +1,24 @@
+image: ghcr.io/cirruslabs/android-sdk:35
+
+stages:
+  - build
+
+variables:
+  GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle"
+  ANDROID_HOME: "/opt/android-sdk"
+
+build-release-apk:
+  stage: build
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "api"'
+    - when: never
+  script:
+    - apt-get update -qq && apt-get install -y -qq curl unzip
+    - curl -fsSL https://services.gradle.org/distributions/gradle-8.9-bin.zip -o /tmp/gradle.zip
+    - unzip -q /tmp/gradle.zip -d /opt
+    - /opt/gradle-8.9/bin/gradle --no-daemon assembleRelease
+  artifacts:
+    when: always
+    paths:
+      - app/build/outputs/apk/release/app-release.apk
+    expire_in: 7 days

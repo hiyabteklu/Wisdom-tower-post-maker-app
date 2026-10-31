@@ -388,7 +388,7 @@ internal fun EditorOptions(
     onFooterItem: (Int) -> Unit
 ) {
     when (tab) {
-        EditorTab.TEMPLATES -> TemplateStrip(doc, brand, onDoc)
+        // Templates are rendered by the pinned strip in PostStudio; no legacy tab content.
         EditorTab.WORDS -> WordsOptions(doc, onDoc, group)
         EditorTab.LOOK -> LookOptions(doc, onDoc, brand, group)
         EditorTab.PHOTO -> PhotoOptions(doc, onDoc, group, hasPhotoArea, onPickPhoto, onPickBackgroundPhoto)

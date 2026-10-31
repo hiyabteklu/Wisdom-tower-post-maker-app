@@ -37,6 +37,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Switch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -501,8 +502,13 @@ private fun LogoOptions(
     onMoveLogo: (Boolean) -> Unit
 ) {
     when (group) {
-        "show" -> ChipRow {
-            FilterChip(selected = doc.showLogo, onClick = { onDoc(doc.copy(showLogo = !doc.showLogo)) }, label = { Text("Show logo") })
+        "show" -> Row(
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("Show logo", color = PostPalette.Text, fontSize = 13.sp)
+            Switch(checked = doc.showLogo, onCheckedChange = { onDoc(doc.copy(showLogo = it)) })
         }
         "corner" -> ChipRow {
             LogoCorner.values().forEach { corner ->
@@ -559,8 +565,13 @@ private fun FooterOptions(
         onBrand(brand.copy(footerItems = items.mapIndexed { i, old -> if (i == sel) edit(old) else old }))
     }
     when (group) {
-        "show" -> ChipRow {
-            FilterChip(selected = doc.showFooter, onClick = { onDoc(doc.copy(showFooter = !doc.showFooter)) }, label = { Text("Show footer icons") })
+        "show" -> Row(
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("Show footer icons", color = PostPalette.Text, fontSize = 13.sp)
+            Switch(checked = doc.showFooter, onCheckedChange = { onDoc(doc.copy(showFooter = it)) })
         }
         "style" -> ChipRow {
             FooterStyle.values().forEach { style ->

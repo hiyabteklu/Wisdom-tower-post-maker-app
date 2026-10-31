@@ -3,23 +3,20 @@ package com.wisdomtower.post
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,51 +25,65 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/** Small shared controls used by the studio, the brand screen and the footer editor. */
-
-private val SharedHex = Regex("^#[0-9A-F]{6}$")
+/** Shared thumb-friendly controls. Colors are always selected visually; hex values stay in storage only. */
 
 @Composable
 internal fun PostSmallLabel(text: String) {
     Text(text, fontSize = 12.sp, color = PostPalette.Muted)
 }
 
-/** A color field that only reports a value once it is a full #RRGGBB code. */
-@Composable
-internal fun PostHexField(label: String, value: String, modifier: Modifier = Modifier, onValid: (String) -> Unit) {
-    var text by remember(value) { mutableStateOf(value) }
-    val swatch = runCatching { Color(android.graphics.Color.parseColor(value)) }.getOrDefault(Color.Gray)
-    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Box(
-            Modifier.size(36.dp).clip(RoundedCornerShape(8.dp)).background(swatch)
-                .border(1.dp, PostPalette.Line, RoundedCornerShape(8.dp))
-        )
-        OutlinedTextField(
-            value = text,
-            onValueChange = { typed ->
-                val upper = typed.uppercase()
-                text = upper
-                if (SharedHex.matches(upper)) onValid(upper)
-            },
-            label = { Text(label) },
-            singleLine = true,
-            modifier = Modifier.weight(1f)
-        )
-    }
-}
-
-/** A round color choice. A null hex draws the "automatic" swatch. */
+/** A round color choice. A null hex draws the automatic swatch. */
 @Composable
 internal fun PostSwatch(hex: String?, selected: Boolean, onClick: () -> Unit) {
     val fill = hex?.let { runCatching { Color(android.graphics.Color.parseColor(it)) }.getOrNull() }
     Box(
-        Modifier.size(34.dp).clip(CircleShape)
+        Modifier.size(38.dp).clip(CircleShape)
             .background(fill ?: PostPalette.Raised)
             .border(if (selected) 3.dp else 1.dp, if (selected) PostPalette.Mint else PostPalette.Line, CircleShape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         if (hex == null) Text("A", fontSize = 12.sp, color = PostPalette.Text, fontWeight = FontWeight.Bold)
+    }
+}
+
+/** The shared visual palette used by the editor, footer and Brand screen. */
+@Composable
+internal fun PostColorPicker(
+    label: String,
+    value: String?,
+    brand: PostBrand,
+    onPick: (String?) -> Unit,
+    includeBrandChoice: Boolean = true
+) {
+    val bright = listOf("#F43F5E", "#EF4444", "#F97316", "#F59E0B", "#84CC16", "#22C55E", "#06B6D4", "#3B82F6")
+    val soft = listOf("#FBCFE8", "#FECACA", "#FED7AA", "#FEF3C7", "#D9F99D", "#BBF7D0", "#A5F3FC", "#BFDBFE")
+    val dark = listOf("#881337", "#991B1B", "#9A3412", "#92400E", "#3F6212", "#166534", "#155E75", "#1E40AF")
+    val neutral = listOf("#FFFFFF", "#E5E7EB", "#9CA3AF", "#6B7280", "#4B5563", "#374151", "#1F2937", "#111827")
+
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        PostSmallLabel(label)
+        if (includeBrandChoice) {
+            PostSmallLabel("Use brand")
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                PostSwatch(brand.primaryHex, value == null) { onPick(null) }
+            }
+        }
+        val rows = listOf(
+            "Brand" to listOf(brand.primaryHex, brand.secondaryHex, brand.lightHex, brand.darkHex),
+            "Bright" to bright,
+            "Soft" to soft,
+            "Dark" to dark,
+            "Neutral" to neutral
+        )
+        rows.forEach { (name, colors) ->
+            PostSmallLabel(name)
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                colors.distinct().forEach { hex ->
+                    PostSwatch(hex, value.equals(hex, ignoreCase = true)) { onPick(hex) }
+                }
+            }
+        }
     }
 }
 

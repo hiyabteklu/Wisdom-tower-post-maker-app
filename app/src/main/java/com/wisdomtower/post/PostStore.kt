@@ -78,16 +78,20 @@ object PostStore {
 object PostExport {
     data class Saved(val uris: List<Uri>, val overflow: Map<PostSize, List<String>>)
 
-    /** Renders each size from the same document and saves it to Pictures/Wisdom Tower Post. */
-    fun save(context: Context, doc: PostDoc, brand: PostBrand, sizes: List<PostSize>, png: Boolean): Saved {
+    /**
+     * Renders each size from the same document and saves it to Pictures/Wisdom Tower Post.
+     * fourK renders every size at twice its base width and height (1:1 2160x2160, 4:5 2160x2700, 4:3 2880x2160, 9:16 2160x3840).
+     * The layout is the same as the standard export; only the number of pixels changes.
+     */
+    fun save(context: Context, doc: PostDoc, brand: PostBrand, sizes: List<PostSize>, png: Boolean, fourK: Boolean = false): Saved {
         val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
         val extension = if (png) "png" else "jpg"
         val uris = mutableListOf<Uri>()
         val overflow = linkedMapOf<PostSize, List<String>>()
         for (size in sizes) {
-            val result = PostRenderer.render(context, doc.copy(size = size), brand)
+            val result = PostRenderer.render(context, doc.copy(size = size), brand, if (fourK) 2f else 1f)
             if (result.overflow.isNotEmpty()) overflow[size] = result.overflow
-            val name = "WisdomTower_" + size.label.replace(':', 'x') + "_" + stamp + "." + extension
+            val name = "WisdomTower_" + size.label.replace(':', 'x') + (if (fourK) "_4K" else "") + "_" + stamp + "." + extension
             uris.add(writeImage(context, result.bitmap, name, png))
             result.bitmap.recycle()
         }

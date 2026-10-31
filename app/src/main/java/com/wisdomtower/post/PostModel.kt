@@ -118,14 +118,31 @@ data class PostDoc(
     /** Path of the Amharic font picked on this post. null = the first Amharic font available. */
     val fontAmharic: String? = null,
     /** Small graphics the user placed on this post (at most MAX_POST_ICONS). */
-    val icons: List<PostIconItem> = emptyList()
+    val icons: List<PostIconItem> = emptyList(),
+    /** Engine (document version 4). A photo frame picked on this post; null keeps the template's own photo shape. */
+    val photoFrame: PhotoFrame? = null,
+    /** A light outline around a framed photo. */
+    val frameBorder: Boolean = false,
+    /** Soft color blends over the background gradient, plus a light grain so gradients do not band. */
+    val meshStyle: MeshStyle = MeshStyle.OFF,
+    val grain: Boolean = false,
+    /** A transparent PNG of a subject (absolute path in app storage). Drawn between the "behind" and the "front" text. */
+    val cutoutUri: String? = null,
+    val cutoutScale: Float = 1f,
+    /** Horizontal centre and bottom edge of the cut-out, as fractions of the post width and height. */
+    val cutoutX: Float = 0.5f,
+    val cutoutY: Float = 0.94f,
+    /** Text slots drawn behind the cut-out subject. */
+    val textBehind: Set<String> = emptySet(),
+    /** Dragged text positions, keyed "templateId:SIZE:slot" (see PostEngine.offsetFor). */
+    val slotOffsets: Map<String, SlotOffset> = emptyMap()
 ) {
     fun withText(slot: String, value: String): PostDoc = copy(texts = texts + (slot to value))
 }
 
 object PostCodec {
     fun encodeDoc(d: PostDoc): String = JSONObject().apply {
-        put("version", 3)
+        put("version", 4)
         put("templateId", d.templateId)
         put("size", d.size.name)
         put("texts", JSONObject().also { o -> d.texts.forEach { (k, v) -> o.put(k, v) } })
@@ -164,6 +181,18 @@ object PostCodec {
                 )
             }
         })
+        put("photoFrame", d.photoFrame?.name ?: "")
+        put("frameBorder", d.frameBorder)
+        put("meshStyle", d.meshStyle.name)
+        put("grain", d.grain)
+        put("cutoutUri", d.cutoutUri ?: "")
+        put("cutoutScale", d.cutoutScale.toDouble())
+        put("cutoutX", d.cutoutX.toDouble())
+        put("cutoutY", d.cutoutY.toDouble())
+        put("textBehind", JSONArray().also { arr -> d.textBehind.forEach { arr.put(it) } })
+        put("slotOffsets", JSONObject().also { o ->
+            d.slotOffsets.forEach { (k, v) -> o.put(k, JSONObject().put("dx", v.dx.toDouble()).put("dy", v.dy.toDouble())) }
+        })
     }.toString()
 
     /** The first test build stored the default colors as if they were choices. Treat those as "use the brand color". */
@@ -185,6 +214,24 @@ object PostCodec {
                 front = o.optBoolean("front", true)
             )
         }.take(MAX_POST_ICONS)
+    }
+
+    private fun decodeTextBehind(j: JSONObject): Set<String> {
+        val arr = j.optJSONArray("textBehind") ?: return emptySet()
+        return (0 until arr.length()).map { arr.optString(it) }.filter { it.isNotBlank() }.toSet()
+    }
+
+    private fun decodeOffsets(j: JSONObject): Map<String, SlotOffset> {
+        val o = j.optJSONObject("slotOffsets") ?: return emptyMap()
+        val out = LinkedHashMap<String, SlotOffset>()
+        o.keys().forEach { key ->
+            val v = o.optJSONObject(key) ?: return@forEach
+            out[key] = SlotOffset(
+                dx = v.optDouble("dx", 0.0).toFloat().coerceIn(-1f, 1f),
+                dy = v.optDouble("dy", 0.0).toFloat().coerceIn(-1f, 1f)
+            )
+        }
+        return out
     }
 
     fun decodeDoc(raw: String): PostDoc {
@@ -218,7 +265,17 @@ object PostCodec {
             richness = j.optInt("richness", 2).coerceIn(1, 2),
             fontEnglish = j.optString("fontEnglish").takeIf { it.isNotBlank() && it != "null" },
             fontAmharic = j.optString("fontAmharic").takeIf { it.isNotBlank() && it != "null" },
-            icons = decodeIcons(j)
+            icons = decodeIcons(j),
+            photoFrame = runCatching { PhotoFrame.valueOf(j.optString("photoFrame", "")) }.getOrNull(),
+            frameBorder = j.optBoolean("frameBorder", false),
+            meshStyle = runCatching { MeshStyle.valueOf(j.optString("meshStyle", "OFF")) }.getOrDefault(MeshStyle.OFF),
+            grain = j.optBoolean("grain", false),
+            cutoutUri = j.optString("cutoutUri").takeIf { it.isNotBlank() && it != "null" },
+            cutoutScale = j.optDouble("cutoutScale", 1.0).toFloat().coerceIn(0.3f, 2.5f),
+            cutoutX = j.optDouble("cutoutX", 0.5).toFloat().coerceIn(0f, 1f),
+            cutoutY = j.optDouble("cutoutY", 0.94).toFloat().coerceIn(0.2f, 1.2f),
+            textBehind = decodeTextBehind(j),
+            slotOffsets = decodeOffsets(j)
         )
     }
 

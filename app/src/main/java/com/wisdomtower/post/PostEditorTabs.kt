@@ -115,7 +115,6 @@ internal fun editorGroups(
         if (canBringWords) list + EditorGroup("bring", "Bring my words") else list
     }
     EditorTab.LOOK -> buildList {
-        add(EditorGroup("style", "Style"))
         add(EditorGroup("size", "Text size"))
         add(EditorGroup("pairs", "Color pairs"))
         add(EditorGroup("main", "Main color"))
@@ -313,7 +312,8 @@ private fun TemplateCard(
                 val cached = PostThumbs.get(context, spec, size, brand, editedAt)
                 if (cached != null && accentHex == null && textHex == null) cached else {
                     val draft = if (editedAt != null) PostDrafts.loadDraft(context, spec.id) else null
-                    val sample = draft ?: PostDoc(templateId = spec.id, size = size, texts = spec.samples)
+                    // the factory post carries the template's look (frame, mesh, grain, cut-out position), so the card matches what picking it gives
+                    val sample = draft ?: PostDrafts.factory(spec.id, size)
                     PostRenderer.thumbnail(context, sample.copy(accentHex = accentHex, textHex = textHex), brand, 300).bitmap
                 }
             }
@@ -417,10 +417,6 @@ private fun WordsOptions(doc: PostDoc, onDoc: (PostDoc) -> Unit, slot: String) {
 @Composable
 private fun LookOptions(doc: PostDoc, onDoc: (PostDoc) -> Unit, brand: PostBrand, group: String) {
     when (group) {
-        "style" -> ChipRow {
-            FilterChip(selected = doc.richness < 2, onClick = { onDoc(doc.copy(richness = 1)) }, label = { Text("Clean") })
-            FilterChip(selected = doc.richness >= 2, onClick = { onDoc(doc.copy(richness = 2)) }, label = { Text("Rich") })
-        }
         "size" -> ChipRow {
             listOf("Small" to 0.9f, "Medium" to 1f, "Large" to 1.12f).forEach { (name, scale) ->
                 FilterChip(selected = abs(doc.textScale - scale) < 0.01f, onClick = { onDoc(doc.copy(textScale = scale)) }, label = { Text(name) })
@@ -448,8 +444,8 @@ private fun LookOptions(doc: PostDoc, onDoc: (PostDoc) -> Unit, brand: PostBrand
         "bgdir" -> ChipRow {
             // angle 0 = left to right, 90 = top to bottom (see PostRenderer.gradientShader)
             listOf(
-                0 to "\u2192", 45 to "\u2198", 90 to "\u2193", 135 to "\u2199",
-                180 to "\u2190", 225 to "\u2196", 270 to "\u2191", 315 to "\u2197"
+                0 to "→", 45 to "↘", 90 to "↓", 135 to "↙",
+                180 to "←", 225 to "↖", 270 to "↑", 315 to "↗"
             ).forEach { (angle, arrow) ->
                 FilterChip(selected = doc.bgAngle == angle, onClick = { onDoc(doc.copy(bgAngle = angle)) }, label = { Text(arrow, fontSize = 18.sp) })
             }
@@ -474,7 +470,7 @@ private fun PhotoOptions(
                 Text(if (doc.photoUri != null) "Replace photo" else "Pick photo")
             }
             if (doc.photoUri != null) TextButton(onClick = { onDoc(doc.copy(photoUri = null)) }) { Text("Remove") }
-            if (!hasPhotoArea) Hint("This template has no photo area. Try Quote on photo, Subject cover or Photo announcement.")
+            if (!hasPhotoArea) Hint("This template has no photo area. Try Arch window, Rounded card or Duotone full-bleed.")
         }
         "dim" -> ChipRow {
             Hint("Drag the slider above.")

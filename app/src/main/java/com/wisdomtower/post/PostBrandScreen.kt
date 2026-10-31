@@ -150,7 +150,7 @@ fun PostBrandScreen(
 
                 BrandSection(
                     title = "Colors",
-                    summary = "Main " + brand.primaryHex + ", light " + brand.lightHex,
+                    summary = "Academy palette · four colors",
                     open = open == "colors",
                     onToggle = { toggle("colors") }
                 ) {

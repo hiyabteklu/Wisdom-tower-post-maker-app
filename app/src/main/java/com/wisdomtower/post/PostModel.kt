@@ -75,6 +75,9 @@ data class PostDoc(
     val bgStartHex: String = "#1FA37A",
     val bgEndHex: String = "#0B3B2C",
     val bgAngle: Int = 135,
+    /** Full-canvas photo layer, independent from a template photo slot. */
+    val backgroundPhotoUri: String? = null,
+    val backgroundPhotoOpacity: Float = 1f,
     val accentHex: String? = null,
     val textHex: String? = null,
     val textScale: Float = 1f,
@@ -110,6 +113,8 @@ object PostCodec {
         put("bgStartHex", d.bgStartHex)
         put("bgEndHex", d.bgEndHex)
         put("bgAngle", d.bgAngle)
+        put("backgroundPhotoUri", d.backgroundPhotoUri ?: "")
+        put("backgroundPhotoOpacity", d.backgroundPhotoOpacity.toDouble())
         put("accentHex", d.accentHex ?: "")
         put("textHex", d.textHex ?: "")
         put("textScale", d.textScale.toDouble())
@@ -145,6 +150,8 @@ object PostCodec {
             bgStartHex = j.optString("bgStartHex", base.bgStartHex).ifBlank { base.bgStartHex },
             bgEndHex = j.optString("bgEndHex", base.bgEndHex).ifBlank { base.bgEndHex },
             bgAngle = j.optInt("bgAngle", base.bgAngle),
+            backgroundPhotoUri = j.optString("backgroundPhotoUri").takeIf { it.isNotBlank() && it != "null" },
+            backgroundPhotoOpacity = j.optDouble("backgroundPhotoOpacity", 1.0).toFloat().coerceIn(0f, 1f),
             accentHex = colorOverride(j, "accentHex", "#176B4D"),
             textHex = colorOverride(j, "textHex", "#18221D"),
             textScale = j.optDouble("textScale", 1.0).toFloat(),

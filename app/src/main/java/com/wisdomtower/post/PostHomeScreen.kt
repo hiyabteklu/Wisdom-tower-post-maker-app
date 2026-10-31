@@ -79,7 +79,10 @@ fun PostHomeScreen(
     var selectedSizeName by rememberSaveable { mutableStateOf(PostSize.SQUARE.name) }
     val selectedSize = PostSize.valueOf(selectedSizeName)
     val templates = PostTemplates.filter { search.isBlank() || it.name.contains(search, true) || it.family.contains(search, true) }
-    val families = listOf("Quote", "Motivation", "Question", "Exam", "Study tip", "Subject", "Promotion", "Reminder", "Achievement", "Announcement", "Social", "Event", "Fact")
+    val preferredFamilies = listOf("Quote", "Motivation", "Question", "Exam", "Study tip", "Subject", "Promotion", "Reminder", "Achievement", "Announcement", "Social", "Event", "Fact")
+    val actualFamilies = PostTemplates.map { it.family }.distinct()
+    val families = preferredFamilies.filter { preferred -> actualFamilies.any { it.equals(preferred, true) } } +
+        actualFamilies.filterNot { actual -> preferredFamilies.any { it.equals(actual, true) } }
     val continueTemplates = library.lastEditedAt.entries
         .sortedByDescending { it.value }
         .mapNotNull { entry -> PostTemplates.firstOrNull { it.id == entry.key } }

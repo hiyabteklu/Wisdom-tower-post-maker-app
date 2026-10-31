@@ -58,17 +58,19 @@ import kotlin.math.abs
  * Small preview images for the Library, kept on disk (UI_UX_PLAN.md section 8).
  * A card is rendered once per (template, size, brand, draft version) and saved as a small JPEG in the cache folder,
  * so the next launch shows it instantly. It is rendered again only when its draft or the brand changes.
+ * THUMB_VERSION goes into the cache name: raise it when the drawing changes, so old saved cards are not reused.
  */
 object PostThumbs {
+    private const val THUMB_VERSION = "v5"
     private val memory = LruCache<String, Bitmap>(64)
 
     private fun safe(text: String): String = text.replace(Regex("[^A-Za-z0-9_-]"), "_")
 
-    /** The thumbnail of a template: the edited draft when editedAt is set, otherwise the factory look at libSize. */
+    /** The thumbnail of a template: the edited draft when editedAt is set, otherwise the factory look (with the template's own look) at libSize. */
     fun get(context: Context, spec: PostTemplateSpec, libSize: PostSize, brand: PostBrand, editedAt: Long?): Bitmap? = runCatching {
         val draft = if (editedAt != null) PostDrafts.loadDraft(context, spec.id) else null
-        val doc = draft ?: PostDoc(templateId = spec.id, size = libSize, texts = spec.samples)
-        val stamp = (brand.toString() + "|" + (if (draft != null) editedAt else 0L)).hashCode()
+        val doc = draft ?: PostDrafts.factory(spec.id, libSize)
+        val stamp = (THUMB_VERSION + "|" + brand.toString() + "|" + (if (draft != null) editedAt else 0L)).hashCode()
         val prefix = safe(spec.id) + "_" + doc.size.name + "_"
         val name = prefix + abs(stamp) + (if (stamp < 0) "n" else "p") + ".jpg"
         memory.get(name) ?: run {

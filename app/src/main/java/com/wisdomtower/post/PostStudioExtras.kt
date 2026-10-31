@@ -92,13 +92,3 @@ internal fun LogoMoveRow(doc: PostDoc, onDoc: (PostDoc) -> Unit, moveLogo: Boole
     }
     if (moveLogo) PostSmallLabel("Drag on the preview above, or tap where the logo should go.")
 }
-
-/** Clean keeps only the template's own shapes. Rich adds rings, dots, a glow, stripes and sparkles. */
-@Composable
-internal fun RichRow(doc: PostDoc, onDoc: (PostDoc) -> Unit) {
-    PostSmallLabel("Decoration")
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        FilterChip(selected = doc.richness < 2, onClick = { onDoc(doc.copy(richness = 1)) }, label = { Text("Clean") })
-        FilterChip(selected = doc.richness >= 2, onClick = { onDoc(doc.copy(richness = 2)) }, label = { Text("Rich") })
-    }
-}

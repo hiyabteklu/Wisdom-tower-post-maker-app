@@ -211,9 +211,9 @@ fun PostStudioScreen(
                         SettingsSection("Footer", "Social icons shown on the post.") {
                             editorGroups(EditorTab.FOOTER, doc, slots, photoArea != null, false).forEach { group ->
                                 if (group.key == "size") {
-                                InlineEditorSlider(EditorSlider("Footer icon size", brand.iconScale, 0.5f..1.8f,
-                                    "${(brand.iconScale * 100).toInt()}%") { onBrand(brand.copy(iconScale = it)) })
-                            } else EditorOptions(EditorTab.FOOTER, group.key, doc, onDoc, brand, onBrand,
+                                    InlineEditorSlider(EditorSlider("Footer icon size", brand.iconScale, 0.5f..1.8f,
+                                        "${(brand.iconScale * 100).toInt()}%") { onBrand(brand.copy(iconScale = it)) })
+                                } else EditorOptions(EditorTab.FOOTER, group.key, doc, onDoc, brand, onBrand,
                                     photoArea != null, onPickPhoto, onPickBackgroundPhoto, onPickLogo,
                                     moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it })
                             }

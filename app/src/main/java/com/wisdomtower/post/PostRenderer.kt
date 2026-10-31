@@ -145,7 +145,8 @@ object PostFonts {
 
 /**
  * The single drawing path. The screen preview, the template thumbnails and the exported file all come from
- * render(), always at the real export size, so what you see is what you save.
+ * render(). Layout, text fitting and every position are worked out at the real export size; a smaller
+ * bitmap (the editor preview) only scales the canvas, so what you see is what you save.
  * Order: background gradient, shapes, photo, shapes marked overPhoto, icons placed "behind", text, logo, then the social block or the footer,
  * then icons placed "in front".
  * Colors come from the Brand kit unless the post overrides them. Derived tones (DEEP, GLOW, TINT, SOFT, PAGE)
@@ -167,53 +168,79 @@ object PostRenderer {
     private const val SAFE_TOP = 0.12f
     private const val SAFE_BOTTOM = 0.88f
 
-    fun render(context: Context, doc: PostDoc, brand: PostBrand): Result {
+    /**
+     * Draws the post.
+     * scale: 1 is the real export size (the export always uses 1). Below 1 the bitmap is smaller, but every position, text-fit step
+     * and overflow decision is still made at full size and the canvas is scaled, so the overflow list and the look match the export.
+     * cancelled: asked between the drawing steps. When it returns true the render stops, frees its bitmap and throws a
+     * CancellationException, so a preview that is already out of date does not keep the processor busy.
+     */
+    fun render(context: Context, doc: PostDoc, brand: PostBrand, scale: Float = 1f, cancelled: () -> Boolean = { false }): Result {
         val w = doc.size.width
         val h = doc.size.height
         val unit = min(w, h).toFloat()
+        val s = scale.coerceIn(0.05f, 1f)
+        // photos are decoded no bigger than the bitmap needs; near full size they keep the full-size target
+        val decodeTo = if (s >= 0.75f) max(w, h) else max(256, (max(w, h) * s * 1.5f).toInt())
+        fun stop() {
+            if (cancelled()) throw java.util.concurrent.CancellationException("stale render")
+        }
         val layout = PostRich.apply(postTemplate(doc.templateId).layout(doc.size), doc.size, doc.richness)
         val colors = colorsFor(doc, brand)
         val bg = backgroundFor(doc, colors, layout)
         colors.page = bg.to
-        val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-        drawBackground(canvas, bg, w, h)
-        doc.backgroundPhotoUri?.let { drawBackgroundPhoto(context, canvas, it, doc.backgroundPhotoOpacity, w, h) }
+        val bitmap = Bitmap.createBitmap(max(1, (w * s).toInt()), max(1, (h * s).toInt()), Bitmap.Config.ARGB_8888)
+        try {
+            val canvas = Canvas(bitmap)
+            canvas.scale(bitmap.width / w.toFloat(), bitmap.height / h.toFloat())
+            drawBackground(canvas, bg, w, h)
+            stop()
+            doc.backgroundPhotoUri?.let { drawBackgroundPhoto(context, canvas, it, doc.backgroundPhotoOpacity, w, h, decodeTo) }
+            stop()
 
-        layout.decor.filter { !it.overPhoto }.forEach { drawDecor(canvas, it, colors, w, h, unit) }
-        val photoArea = layout.photo
-        val photoUri = doc.photoUri
-        if (photoArea != null && photoUri != null) drawPhoto(context, canvas, photoUri, photoArea, doc, w, h)
-        layout.decor.filter { it.overPhoto }.forEach { drawDecor(canvas, it, colors, w, h, unit) }
+            layout.decor.filter { !it.overPhoto }.forEach { drawDecor(canvas, it, colors, w, h, unit) }
+            val photoArea = layout.photo
+            val photoUri = doc.photoUri
+            if (photoArea != null && photoUri != null) drawPhoto(context, canvas, photoUri, photoArea, doc, w, h, decodeTo)
+            stop()
+            layout.decor.filter { it.overPhoto }.forEach { drawDecor(canvas, it, colors, w, h, unit) }
 
-        // icons the user placed behind the words
-        doc.icons.filter { !it.front }.forEach { PostIconStore.draw(canvas, it, w, h, unit, colors.accent) }
+            // icons the user placed behind the words
+            doc.icons.filter { !it.front }.forEach { PostIconStore.draw(canvas, it, w, h, unit, colors.accent) }
+            stop()
 
-        val overflow = mutableListOf<String>()
-        canvas.save()
-        canvas.clipRect(0f, h * SAFE_TOP, w.toFloat(), h * SAFE_BOTTOM)
-        layout.slots.forEach { box ->
-            val text = (box.literal ?: doc.texts[box.slot].orEmpty()).trim()
-            if (text.isEmpty()) return@forEach
-            val fits = drawSlot(context, canvas, box, text, doc, colors, w, h, unit)
-            if (!fits && box.literal == null) overflow.add(box.slot)
+            val overflow = mutableListOf<String>()
+            canvas.save()
+            canvas.clipRect(0f, h * SAFE_TOP, w.toFloat(), h * SAFE_BOTTOM)
+            layout.slots.forEach { box ->
+                stop()
+                val text = (box.literal ?: doc.texts[box.slot].orEmpty()).trim()
+                if (text.isEmpty()) return@forEach
+                val fits = drawSlot(context, canvas, box, text, doc, colors, w, h, unit)
+                if (!fits && box.literal == null) overflow.add(box.slot)
+            }
+            canvas.restore()
+            stop()
+
+            if (doc.showLogo) drawLogo(context, canvas, doc, brand, w, h, unit)
+            val social = layout.social
+            if (social != null) {
+                drawSocial(context, canvas, brand, social, colors, w, h, unit)
+            } else if (doc.showFooter) {
+                drawFooter(context, canvas, brand, if (layout.footerLight) colors.light else colors.accent, colors, layout.footerLight, w, h, unit)
+            }
+            stop()
+
+            // icons the user placed in front
+            doc.icons.filter { it.front }.forEach { PostIconStore.draw(canvas, it, w, h, unit, colors.accent) }
+            return Result(bitmap, overflow)
+        } catch (e: java.util.concurrent.CancellationException) {
+            bitmap.recycle()
+            throw e
         }
-        canvas.restore()
-
-        if (doc.showLogo) drawLogo(context, canvas, doc, brand, w, h, unit)
-        val social = layout.social
-        if (social != null) {
-            drawSocial(context, canvas, brand, social, colors, w, h, unit)
-        } else if (doc.showFooter) {
-            drawFooter(context, canvas, brand, if (layout.footerLight) colors.light else colors.accent, colors, layout.footerLight, w, h, unit)
-        }
-
-        // icons the user placed in front
-        doc.icons.filter { it.front }.forEach { PostIconStore.draw(canvas, it, w, h, unit, colors.accent) }
-        return Result(bitmap, overflow)
     }
 
-    /** Renders at full size, then scales down. Used for the preview and the template gallery. */
+    /** Renders at full size, then scales down. Used for the template gallery and the Library. */
     fun thumbnail(context: Context, doc: PostDoc, brand: PostBrand, targetWidth: Int): Result {
         val full = render(context, doc, brand)
         val targetHeight = (full.bitmap.height * (targetWidth.toFloat() / full.bitmap.width)).toInt().coerceAtLeast(1)
@@ -221,6 +248,13 @@ object PostRenderer {
         if (thumb !== full.bitmap) full.bitmap.recycle()
         return Result(thumb, full.overflow)
     }
+
+    /**
+     * The editor and Brand previews: drawn straight at targetWidth (never above full size), with no full-size bitmap in between.
+     * Pass cancelled so a newer change can stop this render early (see render).
+     */
+    fun preview(context: Context, doc: PostDoc, brand: PostBrand, targetWidth: Int, cancelled: () -> Boolean = { false }): Result =
+        render(context, doc, brand, targetWidth.toFloat() / doc.size.width, cancelled)
 
     fun hasLogo(context: Context, brand: PostBrand): Boolean {
         val path = brand.logoPath
@@ -547,9 +581,9 @@ object PostRenderer {
 
     // ---- photo and logo ----
 
-    /** Full-canvas photo layer, drawn above the chosen color/gradient and below every template element. */
-    private fun drawBackgroundPhoto(context: Context, canvas: Canvas, uri: String, opacity: Float, w: Int, h: Int) {
-        val bitmap = runCatching { decodeSampled(context, Uri.parse(uri), max(w, h)) }.getOrNull() ?: return
+    /** Full-canvas photo layer, drawn above the chosen color/gradient and below every template element. decodeTo: the longest side to decode at. */
+    private fun drawBackgroundPhoto(context: Context, canvas: Canvas, uri: String, opacity: Float, w: Int, h: Int, decodeTo: Int) {
+        val bitmap = runCatching { decodeSampled(context, Uri.parse(uri), decodeTo) }.getOrNull() ?: return
         val scale = max(w.toFloat() / bitmap.width, h.toFloat() / bitmap.height)
         val cropW = w / scale
         val cropH = h / scale
@@ -567,9 +601,9 @@ object PostRenderer {
     }
 
     /** Crops the photo to fill the area (zoom and focus come from the post), then lays a dim layer over it so light text stays readable. */
-    private fun drawPhoto(context: Context, canvas: Canvas, uri: String, area: PostPhotoArea, doc: PostDoc, w: Int, h: Int) {
+    private fun drawPhoto(context: Context, canvas: Canvas, uri: String, area: PostPhotoArea, doc: PostDoc, w: Int, h: Int, decodeTo: Int) {
         val dest = RectF(area.x * w, area.y * h, (area.x + area.w) * w, (area.y + area.h) * h)
-        val bmp = runCatching { decodeSampled(context, Uri.parse(uri), max(w, h)) }.getOrNull() ?: return
+        val bmp = runCatching { decodeSampled(context, Uri.parse(uri), decodeTo) }.getOrNull() ?: return
         val zoom = max(1f, doc.photoZoom)
         val scale = max(dest.width() / bmp.width, dest.height() / bmp.height) * zoom
         val cropW = dest.width() / scale

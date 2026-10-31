@@ -116,9 +116,9 @@ fun PostStudioScreen(
 
     PostTheme {
         Scaffold(containerColor = PostPalette.Ink) { padding ->
-            BoxWithConstraints(Modifier.fillMaxSize().padding(padding)) {
+            BoxWithConstraints(Modifier.fillMaxSize().padding(padding).imePadding()) {
                 val previewHeight = (maxHeight * 0.39f).coerceAtMost(350.dp)
-                Column(Modifier.fillMaxSize().imePadding()) {
+                Column(Modifier.fillMaxSize()) {
                     TitleRow(doc, edited, bookmarked, onToggleBookmark, onOpenLibrary, onOpenBrand)
                     SizeRow(doc, onDoc, edited, onReset) { showSave = true }
                     PreviewPane(

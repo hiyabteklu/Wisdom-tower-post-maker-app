@@ -134,6 +134,7 @@ fun PostStudioScreen(
                     ) {
                         SettingsSection("Words", "Edit every text field directly.") {
                             slots.forEach { slot ->
+                                ControlHeading(PostSlots.label(slot))
                                 EditorOptions(
                                     EditorTab.WORDS, slot, doc, onDoc, brand, onBrand,
                                     photoArea != null, onPickPhoto, onPickBackgroundPhoto, onPickLogo,
@@ -148,7 +149,8 @@ fun PostStudioScreen(
                         }
 
                         SettingsSection("Colors", "Color pairs, accent and text colors.") {
-                            listOf("pairs", "main", "text").forEach { group ->
+                            listOf("pairs" to "Color pairs", "main" to "Accent color", "text" to "Text color").forEach { (group, label) ->
+                                ControlHeading(label)
                                 EditorOptions(EditorTab.LOOK, group, doc, onDoc, brand, onBrand,
                                     photoArea != null, onPickPhoto, onPickBackgroundPhoto, onPickLogo,
                                     moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it })
@@ -156,9 +158,10 @@ fun PostStudioScreen(
                         }
 
                         SettingsSection("Background", "Choose the template background, a solid color or a gradient.") {
-                            listOf("bg", "bgfrom", "bgto", "bgdir").forEach { group ->
+                            listOf("bg" to "Background type", "bgfrom" to "Solid color / gradient start", "bgto" to "Gradient end", "bgdir" to "Gradient direction").forEach { (group, label) ->
                                 if (group != "bgfrom" || doc.bgMode == BgMode.SOLID || doc.bgMode == BgMode.GRADIENT) {
                                     if (group != "bgto" && group != "bgdir" || doc.bgMode == BgMode.GRADIENT) {
+                                        ControlHeading(label)
                                         EditorOptions(EditorTab.LOOK, group, doc, onDoc, brand, onBrand,
                                             photoArea != null, onPickPhoto, onPickBackgroundPhoto, onPickLogo,
                                             moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it })
@@ -170,6 +173,7 @@ fun PostStudioScreen(
                         SettingsSection("Photo", "Template photo and full-canvas background image.") {
                             val groups = editorGroups(EditorTab.PHOTO, doc, slots, photoArea != null, false)
                             groups.forEach { group ->
+                                ControlHeading(group.label)
                                 val slider = editorSlider(EditorTab.PHOTO, group.key, doc, photoArea?.dim, onDoc)
                                 if (slider != null) InlineEditorSlider(slider)
                                 EditorOptions(EditorTab.PHOTO, group.key, doc, onDoc, brand, onBrand,
@@ -179,9 +183,11 @@ fun PostStudioScreen(
                         }
 
                         SettingsSection("Fonts", "English and Amharic font libraries.") {
+                            ControlHeading("English")
                             EditorOptions(EditorTab.FONT, "en", doc, onDoc, brand, onBrand,
                                 photoArea != null, onPickPhoto, onPickBackgroundPhoto, onPickLogo,
                                 moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it })
+                            ControlHeading("Amharic")
                             EditorOptions(EditorTab.FONT, "am", doc, onDoc, brand, onBrand,
                                 photoArea != null, onPickPhoto, onPickBackgroundPhoto, onPickLogo,
                                 moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it })
@@ -189,6 +195,7 @@ fun PostStudioScreen(
 
                         SettingsSection("Logo", "Control the logo on this post.") {
                             editorGroups(EditorTab.LOGO, doc, slots, photoArea != null, false).forEach { group ->
+                                ControlHeading(group.label)
                                 if (group.key == "size") {
                                     InlineEditorSlider(EditorSlider("Logo size", doc.logoSize, 0.4f..3f,
                                         "${(doc.logoSize * 100).toInt()}%") { onDoc(doc.copy(logoSize = it)) })
@@ -200,6 +207,7 @@ fun PostStudioScreen(
 
                         SettingsSection("Icons", "Add graphics, select one, then drag or pinch it on the preview.") {
                             editorGroups(EditorTab.ICONS, doc, slots, photoArea != null, false).forEach { group ->
+                                ControlHeading(group.label)
                                 if (group.key == "size") {
                                     val slider = iconSizeSlider(doc, selectedIcon, onDoc)
                                     if (slider != null) InlineEditorSlider(slider)
@@ -210,6 +218,7 @@ fun PostStudioScreen(
 
                         SettingsSection("Footer", "Social icons shown on the post.") {
                             editorGroups(EditorTab.FOOTER, doc, slots, photoArea != null, false).forEach { group ->
+                                ControlHeading(group.label)
                                 if (group.key == "size") {
                                     InlineEditorSlider(EditorSlider("Footer icon size", brand.iconScale, 0.5f..1.8f,
                                         "${(brand.iconScale * 100).toInt()}%") { onBrand(brand.copy(iconScale = it)) })
@@ -220,9 +229,11 @@ fun PostStudioScreen(
                         }
 
                         SettingsSection("Decoration and text size", "Keep the template clean or add richer decoration.") {
+                            ControlHeading("Decoration")
                             EditorOptions(EditorTab.LOOK, "style", doc, onDoc, brand, onBrand,
                                 photoArea != null, onPickPhoto, onPickBackgroundPhoto, onPickLogo,
                                 moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it })
+                            ControlHeading("Text size")
                             InlineEditorSlider(EditorSlider("Text size", doc.textScale, 0.7f..1.5f,
                                 "${(doc.textScale * 100).toInt()}%") { onDoc(doc.copy(textScale = it)) })
                         }
@@ -246,6 +257,11 @@ private fun SettingsSection(title: String, subtitle: String? = null, content: @C
             content(this)
         }
     }
+}
+
+@Composable
+private fun ControlHeading(label: String) {
+    Text(label, color = PostPalette.Muted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
 }
 
 @Composable

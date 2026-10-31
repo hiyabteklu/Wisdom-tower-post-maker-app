@@ -29,10 +29,10 @@ internal object PostRich {
             DecorBox(DecorShape.DOTS, 1f - rx(.20f) - 0.03f, 0.64f, rx(.20f), ry(.20f), line, 42),
             // Diagonal lines in the lower-left corner.
             DecorBox(DecorShape.STRIPES, 0f, 1f - ry(.22f), rx(.22f), ry(.22f), line, 45),
-            // Sparkles.
-            DecorBox(DecorShape.SPARK, 0.90f - rx(.022f), 0.30f - ry(.022f), 2f * rx(.022f), 2f * ry(.022f), line, 170),
-            DecorBox(DecorShape.SPARK, 0.95f - rx(.012f), 0.38f - ry(.012f), 2f * rx(.012f), 2f * ry(.012f), line, 130),
-            DecorBox(DecorShape.SPARK, 0.07f - rx(.016f), 0.58f - ry(.016f), 2f * rx(.016f), 2f * ry(.016f), line, 140)
+            // Small geometric accents: a diamond, a triangle and a hexagon.
+            DecorBox(DecorShape.DIAMOND, 0.90f - rx(.022f), 0.30f - ry(.022f), 2f * rx(.022f), 2f * ry(.022f), line, 170),
+            DecorBox(DecorShape.TRIANGLE, 0.95f - rx(.012f), 0.38f - ry(.012f), 2f * rx(.012f), 2f * ry(.012f), line, 130),
+            DecorBox(DecorShape.HEXAGON, 0.07f - rx(.016f), 0.58f - ry(.016f), 2f * rx(.016f), 2f * ry(.016f), line, 140)
         )
         return layout.copy(decor = extras + layout.decor)
     }

@@ -12,7 +12,7 @@ import com.wisdomtower.post.PostTone.TINT
 
 /**
  * Gives every template its visual richness: a gradient backdrop, gradient shapes, rings, dots, stripes, waves,
- * sparkles and soft shadows. Text boxes are never touched, so the fit that was already tested still holds.
+ * small diamonds, triangles and hexagons, and soft shadows. Text boxes are never touched, so the fit that was already tested still holds.
  * All colors are tones, so they follow the Brand colors and the post's accent override.
  */
 internal object PostLooks {
@@ -37,8 +37,18 @@ internal object PostLooks {
         fun patch(shape: DecorShape, x: Float, y: Float, side: Float, tone: PostTone, alpha: Int, over: Boolean = false) =
             DecorBox(shape, x, y, rx(side), ry(side), tone, alpha, 0f, over)
 
-        fun spark(cx: Float, cy: Float, r: Float, tone: PostTone, alpha: Int = 230, over: Boolean = false) =
-            DecorBox(DecorShape.SPARK, cx - rx(r), cy - ry(r), 2f * rx(r), 2f * ry(r), tone, alpha, 0f, over)
+        private fun gem(shape: DecorShape, cx: Float, cy: Float, r: Float, tone: PostTone, alpha: Int, over: Boolean) =
+            DecorBox(shape, cx - rx(r), cy - ry(r), 2f * rx(r), 2f * ry(r), tone, alpha, 0f, over)
+
+        /** Small geometric accents, centered on canvas fractions; r is a fraction of the shorter side. */
+        fun dia(cx: Float, cy: Float, r: Float, tone: PostTone, alpha: Int = 230, over: Boolean = false) =
+            gem(DecorShape.DIAMOND, cx, cy, r, tone, alpha, over)
+
+        fun tri(cx: Float, cy: Float, r: Float, tone: PostTone, alpha: Int = 230, over: Boolean = false) =
+            gem(DecorShape.TRIANGLE, cx, cy, r, tone, alpha, over)
+
+        fun hex(cx: Float, cy: Float, r: Float, tone: PostTone, alpha: Int = 230, over: Boolean = false) =
+            gem(DecorShape.HEXAGON, cx, cy, r, tone, alpha, over)
 
         fun wave(y0: Float, y1: Float, tone: PostTone, alpha: Int = 255, over: Boolean = false) =
             DecorBox(DecorShape.WAVE, 0f, y0, 1f, y1 - y0, tone, alpha, 0f, over)
@@ -70,8 +80,8 @@ internal object PostLooks {
                     g.ring(0.0f, 1.0f, .30f, ACCENT, 70, .010f),
                     g.ring(0.0f, 1.0f, .21f, ACCENT, 45, .007f),
                     g.patch(DecorShape.DOTS, .70f, .12f, .22f, ACCENT, 70),
-                    g.spark(.89f, .74f, .030f, ACCENT, 190),
-                    g.spark(.11f, .17f, .020f, ACCENT, 150)
+                    g.dia(.89f, .74f, .030f, ACCENT, 190),
+                    g.tri(.11f, .17f, .020f, ACCENT, 150)
                 )
             )
 
@@ -81,7 +91,7 @@ internal object PostLooks {
                     g.circle(1.0f, 1.0f, .42f, GLOW, 80, TINT, 0, 225f),
                     g.patch(DecorShape.DOTS, .70f, .04f, .24f, ACCENT, 65),
                     g.ring(1.0f, 0.0f, .24f, ACCENT, 50, .008f),
-                    g.spark(.88f, .55f, .028f, ACCENT, 170)
+                    g.hex(.88f, .55f, .028f, ACCENT, 170)
                 ),
                 restyle = { i, d -> if (i == 0) d.copy(gradTo = DEEP, angle = 90f) else d }
             )
@@ -95,7 +105,7 @@ internal object PostLooks {
                 scrim = listOf(DecorBox(DecorShape.RECT, 0f, 0f, 1f, 1f, DARK, 30, gradTo = DARK, alphaTo = 175, angle = 90f, overPhoto = true)),
                 front = listOf(
                     g.ring(1.0f, 0.0f, .26f, SECONDARY, 60, .009f, true),
-                    g.spark(.88f, .20f, .030f, SECONDARY, 220, true)
+                    g.dia(.88f, .20f, .030f, SECONDARY, 220, true)
                 )
             )
 
@@ -106,7 +116,7 @@ internal object PostLooks {
                     g.ring(1.0f, 0.0f, .31f, SECONDARY, 35, .010f),
                     g.circle(0.0f, 1.0f, .30f, GLOW, 70, ACCENT, 0, 45f),
                     g.patch(DecorShape.STRIPES, .0f, .70f, .30f, SECONDARY, 30),
-                    g.spark(.90f, .62f, .030f, SECONDARY, 200)
+                    g.tri(.90f, .62f, .030f, SECONDARY, 200)
                 )
             )
 
@@ -129,7 +139,7 @@ internal object PostLooks {
                 behind = listOf(
                     g.circle(1.0f, 0.0f, .36f, GLOW, 85, SOFT, 0, 135f),
                     g.patch(DecorShape.DOTS, .72f, .13f, .22f, ACCENT, 60),
-                    g.spark(.10f, .40f, .026f, ACCENT, 170)
+                    g.dia(.10f, .40f, .026f, ACCENT, 170)
                 ),
                 restyle = { i, d -> if (i == 0) d.copy(tone = LIGHT, alpha = 240, shadow = true) else d }
             )
@@ -141,7 +151,7 @@ internal object PostLooks {
                     g.patch(DecorShape.DOTS, .04f, .30f, .20f, ACCENT, 55),
                     g.ring(1.0f, 0.0f, .22f, ACCENT, 50, .008f)
                 ),
-                front = listOf(g.spark(.90f, .64f, .030f, SECONDARY, 230)),
+                front = listOf(g.hex(.90f, .64f, .030f, SECONDARY, 230)),
                 restyle = { i, d -> if (i == 0) d.copy(gradTo = DEEP, angle = 135f, shadow = true) else d }
             )
 
@@ -152,8 +162,8 @@ internal object PostLooks {
                     g.ring(1.0f, 0.0f, .40f, SECONDARY, 45, .012f),
                     g.ring(0.0f, 1.0f, .32f, SECONDARY, 40, .010f),
                     g.patch(DecorShape.DOTS, .04f, .14f, .18f, SECONDARY, 50),
-                    g.spark(.12f, .46f, .025f, SECONDARY, 210),
-                    g.spark(.88f, .50f, .030f, SECONDARY, 210)
+                    g.tri(.12f, .46f, .025f, SECONDARY, 210),
+                    g.dia(.88f, .50f, .030f, SECONDARY, 210)
                 )
             )
 
@@ -165,8 +175,8 @@ internal object PostLooks {
                         DecorBox(DecorShape.RING, c.x - c.w * .10f, c.y - c.h * .10f, c.w * 1.2f, c.h * 1.2f, ACCENT, 90, stroke = .008f),
                         DecorBox(DecorShape.RING, c.x - c.w * .20f, c.y - c.h * .20f, c.w * 1.4f, c.h * 1.4f, ACCENT, 45, stroke = .006f),
                         g.patch(DecorShape.DOTS, .74f, .70f, .20f, ACCENT, 55),
-                        g.spark(.86f, .22f, .030f, ACCENT, 190),
-                        g.spark(.12f, .52f, .022f, ACCENT, 160)
+                        g.hex(.86f, .22f, .030f, ACCENT, 190),
+                        g.dia(.12f, .52f, .022f, ACCENT, 160)
                     ),
                     restyle = { i, d -> if (i == 0) d.copy(gradTo = DEEP, angle = 135f, shadow = true) else d }
                 )
@@ -179,7 +189,7 @@ internal object PostLooks {
                     g.ring(.82f, .26f, .22f, ACCENT, 28, .008f),
                     g.circle(0.0f, 1.0f, .34f, GLOW, 70, TINT, 0, 45f),
                     g.patch(DecorShape.DOTS, .70f, .08f, .22f, ACCENT, 55),
-                    g.spark(.90f, .50f, .028f, ACCENT, 170)
+                    g.tri(.90f, .50f, .028f, ACCENT, 170)
                 )
             )
 
@@ -189,7 +199,7 @@ internal object PostLooks {
                     g.ring(1.0f, 0.0f, .40f, SECONDARY, 45, .012f),
                     g.circle(0.0f, 1.0f, .30f, GLOW, 70, ACCENT, 0, 45f)
                 ),
-                front = listOf(g.spark(.90f, .20f, .028f, ACCENT, 220)),
+                front = listOf(g.dia(.90f, .20f, .028f, ACCENT, 220)),
                 restyle = { i, d -> if (i == 0) d.copy(shadow = true) else d }
             )
 
@@ -214,7 +224,7 @@ internal object PostLooks {
                     g.ring(.92f, .88f, .24f, ACCENT, 30, .008f),
                     g.patch(DecorShape.DOTS, .70f, .08f, .24f, ACCENT, 60),
                     g.circle(0.0f, 1.0f, .30f, GLOW, 70, SOFT, 0, 45f),
-                    g.spark(.86f, .30f, .030f, ACCENT, 180)
+                    g.hex(.86f, .30f, .030f, ACCENT, 180)
                 ),
                 restyle = { i, d -> if (i == 0) d.copy(gradTo = DEEP, angle = 0f, shadow = true) else d }
             )
@@ -226,8 +236,8 @@ internal object PostLooks {
                     g.ring(.90f, .90f, .20f, SECONDARY, 40, .008f)
                 ),
                 front = listOf(
-                    g.spark(.88f, .26f, .030f, SECONDARY, 220),
-                    g.spark(.10f, .30f, .020f, SECONDARY, 170)
+                    g.dia(.88f, .26f, .030f, SECONDARY, 220),
+                    g.tri(.10f, .30f, .020f, SECONDARY, 170)
                 ),
                 restyle = { i, d -> if (i == 0) d.copy(gradTo = DEEP, alphaTo = 30, angle = 135f) else d }
             )
@@ -241,8 +251,8 @@ internal object PostLooks {
                     g.patch(DecorShape.DOTS, .06f, .10f, .20f, SECONDARY, 45)
                 ),
                 front = listOf(
-                    g.spark(.86f, .64f, .030f, SECONDARY, 230),
-                    g.spark(.14f, .58f, .020f, SECONDARY, 190)
+                    g.hex(.86f, .64f, .030f, SECONDARY, 230),
+                    g.dia(.14f, .58f, .020f, SECONDARY, 190)
                 ),
                 restyle = { i, d -> if (i == 0) d.copy(gradTo = SOFT, angle = 0f, shadow = true) else d }
             )
@@ -276,10 +286,10 @@ internal object PostLooks {
                     g.ring(.5f, .34f, .30f, SECONDARY, 45, .008f),
                     g.ring(.5f, .34f, .40f, SECONDARY, 28, .006f),
                     g.patch(DecorShape.DOTS, .04f, .62f, .20f, SECONDARY, 40),
-                    g.spark(.14f, .20f, .030f, SECONDARY, 220),
-                    g.spark(.86f, .28f, .040f, SECONDARY, 230),
-                    g.spark(.78f, .50f, .020f, SECONDARY, 190),
-                    g.spark(.20f, .50f, .020f, SECONDARY, 190)
+                    g.dia(.14f, .20f, .030f, SECONDARY, 220),
+                    g.hex(.86f, .28f, .040f, SECONDARY, 230),
+                    g.tri(.78f, .50f, .020f, SECONDARY, 190),
+                    g.dia(.20f, .50f, .020f, SECONDARY, 190)
                 )
             )
 
@@ -293,7 +303,7 @@ internal object PostLooks {
                     ),
                     front = listOf(
                         DecorBox(DecorShape.RECT, 0f, band.y, .02f, band.h, ACCENT, gradTo = DEEP),
-                        g.spark(.90f, .28f, .030f, ACCENT, 170)
+                        g.tri(.90f, .28f, .030f, ACCENT, 170)
                     ),
                     restyle = { i, d -> if (i == 0) d.copy(gradTo = SOFT, angle = 135f) else d }
                 )
@@ -305,7 +315,7 @@ internal object PostLooks {
                 scrim = listOf(DecorBox(DecorShape.RECT, 0f, .30f, 1f, .70f, DARK, 0, gradTo = DARK, alphaTo = 210, angle = 90f, overPhoto = true)),
                 front = listOf(
                     g.ring(1.0f, 0.0f, .28f, SECONDARY, 55, .010f, true),
-                    g.spark(.88f, .20f, .030f, SECONDARY, 220, true)
+                    g.dia(.88f, .20f, .030f, SECONDARY, 220, true)
                 )
             )
 
@@ -318,8 +328,8 @@ internal object PostLooks {
                     g.patch(DecorShape.DOTS, .04f, .08f, .20f, SECONDARY, 45)
                 ),
                 front = listOf(
-                    g.spark(.88f, .20f, .030f, SECONDARY, 230),
-                    g.spark(.10f, .50f, .022f, SECONDARY, 190)
+                    g.hex(.88f, .20f, .030f, SECONDARY, 230),
+                    g.tri(.10f, .50f, .022f, SECONDARY, 190)
                 )
             )
 
@@ -329,7 +339,7 @@ internal object PostLooks {
                     g.circle(1.0f, 0.0f, .36f, GLOW, 85, SOFT, 0, 135f),
                     g.ring(0.0f, 1.0f, .28f, ACCENT, 45, .010f),
                     g.patch(DecorShape.DOTS, .70f, .06f, .22f, ACCENT, 60),
-                    g.spark(.90f, .36f, .028f, ACCENT, 180)
+                    g.dia(.90f, .36f, .028f, ACCENT, 180)
                 ),
                 restyle = { i, d -> if (i == 0) d.copy(shadow = true) else d }
             )
@@ -353,8 +363,8 @@ internal object PostLooks {
                     g.patch(DecorShape.STRIPES, .62f, .66f, .34f, SECONDARY, 24)
                 ),
                 front = listOf(
-                    g.spark(.95f, .42f, .024f, SECONDARY, 230),
-                    g.spark(.05f, .62f, .020f, SECONDARY, 180)
+                    g.dia(.95f, .42f, .024f, SECONDARY, 230),
+                    g.tri(.05f, .62f, .020f, SECONDARY, 180)
                 ),
                 restyle = { i, d -> if (i == 0) d.copy(gradTo = SOFT, angle = 135f, shadow = true) else d }
             )

@@ -266,7 +266,7 @@ private fun PairSwatch(accentHex: String, textHex: String, selected: Boolean, on
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-// Template strip (a tab of its own until the Library home exists)
+// Pinned template strip; the Library remains the place for saved and family browsing.
 // ---------------------------------------------------------------------------------------------------------------------
 
 @Composable
@@ -283,7 +283,8 @@ internal fun TemplateStrip(doc: PostDoc, brand: PostBrand, library: PostLibrary,
         modifier = Modifier.fillMaxWidth()
     ) {
         items(PostTemplates, key = { it.id }) { spec ->
-            TemplateCard(spec, doc.size, brand, library.edited[spec.id], doc.accentHex, doc.textHex, spec.id == doc.templateId) { onDoc(doc.withTemplate(spec)) }
+            TemplateCard(spec, doc.size, brand, library.edited[spec.id], if (spec.id == doc.templateId) doc else null,
+                doc.accentHex, doc.textHex, spec.id == doc.templateId) { onDoc(doc.withTemplate(spec)) }
         }
     }
 }
@@ -294,6 +295,7 @@ private fun TemplateCard(
     size: PostSize,
     brand: PostBrand,
     editedAt: Long?,
+    currentDoc: PostDoc?,
     accentHex: String?,
     textHex: String?,
     selected: Boolean,
@@ -303,13 +305,17 @@ private fun TemplateCard(
     val ratio = size.width.toFloat() / size.height
     val thumbH = 84.dp
     val thumbW = thumbH * ratio
-    val thumb by produceState<Bitmap?>(null, spec.id, size, brand, editedAt, accentHex, textHex) {
+    val thumb by produceState<Bitmap?>(null, spec.id, size, brand, editedAt, currentDoc, accentHex, textHex) {
         value = withContext(Dispatchers.IO) {
-            val cached = PostThumbs.get(context, spec, size, brand, editedAt)
-            if (cached != null && (accentHex == null && textHex == null)) cached else {
-                val draft = if (editedAt != null) PostDrafts.loadDraft(context, spec.id) else null
-                val sample = draft ?: PostDoc(templateId = spec.id, size = size, texts = spec.samples)
-                PostRenderer.thumbnail(context, sample.copy(accentHex = accentHex, textHex = textHex), brand, 300).bitmap
+            if (currentDoc != null) {
+                PostRenderer.thumbnail(context, currentDoc, brand, 300).bitmap
+            } else {
+                val cached = PostThumbs.get(context, spec, size, brand, editedAt)
+                if (cached != null && accentHex == null && textHex == null) cached else {
+                    val draft = if (editedAt != null) PostDrafts.loadDraft(context, spec.id) else null
+                    val sample = draft ?: PostDoc(templateId = spec.id, size = size, texts = spec.samples)
+                    PostRenderer.thumbnail(context, sample.copy(accentHex = accentHex, textHex = textHex), brand, 300).bitmap
+                }
             }
         }
     }

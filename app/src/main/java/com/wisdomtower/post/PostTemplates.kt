@@ -151,6 +151,10 @@ private class Frame(val size: PostSize) {
     fun card(x: Float, y: Float, w: Float, h: Float, tone: PostTone, alpha: Int = 255, radius: Float = 0.03f, over: Boolean = false) =
         DecorBox(DecorShape.ROUND, fx(x), fy(y), fw(w), fh(h), tone, alpha, radius, over)
 
+    /** A card that floats: white-ish fill with a soft shadow. */
+    fun lift(x: Float, y: Float, w: Float, h: Float, tone: PostTone = PostTone.LIGHT, radius: Float = 0.03f) =
+        DecorBox(DecorShape.ROUND, fx(x), fy(y), fw(w), fh(h), tone, 255, radius, shadow = true)
+
     /** Thin horizontal rule. thick is a fraction of the shorter side. */
     fun rule(x: Float, y: Float, w: Float, tone: PostTone, thick: Float = 0.007f) =
         DecorBox(DecorShape.RECT, fx(x), fy(y), fw(w), thick * U / H, tone)
@@ -169,6 +173,22 @@ private class Frame(val size: PostSize) {
         val ry = r * U / H
         return DecorBox(DecorShape.OVAL, fx(cx) - rx, fy(cy) - ry, 2f * rx, 2f * ry, tone, alpha)
     }
+
+    /** An outline circle centered on canvas fractions; r and stroke are fractions of the shorter side. */
+    fun ringAt(cx: Float, cy: Float, r: Float, tone: PostTone, alpha: Int = 255, stroke: Float = 0.008f, over: Boolean = false) =
+        DecorBox(DecorShape.RING, cx - r * U / W, cy - r * U / H, 2f * r * U / W, 2f * r * U / H, tone, alpha, overPhoto = over, stroke = stroke)
+
+    /** A soft circle of light centered on canvas fractions: starts at tone and fades out toward the edge color. */
+    fun glow(cx: Float, cy: Float, r: Float, tone: PostTone, to: PostTone, alpha: Int = 200) =
+        DecorBox(DecorShape.OVAL, cx - r * U / W, cy - r * U / H, 2f * r * U / W, 2f * r * U / H, tone, alpha, gradTo = to, alphaTo = 0, angle = 45f)
+
+    /** A full-width fade over a photo, so text stays readable. y and h are canvas fractions. */
+    fun fade(y: Float, h: Float, tone: PostTone, from: Int, to: Int) =
+        DecorBox(DecorShape.RECT, 0f, y, 1f, h, tone, from, overPhoto = true, gradTo = tone, alphaTo = to, angle = 90f)
+
+    /** A small four-point star at canvas fractions; size is a fraction of the shorter side. */
+    fun spark(cx: Float, cy: Float, size: Float, tone: PostTone, alpha: Int = 255) =
+        DecorBox(DecorShape.SPARK, cx - size * U / W / 2f, cy - size * U / H / 2f, size * U / W, size * U / H, tone, alpha)
 }
 
 private fun template(
@@ -179,10 +199,14 @@ private fun template(
     build: Frame.() -> TemplateLayout
 ) = PostTemplateSpec(id, name, family, samples) { size -> PostLooks.enrich(id, size, Frame(size).build()) }
 
-/** Twenty layouts in ten families. Two templates of one family differ in structure, not only in color. */
+/**
+ * Layouts in families. Two templates of one family differ in structure, not only in color.
+ * Decoration hangs on fixed things (the label row, the number, the card) and never on the end of a headline,
+ * because a headline can run one line or four.
+ */
 val PostTemplates: List<PostTemplateSpec> = listOf(
 
-    // 1. Quote: centered, rule above
+    // 1. Quote: centered, ring behind, rule above
     template(
         "quote-center", "Centered quote", "Quote",
         mapOf(
@@ -191,23 +215,28 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
             PostSlots.BODY to "Progress is built by showing up consistently."
         )
     ) {
-        fun eyebrow(y: Float, h: Float) = SlotBox(PostSlots.EYEBROW, .08f, y, .84f, h, .024f, PostFont.BOLD, PostTone.ACCENT, centered = true, caps = true)
+        fun eyebrow(y: Float, h: Float) = SlotBox(PostSlots.EYEBROW, .08f, y, .84f, h, .028f, PostFont.BOLD, PostTone.ACCENT, centered = true, caps = true)
         fun headline(y: Float, h: Float, sz: Float) = SlotBox(PostSlots.HEADLINE, .08f, y, .84f, h, sz, PostFont.DISPLAY, PostTone.TEXT, centered = true)
         fun body(y: Float, h: Float, sz: Float) = SlotBox(PostSlots.BODY, .08f, y, .84f, h, sz, PostFont.REGULAR, PostTone.MUTED, centered = true)
         val slots = when (size) {
-            PostSize.SQUARE -> listOf(eyebrow(.22f, .05f), headline(.30f, .32f, .078f), body(.65f, .18f, .036f))
-            PostSize.LANDSCAPE -> listOf(eyebrow(.21f, .06f), headline(.31f, .32f, .078f), body(.66f, .17f, .034f))
-            PostSize.STORY -> listOf(eyebrow(.28f, .03f), headline(.34f, .24f, .086f), body(.62f, .14f, .038f))
+            PostSize.SQUARE -> listOf(eyebrow(.22f, .05f), headline(.30f, .32f, .084f), body(.65f, .18f, .04f))
+            PostSize.LANDSCAPE -> listOf(eyebrow(.21f, .06f), headline(.31f, .32f, .084f), body(.66f, .17f, .038f))
+            PostSize.STORY -> listOf(eyebrow(.28f, .03f), headline(.34f, .24f, .09f), body(.62f, .14f, .042f))
         }
         val ruleY = slots.first().y - .03f
         TemplateLayout(
             PostBase.LIGHT,
-            listOf(DecorBox(DecorShape.RECT, .46f, ruleY, .08f, .006f * U / H, PostTone.ACCENT)),
-            slots
+            listOf(
+                ringAt(.5f, .5f, .36f, PostTone.ACCENT, 38, .008f),
+                ringAt(.5f, .5f, .43f, PostTone.ACCENT, 20, .004f),
+                DecorBox(DecorShape.RECT, .46f, ruleY, .08f, .006f * U / H, PostTone.ACCENT)
+            ),
+            slots,
+            backdrop = Backdrop(PostTone.TINT, PostTone.SOFT, 135f)
         )
     },
 
-    // 2. Quote: left aligned with a vertical bar
+    // 2. Quote: big mark, left aligned with a vertical bar
     template(
         "quote-bar", "Quote with side bar", "Quote",
         mapOf(
@@ -218,16 +247,21 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
     ) {
         TemplateLayout(
             PostBase.LIGHT,
-            listOf(vbar(0f, .05f, .90f, PostTone.ACCENT)),
             listOf(
-                box(PostSlots.EYEBROW, .07f, .05f, .93f, .07f, .024f, PostFont.BOLD, PostTone.ACCENT, caps = true),
-                box(PostSlots.HEADLINE, .07f, .15f, .93f, .52f, .072f, PostFont.DISPLAY, PostTone.TEXT),
-                box(PostSlots.BODY, .07f, .70f, .93f, .26f, .034f, PostFont.REGULAR, PostTone.MUTED)
-            )
+                vbar(0f, .02f, .94f, PostTone.ACCENT, .016f),
+                DecorBox(DecorShape.DOTS, fx(.86f), fy(0f), fw(.12f), fw(.12f) * W / H, PostTone.ACCENT, 90)
+            ),
+            listOf(
+                mark("\u201C", .07f, -.01f, .4f, .21f, .2f, PostFont.DISPLAY, PostTone.ACCENT),
+                box(PostSlots.EYEBROW, .07f, .20f, .93f, .06f, .028f, PostFont.BOLD, PostTone.ACCENT, caps = true),
+                box(PostSlots.HEADLINE, .07f, .27f, .93f, .45f, .076f, PostFont.DISPLAY, PostTone.TEXT),
+                box(PostSlots.BODY, .07f, .75f, .93f, .22f, .04f, PostFont.REGULAR, PostTone.MUTED)
+            ),
+            backdrop = Backdrop(PostTone.TINT, PostTone.SOFT, 120f)
         )
     },
 
-    // 3. Quote: big quote mark over a dimmed photo
+    // 3. Quote: big quote mark over a dimmed photo, fade under the words
     template(
         "quote-photo", "Quote on photo", "Quote",
         mapOf(
@@ -238,18 +272,18 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
     ) {
         TemplateLayout(
             PostBase.DARK,
-            emptyList(),
+            listOf(fade(.30f, .70f, PostTone.DARK, 0, 200)),
             listOf(
                 mark("\u201C", 0f, 0f, .4f, .24f, .2f, PostFont.DISPLAY, PostTone.SECONDARY),
-                box(PostSlots.EYEBROW, 0f, .24f, 1f, .06f, .024f, PostFont.BOLD, PostTone.SECONDARY, caps = true),
-                box(PostSlots.HEADLINE, 0f, .32f, 1f, .42f, .07f, PostFont.DISPLAY, PostTone.LIGHT),
-                box(PostSlots.BODY, 0f, .77f, 1f, .20f, .034f, PostFont.REGULAR, PostTone.LIGHT_MUTED)
+                box(PostSlots.EYEBROW, 0f, .24f, 1f, .06f, .028f, PostFont.BOLD, PostTone.SECONDARY, caps = true),
+                box(PostSlots.HEADLINE, 0f, .32f, 1f, .42f, .074f, PostFont.DISPLAY, PostTone.LIGHT),
+                box(PostSlots.BODY, 0f, .77f, 1f, .20f, .038f, PostFont.REGULAR, PostTone.LIGHT_MUTED)
             ),
-            PostPhotoArea(0f, 0f, 1f, 1f, 140)
+            PostPhotoArea(0f, 0f, 1f, 1f, 120)
         )
     },
 
-    // 4. Motivation: one loud statement on the brand color
+    // 4. Motivation: one loud statement on a brand gradient
     template(
         "motivation-bold", "Bold statement", "Motivation",
         mapOf(
@@ -260,16 +294,21 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
     ) {
         TemplateLayout(
             PostBase.PRIMARY,
-            listOf(rule(0f, .78f, .18f, PostTone.SECONDARY, .010f)),
             listOf(
-                box(PostSlots.EYEBROW, 0f, 0f, 1f, .06f, .024f, PostFont.BOLD, PostTone.SECONDARY, caps = true),
-                box(PostSlots.HEADLINE, 0f, .08f, 1f, .66f, .10f, PostFont.DISPLAY, PostTone.LIGHT),
-                box(PostSlots.BODY, 0f, .82f, 1f, .16f, .034f, PostFont.REGULAR, PostTone.LIGHT_MUTED)
-            )
+                ringAt(.92f, .80f, .42f, PostTone.SECONDARY, 45, .02f),
+                spark(fx(.93f), fy(.02f), .06f, PostTone.SECONDARY),
+                rule(0f, .075f, .18f, PostTone.SECONDARY, .010f)
+            ),
+            listOf(
+                box(PostSlots.EYEBROW, 0f, 0f, .8f, .06f, .028f, PostFont.BOLD, PostTone.SECONDARY, caps = true),
+                box(PostSlots.HEADLINE, 0f, .11f, 1f, .62f, .104f, PostFont.DISPLAY, PostTone.LIGHT),
+                box(PostSlots.BODY, 0f, .80f, 1f, .18f, .04f, PostFont.REGULAR, PostTone.LIGHT_MUTED)
+            ),
+            backdrop = Backdrop(PostTone.ACCENT, PostTone.DEEP, 140f)
         )
     },
 
-    // 5. Motivation: light top for the headline, brand-color bottom for the message
+    // 5. Motivation: light top for the headline, rolling wave of brand color for the message
     template(
         "motivation-split", "Split color", "Motivation",
         mapOf(
@@ -282,20 +321,23 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
         val eyY = top + .01f
         val eyH = if (story) .03f else .05f
         val headY = top + (if (story) .05f else .075f)
-        val bodyY = split + (if (story) .04f else .05f)
+        val bodyY = split + (if (story) .06f else .07f)
         TemplateLayout(
             PostBase.LIGHT,
-            listOf(DecorBox(DecorShape.RECT, 0f, split, 1f, 1f - split, PostTone.ACCENT)),
             listOf(
-                abox(PostSlots.EYEBROW, 0f, eyY, 1f, eyH, .024f, PostFont.BOLD, PostTone.ACCENT, caps = true),
-                abox(PostSlots.HEADLINE, 0f, headY, 1f, split - .03f - headY, .078f, PostFont.DISPLAY, PostTone.TEXT),
-                abox(PostSlots.BODY, 0f, bodyY, 1f, bottom - bodyY, .04f, PostFont.REGULAR, PostTone.LIGHT)
+                DecorBox(DecorShape.WAVE, 0f, split - .03f, 1f, 1f - split + .03f, PostTone.GLOW, 120),
+                DecorBox(DecorShape.WAVE, 0f, split, 1f, 1f - split, PostTone.ACCENT, 255, gradTo = PostTone.DEEP, angle = 90f)
+            ),
+            listOf(
+                abox(PostSlots.EYEBROW, 0f, eyY, 1f, eyH, .028f, PostFont.BOLD, PostTone.ACCENT, caps = true),
+                abox(PostSlots.HEADLINE, 0f, headY, 1f, split - .04f - headY, .084f, PostFont.DISPLAY, PostTone.TEXT),
+                abox(PostSlots.BODY, 0f, bodyY, 1f, bottom - bodyY, .042f, PostFont.REGULAR, PostTone.LIGHT)
             ),
             footerLight = true
         )
     },
 
-    // 6. Question: question on top, four lettered options on a soft panel
+    // 6. Question: question on top, four lettered options on a floating card
     template(
         "mcq-four", "MCQ, four options", "Question",
         mapOf(
@@ -306,16 +348,21 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
     ) {
         TemplateLayout(
             PostBase.LIGHT,
-            listOf(card(0f, .42f, 1f, .56f, PostTone.SECONDARY, alpha = 110)),
             listOf(
-                box(PostSlots.EYEBROW, 0f, 0f, 1f, .06f, .024f, PostFont.BOLD, PostTone.ACCENT, caps = true),
-                box(PostSlots.HEADLINE, 0f, .08f, 1f, .31f, .054f, PostFont.DISPLAY, PostTone.TEXT),
-                box(PostSlots.LIST, .05f, .47f, .90f, .46f, .04f, PostFont.BOLD, PostTone.TEXT, list = ListStyle.LETTER)
-            )
+                glow(.95f, .15f, .35f, PostTone.ACCENT, PostTone.GLOW, 70),
+                lift(0f, .41f, 1f, .57f, radius = .035f),
+                vbar(0f, .41f, .57f, PostTone.ACCENT, .014f)
+            ),
+            listOf(
+                box(PostSlots.EYEBROW, 0f, 0f, 1f, .06f, .028f, PostFont.BOLD, PostTone.ACCENT, caps = true),
+                box(PostSlots.HEADLINE, 0f, .08f, 1f, .30f, .058f, PostFont.DISPLAY, PostTone.TEXT),
+                box(PostSlots.LIST, .06f, .46f, .88f, .48f, .044f, PostFont.BOLD, PostTone.TEXT, list = ListStyle.LETTER)
+            ),
+            backdrop = Backdrop(PostTone.TINT, PostTone.SOFT, 135f)
         )
     },
 
-    // 7. Question: question above, answer on a brand-color card
+    // 7. Question: question above, answer on a gradient card
     template(
         "question-answer", "Question and answer", "Question",
         mapOf(
@@ -326,18 +373,23 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
     ) {
         TemplateLayout(
             PostBase.LIGHT,
-            listOf(card(0f, .56f, 1f, .42f, PostTone.ACCENT, radius = .035f)),
             listOf(
-                box(PostSlots.EYEBROW, 0f, 0f, 1f, .06f, .024f, PostFont.BOLD, PostTone.ACCENT, centered = true, caps = true),
-                box(PostSlots.HEADLINE, 0f, .09f, 1f, .43f, .062f, PostFont.DISPLAY, PostTone.TEXT, centered = true),
-                mark("ANSWER", .06f, .61f, .88f, .06f, .022f, PostFont.BOLD, PostTone.SECONDARY, centered = true),
-                box(PostSlots.BODY, .06f, .69f, .88f, .26f, .042f, PostFont.DISPLAY, PostTone.LIGHT, centered = true)
+                DecorBox(DecorShape.ROUND, fx(0f), fy(.56f), fw(1f), fh(.42f), PostTone.ACCENT, 255, .035f, gradTo = PostTone.DEEP, angle = 125f, shadow = true),
+                spark(fx(.92f), fy(.63f), .05f, PostTone.SECONDARY, 200),
+                spark(fx(.06f), fy(.90f), .03f, PostTone.SECONDARY, 140)
             ),
-            footerLight = false
+            listOf(
+                box(PostSlots.EYEBROW, 0f, 0f, 1f, .06f, .028f, PostFont.BOLD, PostTone.ACCENT, centered = true, caps = true),
+                box(PostSlots.HEADLINE, 0f, .09f, 1f, .43f, .066f, PostFont.DISPLAY, PostTone.TEXT, centered = true),
+                mark("ANSWER", .06f, .61f, .88f, .06f, .026f, PostFont.BOLD, PostTone.SECONDARY, centered = true),
+                box(PostSlots.BODY, .06f, .69f, .88f, .26f, .048f, PostFont.DISPLAY, PostTone.LIGHT, centered = true)
+            ),
+            footerLight = false,
+            backdrop = Backdrop(PostTone.TINT, PostTone.SOFT, 135f)
         )
     },
 
-    // 8. Exam: the date is the post
+    // 8. Exam: the date is the post, inside a ring
     template(
         "exam-date", "Exam date banner", "Exam",
         mapOf(
@@ -349,17 +401,22 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
     ) {
         TemplateLayout(
             PostBase.PRIMARY,
-            listOf(rule(.4f, .50f, .2f, PostTone.SECONDARY, .008f)),
             listOf(
-                box(PostSlots.EYEBROW, 0f, 0f, 1f, .06f, .024f, PostFont.BOLD, PostTone.SECONDARY, centered = true, caps = true),
+                ringAt(.5f, fy(.27f), .30f, PostTone.SECONDARY, 55, .006f),
+                ringAt(.5f, fy(.27f), .36f, PostTone.SECONDARY, 28, .004f),
+                rule(.4f, .50f, .2f, PostTone.SECONDARY, .008f)
+            ),
+            listOf(
+                box(PostSlots.EYEBROW, 0f, 0f, 1f, .06f, .028f, PostFont.BOLD, PostTone.SECONDARY, centered = true, caps = true),
                 box(PostSlots.NUMBER, 0f, .08f, 1f, .38f, .18f, PostFont.DISPLAY, PostTone.LIGHT, centered = true),
-                box(PostSlots.HEADLINE, 0f, .56f, 1f, .22f, .06f, PostFont.DISPLAY, PostTone.LIGHT, centered = true),
-                box(PostSlots.BODY, 0f, .80f, 1f, .18f, .034f, PostFont.REGULAR, PostTone.LIGHT_MUTED, centered = true)
-            )
+                box(PostSlots.HEADLINE, 0f, .56f, 1f, .22f, .064f, PostFont.DISPLAY, PostTone.LIGHT, centered = true),
+                box(PostSlots.BODY, 0f, .80f, 1f, .18f, .038f, PostFont.REGULAR, PostTone.LIGHT_MUTED, centered = true)
+            ),
+            backdrop = Backdrop(PostTone.ACCENT, PostTone.DEEP, 140f)
         )
     },
 
-    // 9. Exam: days left inside a big circle
+    // 9. Exam: days left inside a big gradient circle
     template(
         "exam-countdown", "Countdown number", "Exam",
         mapOf(
@@ -383,21 +440,28 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
         val headH = if (story) .19f else bottom - headY
         val slots = mutableListOf(
             SlotBox(PostSlots.NUMBER, cx - rx, cy - numberH / 2f, 2f * rx, numberH, ns, PostFont.DISPLAY, PostTone.LIGHT, centered = true),
-            abox(PostSlots.EYEBROW, 0f, eyY, 1f, eyH, .026f, PostFont.BOLD, PostTone.ACCENT, centered = true, caps = true),
-            abox(PostSlots.HEADLINE, 0f, headY, 1f, headH, .054f, PostFont.DISPLAY, PostTone.TEXT, centered = true)
+            abox(PostSlots.EYEBROW, 0f, eyY, 1f, eyH, .032f, PostFont.BOLD, PostTone.ACCENT, centered = true, caps = true),
+            abox(PostSlots.HEADLINE, 0f, headY, 1f, headH, .058f, PostFont.DISPLAY, PostTone.TEXT, centered = true)
         )
         if (story) {
             val bodyY = headY + headH + .01f
-            slots.add(abox(PostSlots.BODY, 0f, bodyY, 1f, bottom - bodyY, .034f, PostFont.REGULAR, PostTone.MUTED, centered = true))
+            slots.add(abox(PostSlots.BODY, 0f, bodyY, 1f, bottom - bodyY, .038f, PostFont.REGULAR, PostTone.MUTED, centered = true))
         }
         TemplateLayout(
             PostBase.LIGHT,
-            listOf(DecorBox(DecorShape.OVAL, cx - rx, cy - ry, 2f * rx, 2f * ry, PostTone.ACCENT)),
-            slots
+            listOf(
+                ringAt(cx, cy, r * 1.16f, PostTone.ACCENT, 110, .006f),
+                ringAt(cx, cy, r * 1.30f, PostTone.ACCENT, 50, .004f),
+                DecorBox(DecorShape.OVAL, cx - rx, cy - ry, 2f * rx, 2f * ry, PostTone.ACCENT, 255, gradTo = PostTone.DEEP, angle = 135f, shadow = true),
+                spark(cx + rx * 1.25f, cy - ry * 0.95f, .04f, PostTone.ACCENT),
+                spark(cx - rx * 1.30f, cy + ry * 0.70f, .025f, PostTone.ACCENT, 160)
+            ),
+            slots,
+            backdrop = Backdrop(PostTone.TINT, PostTone.SOFT, 135f)
         )
     },
 
-    // 10. Study tip: giant tip number, then the tip
+    // 10. Study tip: giant tip number, stripe block, then the tip
     template(
         "tip-numbered", "Numbered tip", "Study tip",
         mapOf(
@@ -409,17 +473,21 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
     ) {
         TemplateLayout(
             PostBase.LIGHT,
-            listOf(rule(0f, .50f, .14f, PostTone.ACCENT, .008f)),
             listOf(
-                box(PostSlots.EYEBROW, 0f, 0f, 1f, .06f, .024f, PostFont.BOLD, PostTone.ACCENT, caps = true),
-                box(PostSlots.NUMBER, 0f, .06f, 1f, .42f, .20f, PostFont.DISPLAY, PostTone.ACCENT),
-                box(PostSlots.HEADLINE, 0f, .54f, 1f, .26f, .062f, PostFont.DISPLAY, PostTone.TEXT),
-                box(PostSlots.BODY, 0f, .81f, 1f, .17f, .032f, PostFont.REGULAR, PostTone.MUTED)
-            )
+                DecorBox(DecorShape.STRIPES, fx(.74f), fy(0f), fw(.26f), fw(.26f) * W / H, PostTone.ACCENT, 90),
+                rule(0f, .50f, .14f, PostTone.ACCENT, .008f)
+            ),
+            listOf(
+                box(PostSlots.EYEBROW, 0f, 0f, .7f, .06f, .028f, PostFont.BOLD, PostTone.ACCENT, caps = true),
+                box(PostSlots.NUMBER, 0f, .06f, 1f, .42f, .21f, PostFont.DISPLAY, PostTone.ACCENT),
+                box(PostSlots.HEADLINE, 0f, .54f, 1f, .26f, .066f, PostFont.DISPLAY, PostTone.TEXT),
+                box(PostSlots.BODY, 0f, .81f, 1f, .17f, .036f, PostFont.REGULAR, PostTone.MUTED)
+            ),
+            backdrop = Backdrop(PostTone.TINT, PostTone.SOFT, 135f)
         )
     },
 
-    // 11. Study tip: a light note card with key points on the brand color
+    // 11. Study tip: a floating note card with key points on a brand gradient
     template(
         "tip-card", "Note card", "Study tip",
         mapOf(
@@ -431,19 +499,21 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
         TemplateLayout(
             PostBase.PRIMARY,
             listOf(
-                card(0f, .02f, 1f, .94f, PostTone.LIGHT, radius = .035f),
+                lift(0f, .02f, 1f, .94f, radius = .035f),
+                spark(fx(.90f), fy(.095f), .05f, PostTone.ACCENT),
                 rule(.07f, .36f, .12f, PostTone.ACCENT, .008f)
             ),
             listOf(
-                box(PostSlots.EYEBROW, .07f, .07f, .86f, .05f, .022f, PostFont.BOLD, PostTone.ACCENT, caps = true),
-                box(PostSlots.HEADLINE, .07f, .13f, .86f, .21f, .056f, PostFont.DISPLAY, PostTone.TEXT),
-                box(PostSlots.LIST, .07f, .40f, .86f, .52f, .036f, PostFont.REGULAR, PostTone.TEXT, list = ListStyle.DOT)
+                box(PostSlots.EYEBROW, .07f, .07f, .70f, .05f, .026f, PostFont.BOLD, PostTone.ACCENT, caps = true),
+                box(PostSlots.HEADLINE, .07f, .13f, .86f, .21f, .06f, PostFont.DISPLAY, PostTone.TEXT),
+                box(PostSlots.LIST, .07f, .40f, .86f, .52f, .04f, PostFont.REGULAR, PostTone.TEXT, list = ListStyle.DOT)
             ),
-            footerLight = true
+            footerLight = true,
+            backdrop = Backdrop(PostTone.ACCENT, PostTone.DEEP, 140f)
         )
     },
 
-    // 12. Subject: photo across the top, title below
+    // 12. Subject: photo across the top with a wavy edge, title below
     template(
         "subject-cover", "Subject cover, photo on top", "Subject",
         mapOf(
@@ -453,24 +523,28 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
         )
     ) {
         val cover = if (story) .40f else .45f
-        val eyY = cover + (if (story) .03f else .04f)
+        val eyY = cover + (if (story) .04f else .05f)
         val eyH = if (story) .03f else .045f
         val headY = eyY + eyH + .01f
         val headH = if (story) .22f else .22f
         val bodyY = headY + headH + .01f
         TemplateLayout(
             PostBase.LIGHT,
-            listOf(DecorBox(DecorShape.RECT, 0f, 0f, 1f, cover, PostTone.ACCENT)),
             listOf(
-                abox(PostSlots.EYEBROW, 0f, eyY, 1f, eyH, .024f, PostFont.BOLD, PostTone.ACCENT, caps = true),
-                abox(PostSlots.HEADLINE, 0f, headY, 1f, headH, .074f, PostFont.DISPLAY, PostTone.TEXT),
-                abox(PostSlots.BODY, 0f, bodyY, 1f, bottom - bodyY, .032f, PostFont.REGULAR, PostTone.MUTED)
+                DecorBox(DecorShape.RECT, 0f, 0f, 1f, cover, PostTone.ACCENT, 255, gradTo = PostTone.DEEP, angle = 135f),
+                ringAt(.86f, cover * .45f, .16f, PostTone.LIGHT, 70, .008f, over = true),
+                DecorBox(DecorShape.WAVE, 0f, cover - .045f, 1f, .06f, PostTone.LIGHT, overPhoto = true)
+            ),
+            listOf(
+                abox(PostSlots.EYEBROW, 0f, eyY, 1f, eyH, .028f, PostFont.BOLD, PostTone.ACCENT, caps = true),
+                abox(PostSlots.HEADLINE, 0f, headY, 1f, headH, .08f, PostFont.DISPLAY, PostTone.TEXT),
+                abox(PostSlots.BODY, 0f, bodyY, 1f, bottom - bodyY, .036f, PostFont.REGULAR, PostTone.MUTED)
             ),
             PostPhotoArea(0f, 0f, 1f, cover, 60)
         )
     },
 
-    // 13. Subject: course code in a pill, big subject name
+    // 13. Subject: course code in a pill, big subject name, soft glow
     template(
         "subject-badge", "Course code badge", "Subject",
         mapOf(
@@ -483,18 +557,21 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
         TemplateLayout(
             PostBase.LIGHT,
             listOf(
-                DecorBox(DecorShape.ROUND, fx(0f), badgeY, fw(.5f), 74f / H, PostTone.ACCENT, radius = .05f),
+                glow(.92f, .82f, .50f, PostTone.ACCENT, PostTone.GLOW, 90),
+                ringAt(.90f, .30f, .20f, PostTone.ACCENT, 60, .006f),
+                DecorBox(DecorShape.ROUND, fx(0f), badgeY, fw(.5f), 74f / H, PostTone.ACCENT, 255, .05f, gradTo = PostTone.DEEP, angle = 0f),
                 rule(0f, .66f, .14f, PostTone.ACCENT, .008f)
             ),
             listOf(
-                abox(PostSlots.NUMBER, 0f, badgeY + 15f / H, .5f, 52f / H, .03f, PostFont.BOLD, PostTone.LIGHT, centered = true, caps = true),
-                box(PostSlots.HEADLINE, 0f, .20f, 1f, .42f, .088f, PostFont.DISPLAY, PostTone.TEXT),
-                box(PostSlots.BODY, 0f, .70f, 1f, .26f, .034f, PostFont.REGULAR, PostTone.MUTED)
-            )
+                abox(PostSlots.NUMBER, 0f, badgeY + 15f / H, .5f, 52f / H, .034f, PostFont.BOLD, PostTone.LIGHT, centered = true, caps = true),
+                box(PostSlots.HEADLINE, 0f, .20f, 1f, .42f, .092f, PostFont.DISPLAY, PostTone.TEXT),
+                box(PostSlots.BODY, 0f, .70f, 1f, .26f, .038f, PostFont.REGULAR, PostTone.MUTED)
+            ),
+            backdrop = Backdrop(PostTone.TINT, PostTone.SOFT, 135f)
         )
     },
 
-    // 14. Promotion: dark, with feature checklist and soft circles
+    // 14. Promotion: dark, with glowing light and a feature checklist
     template(
         "promo-feature", "Feature highlight", "Promotion",
         mapOf(
@@ -506,15 +583,16 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
         TemplateLayout(
             PostBase.DARK,
             listOf(
-                disc(1.0f, 0f, .30f, PostTone.ACCENT, 190),
-                disc(0f, 1.0f, .18f, PostTone.SECONDARY, 40),
+                glow(.95f, .08f, .42f, PostTone.ACCENT, PostTone.GLOW, 220),
+                glow(.02f, .98f, .30f, PostTone.GLOW, PostTone.DEEP, 130),
                 rule(0f, .42f, .12f, PostTone.SECONDARY, .008f)
             ),
             listOf(
-                box(PostSlots.EYEBROW, 0f, .02f, 1f, .06f, .024f, PostFont.BOLD, PostTone.SECONDARY, caps = true),
-                box(PostSlots.HEADLINE, 0f, .10f, 1f, .30f, .08f, PostFont.DISPLAY, PostTone.LIGHT),
-                box(PostSlots.LIST, 0f, .47f, 1f, .50f, .038f, PostFont.BOLD, PostTone.LIGHT, list = ListStyle.CHECK)
-            )
+                box(PostSlots.EYEBROW, 0f, .02f, .8f, .06f, .028f, PostFont.BOLD, PostTone.SECONDARY, caps = true),
+                box(PostSlots.HEADLINE, 0f, .10f, 1f, .30f, .086f, PostFont.DISPLAY, PostTone.LIGHT),
+                box(PostSlots.LIST, 0f, .47f, 1f, .50f, .042f, PostFont.BOLD, PostTone.LIGHT, list = ListStyle.CHECK)
+            ),
+            backdrop = Backdrop(PostTone.DEEP, PostTone.PAGE, 150f)
         )
     },
 
@@ -530,17 +608,22 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
     ) {
         TemplateLayout(
             PostBase.PRIMARY,
-            listOf(card(.08f, .76f, .84f, .17f, PostTone.LIGHT, radius = .05f)),
             listOf(
-                box(PostSlots.EYEBROW, 0f, .04f, 1f, .06f, .024f, PostFont.BOLD, PostTone.SECONDARY, centered = true, caps = true),
-                box(PostSlots.HEADLINE, 0f, .12f, 1f, .46f, .088f, PostFont.DISPLAY, PostTone.LIGHT, centered = true),
-                box(PostSlots.BODY, 0f, .60f, 1f, .12f, .034f, PostFont.REGULAR, PostTone.LIGHT_MUTED, centered = true),
-                box(PostSlots.BUTTON, .10f, .80f, .80f, .09f, .04f, PostFont.DISPLAY, PostTone.DARK, centered = true)
-            )
+                glow(.90f, .12f, .38f, PostTone.GLOW, PostTone.ACCENT, 160),
+                ringAt(.08f, .62f, .26f, PostTone.SECONDARY, 40, .01f),
+                lift(.08f, .76f, .84f, .17f, radius = .05f)
+            ),
+            listOf(
+                box(PostSlots.EYEBROW, 0f, .04f, 1f, .06f, .028f, PostFont.BOLD, PostTone.SECONDARY, centered = true, caps = true),
+                box(PostSlots.HEADLINE, 0f, .12f, 1f, .46f, .094f, PostFont.DISPLAY, PostTone.LIGHT, centered = true),
+                box(PostSlots.BODY, 0f, .60f, 1f, .12f, .038f, PostFont.REGULAR, PostTone.LIGHT_MUTED, centered = true),
+                box(PostSlots.BUTTON, .10f, .80f, .80f, .09f, .044f, PostFont.DISPLAY, PostTone.DARK, centered = true)
+            ),
+            backdrop = Backdrop(PostTone.ACCENT, PostTone.DEEP, 140f)
         )
     },
 
-    // 16. Reminder: label pill, headline, checklist
+    // 16. Reminder: label pill, headline, checklist on a floating card
     template(
         "reminder-checklist", "Checklist", "Reminder",
         mapOf(
@@ -552,16 +635,21 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
         val pillY = fy(0f)
         TemplateLayout(
             PostBase.LIGHT,
-            listOf(DecorBox(DecorShape.ROUND, fx(0f), pillY, fw(.46f), 64f / H, PostTone.ACCENT, radius = .04f)),
             listOf(
-                abox(PostSlots.EYEBROW, 0f, pillY + 16f / H, .46f, 36f / H, .022f, PostFont.BOLD, PostTone.LIGHT, centered = true, caps = true),
-                box(PostSlots.HEADLINE, 0f, .11f, 1f, .21f, .062f, PostFont.DISPLAY, PostTone.TEXT),
-                box(PostSlots.LIST, 0f, .36f, 1f, .60f, .04f, PostFont.BOLD, PostTone.TEXT, list = ListStyle.CHECK)
-            )
+                DecorBox(DecorShape.ROUND, fx(0f), pillY, fw(.46f), 64f / H, PostTone.ACCENT, 255, .04f, gradTo = PostTone.DEEP, angle = 0f),
+                lift(0f, .34f, 1f, .64f, radius = .03f),
+                spark(fx(.93f), fy(.04f), .05f, PostTone.ACCENT)
+            ),
+            listOf(
+                abox(PostSlots.EYEBROW, 0f, pillY + 16f / H, .46f, 36f / H, .024f, PostFont.BOLD, PostTone.LIGHT, centered = true, caps = true),
+                box(PostSlots.HEADLINE, 0f, .11f, 1f, .21f, .066f, PostFont.DISPLAY, PostTone.TEXT),
+                box(PostSlots.LIST, .05f, .38f, .90f, .56f, .042f, PostFont.BOLD, PostTone.TEXT, list = ListStyle.CHECK)
+            ),
+            backdrop = Backdrop(PostTone.TINT, PostTone.SOFT, 135f)
         )
     },
 
-    // 17. Reminder: weekly schedule with day labels and row rules
+    // 17. Reminder: weekly schedule, brand header and a floating card of rows
     template(
         "reminder-schedule", "Weekly schedule", "Reminder",
         mapOf(
@@ -572,16 +660,21 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
     ) {
         TemplateLayout(
             PostBase.LIGHT,
-            emptyList(),
             listOf(
-                box(PostSlots.EYEBROW, 0f, 0f, 1f, .06f, .024f, PostFont.BOLD, PostTone.ACCENT, caps = true),
-                box(PostSlots.HEADLINE, 0f, .07f, 1f, .15f, .06f, PostFont.DISPLAY, PostTone.TEXT),
-                box(PostSlots.LIST, 0f, .25f, 1f, .72f, .04f, PostFont.REGULAR, PostTone.TEXT, list = ListStyle.ROW)
-            )
+                DecorBox(DecorShape.ROUND, fx(0f), fy(0f), fw(1f), fh(.23f), PostTone.ACCENT, 255, .03f, gradTo = PostTone.DEEP, angle = 135f),
+                ringAt(fx(.92f), fy(.10f), .09f, PostTone.LIGHT, 70, .006f),
+                lift(0f, .27f, 1f, .71f, radius = .03f)
+            ),
+            listOf(
+                box(PostSlots.EYEBROW, .05f, .02f, .7f, .06f, .024f, PostFont.BOLD, PostTone.SECONDARY, caps = true),
+                box(PostSlots.HEADLINE, .05f, .08f, .8f, .14f, .062f, PostFont.DISPLAY, PostTone.LIGHT),
+                box(PostSlots.LIST, .05f, .29f, .90f, .67f, .042f, PostFont.REGULAR, PostTone.TEXT, list = ListStyle.ROW)
+            ),
+            backdrop = Backdrop(PostTone.TINT, PostTone.SOFT, 135f)
         )
     },
 
-    // 18. Achievement: giant number on dark
+    // 18. Achievement: giant number on dark, lit from behind
     template(
         "milestone-number", "Milestone number", "Achievement",
         mapOf(
@@ -593,17 +686,24 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
     ) {
         TemplateLayout(
             PostBase.DARK,
-            listOf(rule(0f, .58f, 1f, PostTone.SECONDARY, .008f)),
             listOf(
-                box(PostSlots.EYEBROW, 0f, 0f, 1f, .05f, .024f, PostFont.BOLD, PostTone.LIGHT, caps = true),
-                box(PostSlots.NUMBER, 0f, .06f, 1f, .50f, .24f, PostFont.DISPLAY, PostTone.SECONDARY),
-                box(PostSlots.HEADLINE, 0f, .62f, 1f, .20f, .06f, PostFont.DISPLAY, PostTone.LIGHT),
-                box(PostSlots.BODY, 0f, .84f, 1f, .14f, .032f, PostFont.REGULAR, PostTone.LIGHT_MUTED)
-            )
+                glow(.5f, .36f, .48f, PostTone.ACCENT, PostTone.GLOW, 170),
+                ringAt(.5f, .36f, .30f, PostTone.SECONDARY, 55, .006f),
+                spark(fx(.90f), fy(.08f), .05f, PostTone.SECONDARY),
+                spark(fx(.08f), fy(.50f), .03f, PostTone.SECONDARY, 160),
+                rule(0f, .58f, 1f, PostTone.SECONDARY, .008f)
+            ),
+            listOf(
+                box(PostSlots.EYEBROW, 0f, 0f, .8f, .05f, .028f, PostFont.BOLD, PostTone.LIGHT, caps = true),
+                box(PostSlots.NUMBER, 0f, .06f, 1f, .50f, .25f, PostFont.DISPLAY, PostTone.SECONDARY),
+                box(PostSlots.HEADLINE, 0f, .62f, 1f, .20f, .064f, PostFont.DISPLAY, PostTone.LIGHT),
+                box(PostSlots.BODY, 0f, .84f, 1f, .14f, .036f, PostFont.REGULAR, PostTone.LIGHT_MUTED)
+            ),
+            backdrop = Backdrop(PostTone.DEEP, PostTone.PAGE, 150f)
         )
     },
 
-    // 19. Announcement: soft band behind the headline, details below
+    // 19. Announcement: soft gradient band behind the headline, accent bar on the details
     template(
         "announce-plain", "Plain announcement", "Announcement",
         mapOf(
@@ -614,16 +714,20 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
     ) {
         TemplateLayout(
             PostBase.LIGHT,
-            listOf(DecorBox(DecorShape.RECT, 0f, fy(.03f), 1f, fh(.50f), PostTone.SECONDARY)),
             listOf(
-                box(PostSlots.EYEBROW, 0f, .06f, 1f, .06f, .024f, PostFont.BOLD, PostTone.ACCENT, caps = true),
-                box(PostSlots.HEADLINE, 0f, .14f, 1f, .36f, .07f, PostFont.DISPLAY, PostTone.TEXT),
-                box(PostSlots.BODY, 0f, .58f, 1f, .38f, .036f, PostFont.REGULAR, PostTone.TEXT)
+                DecorBox(DecorShape.RECT, 0f, fy(.03f), 1f, fh(.50f), PostTone.SECONDARY, 255, gradTo = PostTone.TINT, angle = 135f),
+                ringAt(.90f, fy(.14f), .12f, PostTone.ACCENT, 60, .006f),
+                vbar(0f, .58f, .36f, PostTone.ACCENT, .012f)
+            ),
+            listOf(
+                box(PostSlots.EYEBROW, .02f, .06f, .8f, .06f, .028f, PostFont.BOLD, PostTone.ACCENT, caps = true),
+                box(PostSlots.HEADLINE, .02f, .14f, .9f, .36f, .076f, PostFont.DISPLAY, PostTone.TEXT),
+                box(PostSlots.BODY, .05f, .58f, .95f, .38f, .04f, PostFont.REGULAR, PostTone.TEXT)
             )
         )
     },
 
-    // 20. Announcement: photo on top, label pill and headline low
+    // 20. Announcement: photo behind, fade under the words, label pill
     template(
         "announce-photo", "Photo announcement", "Announcement",
         mapOf(
@@ -635,17 +739,20 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
         val pillY = fy(.52f)
         TemplateLayout(
             PostBase.DARK,
-            listOf(DecorBox(DecorShape.ROUND, fx(0f), pillY, fw(.46f), 64f / H, PostTone.ACCENT, radius = .04f, overPhoto = true)),
             listOf(
-                abox(PostSlots.EYEBROW, 0f, pillY + 16f / H, .46f, 36f / H, .022f, PostFont.BOLD, PostTone.LIGHT, centered = true, caps = true),
-                box(PostSlots.HEADLINE, 0f, .62f, 1f, .24f, .07f, PostFont.DISPLAY, PostTone.LIGHT),
-                box(PostSlots.BODY, 0f, .87f, 1f, .11f, .032f, PostFont.REGULAR, PostTone.LIGHT_MUTED)
+                fade(.40f, .60f, PostTone.DARK, 0, 215),
+                DecorBox(DecorShape.ROUND, fx(0f), pillY, fw(.46f), 64f / H, PostTone.ACCENT, 255, .04f, overPhoto = true)
             ),
-            PostPhotoArea(0f, 0f, 1f, 1f, 130)
+            listOf(
+                abox(PostSlots.EYEBROW, 0f, pillY + 16f / H, .46f, 36f / H, .024f, PostFont.BOLD, PostTone.LIGHT, centered = true, caps = true),
+                box(PostSlots.HEADLINE, 0f, .62f, 1f, .24f, .074f, PostFont.DISPLAY, PostTone.LIGHT),
+                box(PostSlots.BODY, 0f, .87f, 1f, .11f, .036f, PostFont.REGULAR, PostTone.LIGHT_MUTED)
+            ),
+            PostPhotoArea(0f, 0f, 1f, 1f, 110)
         )
     },
 
-    // 21. Social: the Brand icons as big glass cards on a dark gradient
+    // 21. Social: the Brand icons as big glass cards on a glowing dark gradient
     template(
         "social-follow", "Follow us", "Social",
         mapOf(
@@ -656,17 +763,21 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
     ) {
         TemplateLayout(
             PostBase.DARK,
-            emptyList(),
             listOf(
-                box(PostSlots.EYEBROW, 0f, 0f, 1f, .06f, .024f, PostFont.BOLD, PostTone.SECONDARY, centered = true, caps = true),
-                box(PostSlots.HEADLINE, 0f, .08f, 1f, .30f, .074f, PostFont.DISPLAY, PostTone.LIGHT, centered = true),
-                box(PostSlots.BODY, 0f, .40f, 1f, .12f, .032f, PostFont.REGULAR, PostTone.LIGHT_MUTED, centered = true)
+                glow(.92f, .10f, .40f, PostTone.ACCENT, PostTone.GLOW, 200),
+                glow(.05f, .55f, .26f, PostTone.GLOW, PostTone.DEEP, 110)
             ),
+            listOf(
+                box(PostSlots.EYEBROW, 0f, 0f, 1f, .06f, .028f, PostFont.BOLD, PostTone.SECONDARY, centered = true, caps = true),
+                box(PostSlots.HEADLINE, 0f, .08f, 1f, .30f, .078f, PostFont.DISPLAY, PostTone.LIGHT, centered = true),
+                box(PostSlots.BODY, 0f, .40f, 1f, .12f, .036f, PostFont.REGULAR, PostTone.LIGHT_MUTED, centered = true)
+            ),
+            backdrop = Backdrop(PostTone.DEEP, PostTone.PAGE, 150f),
             social = SocialArea(fx(0f), fy(.56f), fw(1f), fh(.42f), SocialStyle.GRID, true)
         )
     },
 
-    // 22. Social: a white card with one wide row per icon
+    // 22. Social: a floating card with one wide row per icon
     template(
         "social-links", "Social link list", "Social",
         mapOf(
@@ -677,12 +788,16 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
     ) {
         TemplateLayout(
             PostBase.LIGHT,
-            listOf(card(0f, .44f, 1f, .54f, PostTone.LIGHT, alpha = 235, radius = .035f)),
             listOf(
-                box(PostSlots.EYEBROW, 0f, 0f, 1f, .06f, .024f, PostFont.BOLD, PostTone.ACCENT, caps = true),
-                box(PostSlots.HEADLINE, 0f, .08f, 1f, .24f, .062f, PostFont.DISPLAY, PostTone.TEXT),
-                box(PostSlots.BODY, 0f, .33f, 1f, .08f, .030f, PostFont.REGULAR, PostTone.MUTED)
+                glow(.92f, .12f, .34f, PostTone.ACCENT, PostTone.GLOW, 70),
+                lift(0f, .44f, 1f, .54f, radius = .035f)
             ),
+            listOf(
+                box(PostSlots.EYEBROW, 0f, 0f, 1f, .06f, .028f, PostFont.BOLD, PostTone.ACCENT, caps = true),
+                box(PostSlots.HEADLINE, 0f, .08f, 1f, .24f, .066f, PostFont.DISPLAY, PostTone.TEXT),
+                box(PostSlots.BODY, 0f, .33f, 1f, .08f, .034f, PostFont.REGULAR, PostTone.MUTED)
+            ),
+            backdrop = Backdrop(PostTone.TINT, PostTone.SOFT, 135f),
             social = SocialArea(fx(.04f), fy(.47f), fw(.92f), fh(.48f), SocialStyle.LIST, false)
         )
     },
@@ -823,13 +938,17 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
     ) {
         TemplateLayout(
             PostBase.DARK,
-            listOf(card(0f, 0f, .5f, .30f, PostTone.LIGHT, radius = .04f)),
+            listOf(
+                glow(.90f, .78f, .42f, PostTone.ACCENT, PostTone.GLOW, 170),
+                DecorBox(DecorShape.ROUND, fx(0f), fy(0f), fw(.5f), fh(.30f), PostTone.LIGHT, 255, .04f, shadow = true)
+            ),
             listOf(
                 box(PostSlots.NUMBER, .03f, .04f, .44f, .22f, .085f, PostFont.DISPLAY, PostTone.ACCENT, centered = true),
-                box(PostSlots.EYEBROW, .56f, .02f, .44f, .26f, .028f, PostFont.BOLD, PostTone.SECONDARY, caps = true),
-                box(PostSlots.HEADLINE, 0f, .38f, 1f, .40f, .082f, PostFont.DISPLAY, PostTone.LIGHT),
-                box(PostSlots.BODY, 0f, .80f, 1f, .18f, .034f, PostFont.REGULAR, PostTone.LIGHT_MUTED)
-            )
+                box(PostSlots.EYEBROW, .56f, .02f, .44f, .26f, .03f, PostFont.BOLD, PostTone.SECONDARY, caps = true),
+                box(PostSlots.HEADLINE, 0f, .38f, 1f, .40f, .086f, PostFont.DISPLAY, PostTone.LIGHT),
+                box(PostSlots.BODY, 0f, .80f, 1f, .18f, .038f, PostFont.REGULAR, PostTone.LIGHT_MUTED)
+            ),
+            backdrop = Backdrop(PostTone.DEEP, PostTone.PAGE, 150f)
         )
     },
 

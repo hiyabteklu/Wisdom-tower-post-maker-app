@@ -219,10 +219,17 @@ private fun PreviewPane(doc: PostDoc, brand: PostBrand, height: Dp, moveLogo: Bo
     var overflow by remember { mutableStateOf<List<String>>(emptyList()) }
 
     LaunchedEffect(doc, brand) {
-        delay(120)
-        val result = withContext(Dispatchers.Default) { PostRenderer.thumbnail(context, doc, brand, 960) }
-        preview = result.bitmap
-        overflow = result.overflow
+        val fast = withContext(Dispatchers.Default) { PostRenderer.thumbnail(context, doc, brand, 540) }
+        val previousFast = preview
+        preview = fast.bitmap
+        overflow = fast.overflow
+        if (previousFast != null && previousFast !== fast.bitmap && !previousFast.isRecycled) previousFast.recycle()
+        delay(150)
+        val crisp = withContext(Dispatchers.Default) { PostRenderer.thumbnail(context, doc, brand, 960) }
+        val previous = preview
+        preview = crisp.bitmap
+        overflow = crisp.overflow
+        if (previous != null && previous !== crisp.bitmap && !previous.isRecycled) previous.recycle()
     }
 
     Box(Modifier.fillMaxWidth().height(height).padding(horizontal = 12.dp, vertical = 4.dp), contentAlignment = Alignment.Center) {

@@ -188,6 +188,7 @@ fun PostApp() {
                 doc = doc,
                 onDoc = { new -> if (new.templateId != doc.templateId) openTemplate(new.templateId) else doc = new },
                 brand = brand,
+                library = library,
                 onBrand = { brand = it },
                 onPickPhoto = { photoPicker.launch(arrayOf("image/*")) },
                 onPickBackgroundPhoto = { backgroundPhotoPicker.launch(arrayOf("image/*")) },

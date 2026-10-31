@@ -120,6 +120,11 @@ fun PostApp() {
             onToggleBookmark = {
                 PostDraftStore.setBookmarked(context, doc.templateId, doc.templateId !in library.bookmarks)
                 library = PostDraftStore.loadIndex(context)
+            },
+            onResetDraft = {
+                PostDraftStore.clearDraft(context, doc.templateId)
+                docDirty = false
+                library = PostDraftStore.loadIndex(context)
             }
         )
         else -> PostHomeScreen(

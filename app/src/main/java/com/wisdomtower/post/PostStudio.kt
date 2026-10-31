@@ -28,7 +28,6 @@ import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.GridView
-import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Share
@@ -36,8 +35,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -74,11 +71,20 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** Fixed height of the bottom options area, so switching tabs never moves the preview. */
 private val OptionsAreaHeight = 124.dp
+
+/** Two-speed preview: the quick width while things are changing, the sharp width once they stop (see PreviewPane). */
+private const val PREVIEW_QUICK_WIDTH = 540
+private const val PREVIEW_SHARP_WIDTH = 960
+private const val PREVIEW_SETTLE_MS = 150L
+
+/** A change this soon after the one before it counts as a drag or a slider move, so it draws the quick version first. */
+private const val RAPID_CHANGE_NS = 350_000_000L
 
 /**
  * The editor (UI_UX_PLAN.md section 4.2). Nothing here scrolls vertically.
@@ -99,7 +105,6 @@ fun PostStudioScreen(
     onPickBackgroundPhoto: () -> Unit,
     onPickLogo: () -> Unit,
     onOpenBrand: () -> Unit,
-    onOpenOldStudio: () -> Unit,
     edited: Boolean = false,
     onReset: () -> Unit = {},
     onBringWords: (() -> Unit)? = null,
@@ -131,7 +136,7 @@ fun PostStudioScreen(
     PostTheme {
         Scaffold(containerColor = PostPalette.Ink) { padding ->
             Column(Modifier.fillMaxSize().padding(padding).imePadding()) {
-                TitleRow(doc, edited, bookmarked, onToggleBookmark, onOpenLibrary, onOpenBrand, onOpenOldStudio)
+                TitleRow(doc, edited, bookmarked, onToggleBookmark, onOpenLibrary, onOpenBrand)
                 SizeRow(doc, onDoc, edited, onReset) { showSave = true }
                 PreviewPane(doc, brand, moving, onDoc, iconsOn, selectedIcon, Modifier.weight(1f))
                 SliderRow(slider)
@@ -195,10 +200,8 @@ private fun TitleRow(
     bookmarked: Boolean,
     onToggleBookmark: () -> Unit,
     onOpenLibrary: () -> Unit,
-    onOpenBrand: () -> Unit,
-    onOpenOldStudio: () -> Unit
+    onOpenBrand: () -> Unit
 ) {
-    var menu by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(
             (if (edited) "\u25CF " else "") + postTemplate(doc.templateId).name,
@@ -221,14 +224,6 @@ private fun TitleRow(
         }
         IconButton(onClick = onOpenBrand) {
             Icon(Icons.Outlined.Palette, contentDescription = "Brand and social icons", tint = PostPalette.Mint)
-        }
-        Box {
-            IconButton(onClick = { menu = true }) {
-                Icon(Icons.Outlined.MoreVert, contentDescription = "More", tint = PostPalette.Muted)
-            }
-            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                DropdownMenuItem(text = { Text("Old layer studio") }, onClick = { menu = false; onOpenOldStudio() })
-            }
         }
     }
 }
@@ -294,12 +289,29 @@ private fun PreviewPane(
     val context = LocalContext.current
     var preview by remember { mutableStateOf<Bitmap?>(null) }
     var overflow by remember { mutableStateOf<List<String>>(emptyList()) }
+    val lastChange = remember { longArrayOf(0L) }
 
+    // Two speeds. Changes that follow each other fast (dragging an icon or the logo, moving a slider) draw a small version at once,
+    // so the preview keeps up with the finger. About 150 ms after the last change the sharp version replaces it.
+    // A single change (a tap on a chip) goes straight to the sharp version. Every render checks isActive as it draws, so a newer
+    // change stops the one in progress instead of letting it finish and queue up behind. Export never uses this path: it renders at full size.
     LaunchedEffect(doc, brand) {
-        delay(120)
-        val result = withContext(Dispatchers.Default) { PostRenderer.thumbnail(context, doc, brand, 960) }
-        preview = result.bitmap
-        overflow = result.overflow
+        val now = System.nanoTime()
+        val rapid = now - lastChange[0] < RAPID_CHANGE_NS
+        lastChange[0] = now
+        if (rapid || preview == null) {
+            val quick = withContext(Dispatchers.Default) {
+                PostRenderer.preview(context, doc, brand, PREVIEW_QUICK_WIDTH) { !isActive }
+            }
+            preview = quick.bitmap
+            overflow = quick.overflow
+            delay(PREVIEW_SETTLE_MS)
+        }
+        val sharp = withContext(Dispatchers.Default) {
+            PostRenderer.preview(context, doc, brand, PREVIEW_SHARP_WIDTH) { !isActive }
+        }
+        preview = sharp.bitmap
+        overflow = sharp.overflow
     }
 
     Box(modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), contentAlignment = Alignment.Center) {

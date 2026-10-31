@@ -79,7 +79,7 @@ internal object PostLooks {
                     g.circle(1.0f, 0.02f, .36f, GLOW, 90, SOFT, 0, 135f),
                     g.ring(0.0f, 1.0f, .30f, ACCENT, 70, .010f),
                     g.ring(0.0f, 1.0f, .21f, ACCENT, 45, .007f),
-                    g.patch(DecorShape.DOTS, .70f, .12f, .22f, ACCENT, 70),
+                    g.patch(DecorShape.STRIPES, .70f, .12f, .22f, ACCENT, 70),
                     g.dia(.89f, .74f, .030f, ACCENT, 190),
                     g.tri(.11f, .17f, .020f, ACCENT, 150)
                 )

@@ -3,9 +3,14 @@ package com.wisdomtower.post
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** The only three export sizes. Everything in the renderer is stored as fractions, so a size is just width and height. */
+/**
+ * The export sizes. Everything in the renderer is stored as fractions, so a size is just width and height.
+ * PORTRAIT (4:5, Instagram feed) has no layouts of its own yet: every template falls into its 1:1 branch for it.
+ * Export order and the order of the size chips follow this order.
+ */
 enum class PostSize(val label: String, val width: Int, val height: Int) {
     SQUARE("1:1", 1080, 1080),
+    PORTRAIT("4:5", 1080, 1350),
     LANDSCAPE("4:3", 1440, 1080),
     STORY("9:16", 1080, 1920)
 }
@@ -82,7 +87,7 @@ data class PostBrand(
  * photoDim -1 means "use the template's own darkening".
  */
 data class PostDoc(
-    val templateId: String = "quote-center",
+    val templateId: String = "info-quote",
     val size: PostSize = PostSize.SQUARE,
     val texts: Map<String, String> = mapOf(
         PostSlots.EYEBROW to "TODAY'S THOUGHT",
@@ -111,8 +116,6 @@ data class PostDoc(
     val logoCy: Float? = null,
     /** Multiplies the Brand logo size for this post only. */
     val logoSize: Float = 1f,
-    /** 1 = Clean (the template's own shapes only), 2 = Rich (extra rings, dots, glow, stripes and sparkles behind everything). */
-    val richness: Int = 2,
     /** Path of the English font picked on this post (an asset path, or a file added from the phone). null = the default font. */
     val fontEnglish: String? = null,
     /** Path of the Amharic font picked on this post. null = the first Amharic font available. */
@@ -141,6 +144,9 @@ data class PostDoc(
 }
 
 object PostCodec {
+    /**
+     * Drafts saved before the Clean/Rich switch was removed still carry a "richness" number. It is not read any more and not written.
+     */
     fun encodeDoc(d: PostDoc): String = JSONObject().apply {
         put("version", 4)
         put("templateId", d.templateId)
@@ -165,7 +171,6 @@ object PostCodec {
         put("logoCx", d.logoCx?.toDouble() ?: -1.0)
         put("logoCy", d.logoCy?.toDouble() ?: -1.0)
         put("logoSize", d.logoSize.toDouble())
-        put("richness", d.richness)
         put("fontEnglish", d.fontEnglish ?: "")
         put("fontAmharic", d.fontAmharic ?: "")
         put("icons", JSONArray().also { arr ->
@@ -262,7 +267,6 @@ object PostCodec {
             logoCx = j.optDouble("logoCx", -1.0).toFloat().takeIf { it >= 0f },
             logoCy = j.optDouble("logoCy", -1.0).toFloat().takeIf { it >= 0f },
             logoSize = j.optDouble("logoSize", 1.0).toFloat().coerceIn(0.4f, 3f),
-            richness = j.optInt("richness", 2).coerceIn(1, 2),
             fontEnglish = j.optString("fontEnglish").takeIf { it.isNotBlank() && it != "null" },
             fontAmharic = j.optString("fontAmharic").takeIf { it.isNotBlank() && it != "null" },
             icons = decodeIcons(j),

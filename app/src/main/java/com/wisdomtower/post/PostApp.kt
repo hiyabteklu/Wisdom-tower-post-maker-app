@@ -18,12 +18,14 @@ import kotlinx.coroutines.delay
 @Composable
 fun PostApp() {
     val context = LocalContext.current
+    val hasLegacyDoc = remember { PostStore.hasSavedDoc(context) }
     val initialDoc = remember {
         val legacy = PostStore.loadDoc(context)
-        PostDraftStore.migrateLegacy(context, legacy)
+        if (hasLegacyDoc) PostDraftStore.migrateLegacy(context, legacy)
         val index = PostDraftStore.loadIndex(context)
         val last = PostTemplates.firstOrNull { it.id == index.lastOpenedTemplateId } ?: PostTemplates.first()
-        PostDraftStore.loadDraft(context, last.id) ?: legacy
+        PostDraftStore.loadDraft(context, last.id)
+            ?: if (hasLegacyDoc) legacy else PostDoc(templateId = last.id, texts = last.samples)
     }
     val initialIndex = remember { PostDraftStore.loadIndex(context) }
     var doc by remember { mutableStateOf(initialDoc) }
@@ -31,7 +33,7 @@ fun PostApp() {
     var projects by remember { mutableStateOf(PostProjects.load(context)) }
     var library by remember { mutableStateOf(initialIndex) }
     var screen by rememberSaveable {
-        mutableStateOf(if (initialIndex.lastEditedAt.isNotEmpty()) "editor" else "home")
+        mutableStateOf(if (hasLegacyDoc || initialIndex.lastEditedAt.isNotEmpty()) "editor" else "home")
     }
     var brandReturn by rememberSaveable { mutableStateOf("home") }
 

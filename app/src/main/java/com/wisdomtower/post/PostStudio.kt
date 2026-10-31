@@ -190,8 +190,8 @@ fun PostStudioScreen(
                         SettingsSection("Logo", "Control the logo on this post.") {
                             editorGroups(EditorTab.LOGO, doc, slots, photoArea != null, false).forEach { group ->
                                 if (group.key == "size") {
-                                    InlineEditorSlider(EditorSlider("Logo size", brand.logoScale, 0.4f..2f,
-                                        "${(brand.logoScale * 100).toInt()}%") { onBrand(brand.copy(logoScale = it)) })
+                                    InlineEditorSlider(EditorSlider("Logo size", doc.logoSize, 0.4f..3f,
+                                        "${(doc.logoSize * 100).toInt()}%") { onDoc(doc.copy(logoSize = it)) })
                                 } else EditorOptions(EditorTab.LOGO, group.key, doc, onDoc, brand, onBrand,
                                     photoArea != null, onPickPhoto, onPickBackgroundPhoto, onPickLogo,
                                     moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it })

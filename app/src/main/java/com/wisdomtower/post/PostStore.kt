@@ -36,6 +36,14 @@ object PostStore {
             .apply()
     }
 
+    fun saveBrand(context: Context, brand: PostBrand) {
+        prefs(context).edit().putString("brand", PostCodec.encodeBrand(brand)).apply()
+    }
+
+    fun clearSavedDoc(context: Context) {
+        prefs(context).edit().remove("doc").apply()
+    }
+
     /** Copies a picked photo into app storage so it never goes stale. Multiple photos may be kept because a design can use both a full-canvas background and a template photo. */
     fun importPhoto(context: Context, uri: Uri): String? {
         val dir = File(context.filesDir, "photos")

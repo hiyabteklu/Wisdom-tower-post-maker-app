@@ -35,6 +35,7 @@ import kotlinx.coroutines.withTimeoutOrNull
  * Every template remembers how it was left: each one has its own draft file (see PostDrafts). Switching template saves the
  * one you leave and opens the other exactly as it was last edited, or in its factory look the first time.
  * The app opens on the template you edited last; the Library is one tap away (grid button in the editor).
+ * The old layer studio is no longer in the editor. It is kept under Brand > About until you say you no longer need your old designs.
  */
 @Composable
 fun PostApp() {
@@ -174,11 +175,13 @@ fun PostApp() {
                     brand = brand,
                     onBrand = { brand = it },
                     onPickLogo = { logoPicker.launch(arrayOf("image/*")) },
+                    onOpenOldStudio = { screen = "old" },
                     onBack = { screen = "studio" }
                 )
             }
             "old" -> {
-                BackHandler { screen = "studio" }
+                // reached from Brand > About, so back returns there
+                BackHandler { screen = "brand" }
                 DesignStudioApp()
             }
             else -> PostStudioScreen(
@@ -190,7 +193,6 @@ fun PostApp() {
                 onPickBackgroundPhoto = { backgroundPhotoPicker.launch(arrayOf("image/*")) },
                 onPickLogo = { logoPicker.launch(arrayOf("image/*")) },
                 onOpenBrand = { screen = "brand" },
-                onOpenOldStudio = { screen = "old" },
                 edited = PostDrafts.isEdited(doc),
                 onReset = { resetCurrent() },
                 onBringWords = if (library.lastWords.isNotEmpty()) bringWords else null,

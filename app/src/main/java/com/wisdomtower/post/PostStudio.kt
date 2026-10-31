@@ -127,6 +127,8 @@ fun PostStudioScreen(
 ) {
     var moveLogo by remember { mutableStateOf(false) }
     var selectedIconId by rememberSaveable { mutableStateOf<String?>(null) }
+    var activeCategory by rememberSaveable { mutableStateOf("Words") }
+    val categories = listOf("Words", "Look", "Photo", "Icons", "Logo", "Footer", "Font", "Export")
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     PostTheme {
@@ -135,7 +137,7 @@ fun PostStudioScreen(
             snackbarHost = { SnackbarHost(snackbarHostState) }
         ) { padding ->
             BoxWithConstraints(Modifier.fillMaxSize().padding(padding).imePadding()) {
-                val previewHeight = maxHeight * 0.34f
+                val previewHeight = maxHeight * 0.43f
                 Column(Modifier.fillMaxSize()) {
                     StudioTopRow(
                         doc, onDoc, onOpenBrand, onBackHome, onSaveProject, bookmarked, onToggleBookmark,
@@ -160,12 +162,23 @@ fun PostStudioScreen(
                         }
                     )
                     PreviewPane(doc, brand, previewHeight, moveLogo, onDoc, selectedIconId)
-                    TemplateStrip(doc, brand, onDoc)
-                    Column(
-                        Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    Row(
+                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 5.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        StudioDetails(doc, onDoc, brand, onBrand, onPickPhoto, onPickBackgroundPhoto, onPickLogo, onPickIcons, onOpenBrand, moveLogo, { moveLogo = it }, selectedIconId, { selectedIconId = it })
+                        categories.forEach { category ->
+                            FilterChip(
+                                selected = activeCategory == category,
+                                onClick = { activeCategory = category },
+                                label = { Text(category) }
+                            )
+                        }
+                    }
+                    Column(
+                        Modifier.weight(1f).fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        StudioDetails(doc, onDoc, brand, onBrand, onPickPhoto, onPickBackgroundPhoto, onPickLogo, onPickIcons, onOpenBrand, moveLogo, { moveLogo = it }, selectedIconId, { selectedIconId = it }, activeCategory)
                     }
                 }
             }
@@ -404,7 +417,7 @@ private fun PairSwatch(accentHex: String, textHex: String, selected: Boolean, on
 
 @Composable
 private fun StudioSection(title: String, subtitle: String? = null, content: @Composable ColumnScope.() -> Unit) {
-    var expanded by rememberSaveable(title) { mutableStateOf(false) }
+    var expanded by rememberSaveable(title) { mutableStateOf(true) }
     Card(colors = CardDefaults.cardColors(containerColor = PostPalette.Surface), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(
@@ -437,41 +450,44 @@ private fun ColumnScope.StudioDetails(
     moveLogo: Boolean,
     onMoveLogo: (Boolean) -> Unit,
     selectedIconId: String?,
-    onSelectIcon: (String?) -> Unit
+    onSelectIcon: (String?) -> Unit,
+    activeCategory: String
 ) {
     val context = LocalContext.current
     val spec = postTemplate(doc.templateId)
     val layout = remember(doc.templateId, doc.size) { spec.layout(doc.size) }
     val slots = remember(doc.templateId, doc.size) { layout.slots.filter { it.literal == null }.map { it.slot }.distinct() }
+    var selectedWordSlot by rememberSaveable(doc.templateId) { mutableStateOf(slots.firstOrNull().orEmpty()) }
 
     // ---- Words ----
-    StudioSection("Words", spec.name + ". Your words stay when you switch template.") {
-        slots.forEach { slot ->
+    if (activeCategory == "Words") StudioSection("Words", spec.name + ". Your words stay when you switch template.") {
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            slots.forEach { slot ->
+                FilterChip(
+                    selected = selectedWordSlot == slot,
+                    onClick = { selectedWordSlot = slot },
+                    label = { Text(PostSlots.label(slot), maxLines = 1) }
+                )
+            }
+        }
+        if (selectedWordSlot.isNotBlank()) {
             OutlinedTextField(
-                value = doc.texts[slot].orEmpty(),
-                onValueChange = { onDoc(doc.withText(slot, it)) },
-                label = { Text(PostSlots.label(slot)) },
-                minLines = when (slot) {
-                    PostSlots.HEADLINE, PostSlots.BODY -> 2
-                    PostSlots.LIST -> 4
-                    else -> 1
-                },
-                maxLines = when (slot) {
-                    PostSlots.LIST -> 8
-                    PostSlots.EYEBROW, PostSlots.NUMBER, PostSlots.BUTTON -> 2
-                    else -> 5
-                },
+                value = doc.texts[selectedWordSlot].orEmpty(),
+                onValueChange = { onDoc(doc.withText(selectedWordSlot, it)) },
+                label = { Text(PostSlots.label(selectedWordSlot)) },
+                minLines = 3,
+                maxLines = 5,
                 modifier = Modifier.fillMaxWidth()
             )
         }
-        if (layout.social != null) PostSmallLabel("The big icons on this poster come from Social icons below.")
+        if (layout.social != null) PostSmallLabel("The large social icons come from the Footer tab.")
     }
 
     // ---- Fonts ----
-    FontsSection(doc, onDoc)
+    if (activeCategory == "Font") FontsSection(doc, onDoc)
 
     // ---- Look ----
-    StudioSection("Look") {
+    if (activeCategory == "Look") StudioSection("Look") {
         RichRow(doc, onDoc)
         PostSmallLabel("Text size")
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -534,7 +550,7 @@ private fun ColumnScope.StudioDetails(
     }
 
     // ---- Full-canvas background photo ----
-    StudioSection("Background image", "Add a photo behind the template design. Text, shapes and template details stay editable above it.") {
+    if (activeCategory == "Photo") StudioSection("Background image", "Add a photo behind the template design. Text and template details stay editable above it.") {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             OutlinedButton(onClick = onPickBackgroundPhoto) {
                 Icon(Icons.Outlined.PhotoLibrary, contentDescription = null)
@@ -556,7 +572,7 @@ private fun ColumnScope.StudioDetails(
 
     // ---- Photo ----
     val photoArea = layout.photo
-    StudioSection(
+    if (activeCategory == "Photo") StudioSection(
         "Photo",
         if (photoArea != null) "This template shows your photo."
         else "This template has no photo area. Try Quote on photo, Subject cover or Photo announcement."
@@ -584,7 +600,7 @@ private fun ColumnScope.StudioDetails(
     }
 
     // ---- Logo ----
-    StudioSection("Logo and footer") {
+    if (activeCategory == "Logo") StudioSection("Logo") {
         PostSwitchRow("Show logo", doc.showLogo) { onDoc(doc.copy(showLogo = it)) }
         PostSwitchRow("Show footer icons", doc.showFooter) { onDoc(doc.copy(showFooter = it)) }
         PostSmallLabel("Logo corner and size")
@@ -612,15 +628,16 @@ private fun ColumnScope.StudioDetails(
     }
 
     // ---- Custom image and starter icons ----
-    StudioSection("Icons", "Add your own small graphics or use the bundled geometric shapes.") {
+    if (activeCategory == "Icons") StudioSection("Icons", "Add your own small graphics or use the bundled geometric shapes.") {
         PostIconsPanel(doc, onDoc, brand, selectedIconId, onSelectIcon, onPickIcons)
     }
 
     // ---- Social icons ----
-    StudioSection("Social icons", "Used in the footer of every post and big on the Social posters.") {
+    if (activeCategory == "Footer") StudioSection("Footer", "Social links and footer appearance are shared across posts.") {
         FooterEditor(brand, onBrand)
     }
 
+    if (activeCategory == "Export") {
     // ---- Export ----
     var chosen by remember { mutableStateOf(setOf(doc.size)) }
     var exportOpen by remember { mutableStateOf(false) }
@@ -699,5 +716,6 @@ private fun ColumnScope.StudioDetails(
             }
         }
     }
-    Spacer(Modifier.height(24.dp))
+    Spacer(Modifier.height(12.dp))
+    }
 }

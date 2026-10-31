@@ -9,10 +9,10 @@ The direction is set in **[docs/IMPROVEMENT_PLAN.md](docs/IMPROVEMENT_PLAN.md)**
 - [x] **Phase 1, foundation.** Post document v2, one renderer for preview, thumbnails and export, three sizes, brand store, logo copied into app storage.
 - [x] **Phase 2, brand.** Brand screen, locked header and footer, bundled footer icon set. The app now starts in `PostApp` (an earlier build still started the old screen).
 - [x] **Phase 3, templates (code done, needs your check).** 20 templates in 10 families, each laid out per size. Shapes, photo area, lists (dot, check, letter, number, schedule rows), template gallery with live previews. *Check:* open Templates, switch through 1:1, 4:3 and 9:16, and look for any card marked "text too long".
-- [ ] **Phase 4, editor and navigation.** Templates home, Editor with collapsed groups, My posts tab, photo picker.
-- [ ] **Phase 5, export sheet and cleanup.** Multi-size export sheet, overflow warning before saving, remove the old layer UI and PDF code.
+- [x] **Phase 4, editor and navigation.** Templates home with search, family filters and 1:1 / 4:3 / 9:16 preview sizing; fixed preview editor; collapsible editing groups; Brand screen; local photo picker; and My posts shelf for editable saved documents.
+- [x] **Phase 5, export workflow.** Modal export sheet, one-or-all size selection, PNG/JPG, multi-size save/share, and live text-fit warning in the preview. The unused legacy layer/PDF source files still need a separate cleanup pass.
 
-The current screen (`PostCheckScreen`) is a temporary working screen: pick a template, type, save all three sizes. The old layer studio is still reachable from it until Phase 5.
+The app now opens on the template gallery. Select a template to enter the editor; use the save icon to add an editable copy to My posts. The old studio is no longer part of the navigation flow, but its source files have not yet been deleted.
 
 ## Product principles
 

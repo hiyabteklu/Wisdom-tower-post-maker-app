@@ -58,6 +58,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -103,6 +104,8 @@ fun PostStudioScreen(
     onOpenLibrary: () -> Unit = {}
 ) {
     var moveLogoOn by remember { mutableStateOf(false) }
+    var moveOn by remember { mutableStateOf(false) }
+    var moveTarget by remember { mutableStateOf<String?>(null) }
     var footerItem by remember { mutableStateOf(0) }
     var selectedIcon by remember { mutableStateOf(0) }
     var showSave by remember { mutableStateOf(false) }
@@ -125,6 +128,10 @@ fun PostStudioScreen(
                         doc, brand, moveLogoOn, onDoc,
                         iconEdit = doc.icons.isNotEmpty(),
                         selectedIcon = selectedIcon,
+                        layout = layout,
+                        moveOn = moveOn,
+                        moveTarget = moveTarget,
+                        onTarget = { moveTarget = it },
                         modifier = Modifier.fillMaxWidth().height(previewHeight)
                     )
                     TemplateStrip(doc, brand, library, onDoc)
@@ -146,6 +153,16 @@ fun PostStudioScreen(
                                     Text("Bring my words from the previous template")
                                 }
                             }
+                        }
+
+                        SettingsSection("Layers and style", "Photo frames, gradient blends, a cut-out subject and moving words.") {
+                            EngineControls(
+                                doc, onDoc, slots, photoArea != null, moveOn,
+                                { on ->
+                                    moveOn = on
+                                    if (!on) moveTarget = null
+                                }
+                            )
                         }
 
                         SettingsSection("Colors", "Color pairs, accent and text colors.") {
@@ -350,11 +367,18 @@ private fun PreviewPane(
     onDoc: (PostDoc) -> Unit,
     iconEdit: Boolean,
     selectedIcon: Int,
+    layout: TemplateLayout,
+    moveOn: Boolean,
+    moveTarget: String?,
+    onTarget: (String?) -> Unit,
     modifier: Modifier
 ) {
     val liveDoc by rememberUpdatedState(doc)
     val liveOnDoc by rememberUpdatedState(onDoc)
     val liveSelected by rememberUpdatedState(selectedIcon)
+    val liveLayout by rememberUpdatedState(layout)
+    val liveTarget by rememberUpdatedState(moveTarget)
+    val liveOnTarget by rememberUpdatedState(onTarget)
     val context = LocalContext.current
     var preview by remember { mutableStateOf<Bitmap?>(null) }
     var overflow by remember { mutableStateOf<List<String>>(emptyList()) }
@@ -414,6 +438,28 @@ private fun PreviewPane(
                                     style = Stroke(width = 2.dp.toPx())
                                 )
                             }
+                            if (moveOn && moveTarget != null) {
+                                if (moveTarget == PostEngine.CUTOUT_TARGET) {
+                                    drawCircle(
+                                        color = Color.White,
+                                        radius = 16.dp.toPx(),
+                                        center = Offset(doc.cutoutX * size.width, doc.cutoutY * size.height),
+                                        style = Stroke(width = 3.dp.toPx())
+                                    )
+                                } else {
+                                    layout.slots.firstOrNull { it.slot == moveTarget && it.literal == null }?.let { b ->
+                                        val o = doc.offsetFor(b.slot)
+                                        val left = (b.x + (o?.dx ?: 0f)) * size.width
+                                        val top = (b.y + (o?.dy ?: 0f)) * size.height
+                                        drawRect(
+                                            color = Color.White,
+                                            topLeft = Offset(left, top),
+                                            size = Size(b.w * size.width, b.h * size.height),
+                                            style = Stroke(width = 2.dp.toPx())
+                                        )
+                                    }
+                                }
+                            }
                         }
                         .pointerInput(moveLogo) {
                             if (moveLogo) {
@@ -453,6 +499,46 @@ private fun PreviewPane(
                                             size = (ic.size * zoom).coerceIn(0.04f, 0.9f)
                                         )
                                         val next = base.copy(icons = base.icons.mapIndexed { n, old -> if (n == i) moved else old })
+                                        last = next
+                                        lastAt = now
+                                        liveOnDoc(next)
+                                    }
+                                }
+                            }
+                        }
+                        .pointerInput(moveOn) {
+                            if (moveOn) {
+                                // A tap picks the words under the finger, or the cut-out subject when no words are there.
+                                detectTapGestures { p ->
+                                    val d = liveDoc
+                                    val hit = PostEngine.hitSlot(liveLayout, d, p.x / size.width, p.y / size.height)
+                                        ?: (if (d.cutoutUri != null) PostEngine.CUTOUT_TARGET else null)
+                                    liveOnTarget(hit)
+                                }
+                            }
+                        }
+                        .pointerInput(moveOn) {
+                            if (moveOn) {
+                                // Drag moves what was picked; pinch resizes the cut-out subject.
+                                var last: PostDoc? = null
+                                var lastAt = 0L
+                                detectTransformGestures { _, pan, zoom, _ ->
+                                    val target = liveTarget
+                                    if (target != null) {
+                                        val now = System.nanoTime()
+                                        val base = if (last != null && now - lastAt < 150_000_000L) last!! else liveDoc
+                                        val dx = pan.x / size.width
+                                        val dy = pan.y / size.height
+                                        val next = if (target == PostEngine.CUTOUT_TARGET) {
+                                            base.copy(
+                                                cutoutX = (base.cutoutX + dx).coerceIn(0f, 1f),
+                                                cutoutY = (base.cutoutY + dy).coerceIn(0.2f, 1.2f),
+                                                cutoutScale = (base.cutoutScale * zoom).coerceIn(0.3f, 2.5f)
+                                            )
+                                        } else {
+                                            val cur = base.offsetFor(target) ?: SlotOffset(0f, 0f)
+                                            base.withOffset(target, SlotOffset((cur.dx + dx).coerceIn(-1f, 1f), (cur.dy + dy).coerceIn(-1f, 1f)))
+                                        }
                                         last = next
                                         lastAt = now
                                         liveOnDoc(next)

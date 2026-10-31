@@ -413,15 +413,8 @@ private fun ColumnScope.StudioDetails(
                 }
             }
         }
-        PostSmallLabel("Only the main color (first circle = your brand color)")
-        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            PostSwatch(brand.primaryHex, doc.accentHex == null) { onDoc(doc.copy(accentHex = null)) }
-            AccentPresets.forEach { hex ->
-                PostSwatch(hex, doc.accentHex.equals(hex, ignoreCase = true)) { onDoc(doc.copy(accentHex = hex)) }
-            }
-        }
-        PostHexField("Own accent (#RRGGBB)", doc.accentHex ?: brand.primaryHex) { onDoc(doc.copy(accentHex = it)) }
-        PostHexField("Text color (#RRGGBB)", doc.textHex ?: brand.darkHex) { onDoc(doc.copy(textHex = it)) }
+        PostColorPicker("Main color", doc.accentHex, brand, { onDoc(doc.copy(accentHex = it)) })
+        PostColorPicker("Text color", doc.textHex, brand, { onDoc(doc.copy(textHex = it)) })
         if (doc.textHex != null) {
             TextButton(onClick = { onDoc(doc.copy(textHex = null)) }) { Text("Use the brand text color") }
         }
@@ -433,14 +426,25 @@ private fun ColumnScope.StudioDetails(
             }
         }
         if (doc.bgMode != BgMode.TEMPLATE) {
-            PostHexField(if (doc.bgMode == BgMode.SOLID) "Background (#RRGGBB)" else "Gradient start (#RRGGBB)", doc.bgStartHex) {
-                onDoc(doc.copy(bgStartHex = it))
-            }
+            PostColorPicker(
+                if (doc.bgMode == BgMode.SOLID) "Background color" else "Gradient from",
+                doc.bgStartHex,
+                brand,
+                { hex -> if (hex != null) onDoc(doc.copy(bgStartHex = hex)) },
+                includeBrandChoice = false
+            )
         }
         if (doc.bgMode == BgMode.GRADIENT) {
-            PostHexField("Gradient end (#RRGGBB)", doc.bgEndHex) { onDoc(doc.copy(bgEndHex = it)) }
-            PostLabeledSlider("Direction", doc.bgAngle.toFloat(), 0f..360f, doc.bgAngle.toString() + " deg") {
-                onDoc(doc.copy(bgAngle = it.toInt()))
+            PostColorPicker("Gradient to", doc.bgEndHex, brand, { hex -> if (hex != null) onDoc(doc.copy(bgEndHex = hex)) }, includeBrandChoice = false)
+            PostSmallLabel("Gradient direction")
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf(0 to "↑", 45 to "↗", 90 to "→", 135 to "↘", 180 to "↓", 225 to "↙", 270 to "←", 315 to "↖").forEach { (angle, glyph) ->
+                    FilterChip(
+                        selected = kotlin.math.abs(doc.bgAngle - angle) < 18,
+                        onClick = { onDoc(doc.copy(bgAngle = angle)) },
+                        label = { Text(glyph, fontSize = 18.sp) }
+                    )
+                }
             }
         }
         if (doc.bgMode != BgMode.TEMPLATE) {

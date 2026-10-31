@@ -48,6 +48,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -117,12 +120,38 @@ fun PostStudioScreen(
     onSaveProject: () -> Unit
 ) {
     var moveLogo by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
     PostTheme {
-        Scaffold(containerColor = PostPalette.Ink) { padding ->
+        Scaffold(
+            containerColor = PostPalette.Ink,
+            snackbarHost = { SnackbarHost(snackbarHostState) }
+        ) { padding ->
             BoxWithConstraints(Modifier.fillMaxSize().padding(padding).imePadding()) {
                 val previewHeight = maxHeight * 0.34f
                 Column(Modifier.fillMaxSize()) {
-                    StudioTopRow(doc, onDoc, onOpenBrand, onBackHome, onSaveProject)
+                    StudioTopRow(
+                        doc, onDoc, onOpenBrand, onBackHome, onSaveProject,
+                        onReset = {
+                            val previous = doc
+                            val template = postTemplate(doc.templateId)
+                            onDoc(PostDoc(templateId = doc.templateId, size = doc.size, texts = template.samples))
+                            scope.launch {
+                                val snackbar = launch {
+                                    val result = snackbarHostState.showSnackbar(
+                                        message = "Template restored to its original design",
+                                        actionLabel = "Undo",
+                                        withDismissAction = true,
+                                        duration = SnackbarDuration.Indefinite
+                                    )
+                                    if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) onDoc(previous)
+                                }
+                                delay(8_000)
+                                snackbarHostState.currentSnackbarData?.dismiss()
+                                snackbar.join()
+                            }
+                        }
+                    )
                     PreviewPane(doc, brand, previewHeight, moveLogo, onDoc)
                     TemplateStrip(doc, brand, onDoc)
                     Column(
@@ -138,7 +167,7 @@ fun PostStudioScreen(
 }
 
 @Composable
-private fun StudioTopRow(doc: PostDoc, onDoc: (PostDoc) -> Unit, onOpenBrand: () -> Unit, onBackHome: () -> Unit, onSaveProject: () -> Unit) {
+private fun StudioTopRow(doc: PostDoc, onDoc: (PostDoc) -> Unit, onOpenBrand: () -> Unit, onBackHome: () -> Unit, onSaveProject: () -> Unit, onReset: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = onBackHome) { Icon(Icons.Outlined.ArrowBack, contentDescription = "Back to templates", tint = PostPalette.Text) }
         Text("Editor", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = PostPalette.Text, modifier = Modifier.weight(1f))
@@ -150,6 +179,7 @@ private fun StudioTopRow(doc: PostDoc, onDoc: (PostDoc) -> Unit, onOpenBrand: ()
                 modifier = Modifier.padding(start = 3.dp)
             )
         }
+        TextButton(onClick = onReset) { Text("Reset", fontSize = 12.sp, color = PostPalette.Muted) }
         IconButton(onClick = onSaveProject) { Icon(Icons.Outlined.Save, contentDescription = "Save to My posts", tint = PostPalette.Mint) }
         IconButton(onClick = onOpenBrand) {
             Icon(Icons.Outlined.Palette, contentDescription = "Brand kit", tint = PostPalette.Mint)

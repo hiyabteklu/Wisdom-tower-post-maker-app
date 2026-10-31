@@ -113,7 +113,7 @@ fun PostStudioScreen(
     onPickBackgroundPhoto: () -> Unit,
     onPickLogo: () -> Unit,
     onOpenBrand: () -> Unit,
-    onOpenOldStudio: () -> Unit,
+    onBackHome: () -> Unit,
     onSaveProject: () -> Unit
 ) {
     var moveLogo by remember { mutableStateOf(false) }
@@ -122,14 +122,14 @@ fun PostStudioScreen(
             BoxWithConstraints(Modifier.fillMaxSize().padding(padding).imePadding()) {
                 val previewHeight = maxHeight * 0.34f
                 Column(Modifier.fillMaxSize()) {
-                    StudioTopRow(doc, onDoc, onOpenBrand, onOpenOldStudio, onSaveProject)
+                    StudioTopRow(doc, onDoc, onOpenBrand, onBackHome, onSaveProject)
                     PreviewPane(doc, brand, previewHeight, moveLogo, onDoc)
                     TemplateStrip(doc, brand, onDoc)
                     Column(
                         Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        StudioDetails(doc, onDoc, brand, onBrand, onPickPhoto, onPickBackgroundPhoto, onPickLogo, onOpenBrand, onOpenOldStudio, moveLogo, { moveLogo = it })
+                        StudioDetails(doc, onDoc, brand, onBrand, onPickPhoto, onPickBackgroundPhoto, onPickLogo, onOpenBrand, moveLogo, { moveLogo = it })
                     }
                 }
             }
@@ -355,7 +355,6 @@ private fun ColumnScope.StudioDetails(
     onPickBackgroundPhoto: () -> Unit,
     onPickLogo: () -> Unit,
     onOpenBrand: () -> Unit,
-    onOpenOldStudio: () -> Unit,
     moveLogo: Boolean,
     onMoveLogo: (Boolean) -> Unit
 ) {

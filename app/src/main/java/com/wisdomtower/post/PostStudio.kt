@@ -254,7 +254,7 @@ private fun SettingsSection(title: String, subtitle: String? = null, content: @C
         Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
             Text(title, color = PostPalette.Text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             if (subtitle != null) Text(subtitle, color = PostPalette.Muted, fontSize = 11.sp)
-            content(this)
+            content()
         }
     }
 }

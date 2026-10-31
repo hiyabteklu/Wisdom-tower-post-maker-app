@@ -10,8 +10,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -19,108 +17,102 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlin.math.abs
 
 private const val MAX_ICONS = 4
 
-/**
- * Everything about the social icons in one place: footer style, icon look, icon size, and per icon the platform,
- * the handle or link, and an own color. Used by the Brand screen and by the studio, so there is one set of icons.
- */
+/** Compact footer editor: choose one item, edit it, then move to the next. */
 @Composable
 fun FooterEditor(brand: PostBrand, onBrand: (PostBrand) -> Unit) {
-    fun update(index: Int, change: (FooterItem) -> FooterItem) {
-        onBrand(brand.copy(footerItems = brand.footerItems.mapIndexed { i, old -> if (i == index) change(old) else old }))
-    }
+    var selectedIndex by rememberSaveable { mutableStateOf(0) }
+    val items = brand.footerItems
+    val index = selectedIndex.coerceIn(0, (items.size - 1).coerceAtLeast(0))
+    val selected = items.getOrNull(index)
 
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         PostSmallLabel("Footer style")
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             FooterStyle.values().forEach { style ->
-                FilterChip(
-                    selected = brand.footerStyle == style,
-                    onClick = { onBrand(brand.copy(footerStyle = style)) },
-                    label = { Text(if (style == FooterStyle.PILL) "Pills" else "Line") }
-                )
+                FilterChip(selected = brand.footerStyle == style, onClick = { onBrand(brand.copy(footerStyle = style)) }, label = { Text(if (style == FooterStyle.PILL) "Pills" else "Line") })
             }
-        }
-
-        PostSmallLabel("Icon look")
-        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             IconLook.values().forEach { look ->
                 FilterChip(
                     selected = brand.iconLook == look,
                     onClick = { onBrand(brand.copy(iconLook = look)) },
-                    label = {
-                        Text(
-                            when (look) {
-                                IconLook.PLAIN -> "Plain"
-                                IconLook.BADGE -> "Badge"
-                                IconLook.OFFICIAL -> "Platform colors"
-                            }
-                        )
-                    }
+                    label = { Text(when (look) { IconLook.PLAIN -> "Plain"; IconLook.BADGE -> "Badge"; IconLook.OFFICIAL -> "Official" }) }
                 )
             }
         }
-
-        PostSmallLabel("Icon size")
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("Small" to 0.85f, "Medium" to 1f, "Large" to 1.25f).forEach { (name, scale) ->
+        PostSmallLabel("Footer items")
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            items.forEachIndexed { i, item ->
                 FilterChip(
-                    selected = abs(brand.iconScale - scale) < 0.01f,
-                    onClick = { onBrand(brand.copy(iconScale = scale)) },
-                    label = { Text(name) }
+                    selected = i == index,
+                    onClick = { selectedIndex = i },
+                    label = { Text(PostIcons.title(item.kind), maxLines = 1) }
+                )
+            }
+            if (items.size < MAX_ICONS) {
+                FilterChip(
+                    selected = false,
+                    onClick = {
+                        onBrand(brand.copy(footerItems = brand.footerItems + FooterItem("telegram", "@")))
+                        selectedIndex = brand.footerItems.size
+                    },
+                    label = { Text("+ Add") }
                 )
             }
         }
-
-        brand.footerItems.forEachIndexed { index, item ->
-            Card(colors = CardDefaults.cardColors(containerColor = PostPalette.Ink), modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        PostIcons.kinds.forEach { kind ->
-                            FilterChip(
-                                selected = item.kind == kind,
-                                onClick = { update(index) { it.copy(kind = kind) } },
-                                label = { Text(PostIcons.title(kind)) }
-                            )
-                        }
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        OutlinedTextField(
-                            value = item.label,
-                            onValueChange = { text -> update(index) { it.copy(label = text) } },
-                            label = { Text("Handle or link") },
-                            singleLine = true,
-                            modifier = Modifier.weight(1f)
+        if (selected != null) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    PostIcons.kinds.forEach { kind ->
+                        FilterChip(
+                            selected = selected.kind == kind,
+                            onClick = { onBrand(brand.copy(footerItems = brand.footerItems.mapIndexed { i, item -> if (i == index) item.copy(kind = kind) else item })) },
+                            label = { Text(PostIcons.title(kind)) }
                         )
-                        IconButton(onClick = { onBrand(brand.copy(footerItems = brand.footerItems.filterIndexed { i, _ -> i != index })) }) {
-                            Icon(Icons.Outlined.Delete, contentDescription = "Remove")
-                        }
                     }
-                    PostColorPicker(
-                        label = "Icon color",
-                        value = item.colorHex.takeIf { it.isNotBlank() },
-                        brand = brand,
-                        onPick = { hex -> update(index) { it.copy(colorHex = hex.orEmpty()) } }
-                    )
                 }
+                IconButton(onClick = {
+                    onBrand(brand.copy(footerItems = brand.footerItems.filterIndexed { i, _ -> i != index }))
+                    selectedIndex = (index - 1).coerceAtLeast(0)
+                }) { Icon(Icons.Outlined.Delete, contentDescription = "Remove footer item") }
             }
-        }
-
-        if (brand.footerItems.size < MAX_ICONS) {
-            OutlinedButton(
-                onClick = { onBrand(brand.copy(footerItems = brand.footerItems + FooterItem("telegram", "@"))) },
+            OutlinedTextField(
+                value = selected.label,
+                onValueChange = { label ->
+                    onBrand(brand.copy(footerItems = brand.footerItems.mapIndexed { i, item -> if (i == index) item.copy(label = label) else item }))
+                },
+                label = { Text("Handle or link") },
+                singleLine = true,
                 modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(Icons.Outlined.Add, contentDescription = null)
-                Text("Add social icon")
+            )
+            PostColorPicker(
+                label = "Icon color",
+                value = selected.colorHex.takeIf { it.isNotBlank() },
+                brand = brand,
+                onPick = { hex ->
+                    onBrand(brand.copy(footerItems = brand.footerItems.mapIndexed { i, item -> if (i == index) item.copy(colorHex = hex.orEmpty()) else item }))
+                }
+            )
+        } else {
+            Text("Add a footer item to show your social links on every post.", color = PostPalette.Muted, fontSize = 11.sp)
+        }
+        PostSmallLabel("Icon size")
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf("Small" to 0.85f, "Medium" to 1f, "Large" to 1.25f).forEach { (name, scale) ->
+                FilterChip(selected = abs(brand.iconScale - scale) < 0.01f, onClick = { onBrand(brand.copy(iconScale = scale)) }, label = { Text(name) })
             }
         }
-        PostSmallLabel("Up to " + MAX_ICONS + " icons. Short handles look best. Social templates show them as big cards.")
     }
 }

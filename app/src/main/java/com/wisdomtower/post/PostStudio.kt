@@ -10,6 +10,7 @@ import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -21,7 +22,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bookmark
@@ -40,14 +43,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -64,7 +65,6 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -75,31 +75,22 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** Fixed height of the bottom options area, so switching tabs never moves the preview. */
-private val OptionsAreaHeight = 124.dp
-
-/** Two-speed preview: the quick width while things are changing, the sharp width once they stop (see PreviewPane). */
+/** Two-speed preview retained from Phase 6. */
 private const val PREVIEW_QUICK_WIDTH = 540
 private const val PREVIEW_SHARP_WIDTH = 960
 private const val PREVIEW_SETTLE_MS = 150L
-
-/** A change this soon after the one before it counts as a drag or a slider move, so it draws the quick version first. */
 private const val RAPID_CHANGE_NS = 350_000_000L
 
 /**
- * The editor (UI_UX_PLAN.md section 4.2). Nothing here scrolls vertically.
- * From the top: title row (name, bookmark, Library, Brand), size row (with Reset and Save), the live preview (takes all spare height
- * and shrinks when the keyboard opens), one shared slider, the category tabs, and one options row. Every category is one horizontal row.
- * On the Icons tab the preview takes gestures: drag moves the selected icon, pinch resizes it.
- * edited: this template differs from its factory look (shows a dot and the Reset button).
- * onBringWords: copies the words of the last template you edited into this one; null when there is nothing to bring.
- * bookmarked / onToggleBookmark: the Saved row of the Library. onOpenLibrary: back to the Library home.
+ * One-screen studio: title and size controls, pinned preview, pinned template strip,
+ * then a single vertically scrolling stack of all editing sections.
  */
 @Composable
 fun PostStudioScreen(
     doc: PostDoc,
     onDoc: (PostDoc) -> Unit,
     brand: PostBrand,
+    library: PostLibrary,
     onBrand: (PostBrand) -> Unit,
     onPickPhoto: () -> Unit,
     onPickBackgroundPhoto: () -> Unit,
@@ -112,8 +103,6 @@ fun PostStudioScreen(
     onToggleBookmark: () -> Unit = {},
     onOpenLibrary: () -> Unit = {}
 ) {
-    var tab by remember { mutableStateOf(EditorTab.WORDS) }
-    val groupChoice = remember { mutableStateMapOf<EditorTab, String>() }
     var moveLogoOn by remember { mutableStateOf(false) }
     var footerItem by remember { mutableStateOf(0) }
     var selectedIcon by remember { mutableStateOf(0) }
@@ -121,75 +110,156 @@ fun PostStudioScreen(
 
     val spec = postTemplate(doc.templateId)
     val layout = remember(doc.templateId, doc.size) { spec.layout(doc.size) }
-    val slots = remember(doc.templateId, doc.size) { layout.slots.filter { it.literal == null }.map { it.slot }.distinct() }
-    val photoArea = layout.photo
-    val groups = editorGroups(tab, doc, slots, photoArea != null, onBringWords != null)
-    val group = groupChoice[tab]?.takeIf { key -> key != "bring" && groups.any { it.key == key } } ?: groups.first().key
-    val iconsOn = tab == EditorTab.ICONS
-    val slider = if (iconsOn) {
-        if (group == "size") iconSizeSlider(doc, selectedIcon, onDoc) else null
-    } else {
-        editorSlider(tab, group, doc, photoArea?.dim, onDoc)
+    val slots = remember(doc.templateId, doc.size) {
+        layout.slots.filter { it.literal == null }.map { it.slot }.distinct()
     }
-    val moving = moveLogoOn && tab == EditorTab.LOGO
+    val photoArea = layout.photo
 
     PostTheme {
         Scaffold(containerColor = PostPalette.Ink) { padding ->
-            Column(Modifier.fillMaxSize().padding(padding).imePadding()) {
-                TitleRow(doc, edited, bookmarked, onToggleBookmark, onOpenLibrary, onOpenBrand)
-                SizeRow(doc, onDoc, edited, onReset) { showSave = true }
-                PreviewPane(doc, brand, moving, onDoc, iconsOn, selectedIcon, Modifier.weight(1f))
-                SliderRow(slider)
-                Row(
-                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    EditorTab.values().forEach { t ->
-                        FilterChip(selected = t == tab, onClick = { tab = t }, label = { Text(t.title, fontWeight = FontWeight.SemiBold) })
-                    }
-                }
-                Column(Modifier.fillMaxWidth().height(OptionsAreaHeight)) {
-                    if (groups.size > 1) {
-                        Row(
-                            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            groups.forEach { g ->
-                                FilterChip(
-                                    selected = g.key == group,
-                                    onClick = {
-                                        if (g.key == "bring") onBringWords?.invoke() else groupChoice[tab] = g.key
-                                    },
-                                    label = { Text(g.label, fontSize = 12.sp) }
+            BoxWithConstraints(Modifier.fillMaxSize().padding(padding)) {
+                val previewHeight = (maxHeight * 0.39f).coerceAtMost(350.dp)
+                Column(Modifier.fillMaxSize().imePadding()) {
+                    TitleRow(doc, edited, bookmarked, onToggleBookmark, onOpenLibrary, onOpenBrand)
+                    SizeRow(doc, onDoc, edited, onReset) { showSave = true }
+                    PreviewPane(
+                        doc, brand, moveLogoOn, onDoc,
+                        iconEdit = doc.icons.isNotEmpty(),
+                        selectedIcon = selectedIcon,
+                        modifier = Modifier.fillMaxWidth().height(previewHeight)
+                    )
+                    TemplateStrip(doc, brand, library, onDoc)
+                    Column(
+                        Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        SettingsSection("Words", "Edit every text field directly.") {
+                            slots.forEach { slot ->
+                                EditorOptions(
+                                    EditorTab.WORDS, slot, doc, onDoc, brand, onBrand,
+                                    photoArea != null, onPickPhoto, onPickBackgroundPhoto, onPickLogo,
+                                    moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it }
                                 )
+                            }
+                            if (onBringWords != null) {
+                                OutlinedButton(onClick = onBringWords, modifier = Modifier.fillMaxWidth()) {
+                                    Text("Bring my words from the previous template")
+                                }
                             }
                         }
-                    }
-                    Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
-                        key(tab, group) {
-                            if (iconsOn) {
-                                IconOptions(group, doc, onDoc, selectedIcon) { selectedIcon = it }
-                            } else {
-                                EditorOptions(
-                                    tab, group, doc, onDoc, brand, onBrand,
-                                    hasPhotoArea = photoArea != null,
-                                    onPickPhoto = onPickPhoto,
-                                    onPickBackgroundPhoto = onPickBackgroundPhoto,
-                                    onPickLogo = onPickLogo,
-                                    moveLogo = moveLogoOn,
-                                    onMoveLogo = { moveLogoOn = it },
-                                    footerItem = footerItem,
-                                    onFooterItem = { footerItem = it }
-                                )
+
+                        SettingsSection("Colors", "Color pairs, accent and text colors.") {
+                            listOf("pairs", "main", "text").forEach { group ->
+                                EditorOptions(EditorTab.LOOK, group, doc, onDoc, brand, onBrand,
+                                    photoArea != null, onPickPhoto, onPickBackgroundPhoto, onPickLogo,
+                                    moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it })
                             }
+                        }
+
+                        SettingsSection("Background", "Choose the template background, a solid color or a gradient.") {
+                            listOf("bg", "bgfrom", "bgto", "bgdir").forEach { group ->
+                                if (group != "bgfrom" || doc.bgMode == BgMode.SOLID || doc.bgMode == BgMode.GRADIENT) {
+                                    if (group != "bgto" && group != "bgdir" || doc.bgMode == BgMode.GRADIENT) {
+                                        EditorOptions(EditorTab.LOOK, group, doc, onDoc, brand, onBrand,
+                                            photoArea != null, onPickPhoto, onPickBackgroundPhoto, onPickLogo,
+                                            moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it })
+                                    }
+                                }
+                            }
+                        }
+
+                        SettingsSection("Photo", "Template photo and full-canvas background image.") {
+                            val groups = editorGroups(EditorTab.PHOTO, doc, slots, photoArea != null, false)
+                            groups.forEach { group ->
+                                val slider = editorSlider(EditorTab.PHOTO, group.key, doc, photoArea?.dim, onDoc)
+                                if (slider != null) InlineEditorSlider(slider)
+                                EditorOptions(EditorTab.PHOTO, group.key, doc, onDoc, brand, onBrand,
+                                    photoArea != null, onPickPhoto, onPickBackgroundPhoto, onPickLogo,
+                                    moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it })
+                            }
+                        }
+
+                        SettingsSection("Fonts", "English and Amharic font libraries.") {
+                            EditorOptions(EditorTab.FONT, "en", doc, onDoc, brand, onBrand,
+                                photoArea != null, onPickPhoto, onPickBackgroundPhoto, onPickLogo,
+                                moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it })
+                            EditorOptions(EditorTab.FONT, "am", doc, onDoc, brand, onBrand,
+                                photoArea != null, onPickPhoto, onPickBackgroundPhoto, onPickLogo,
+                                moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it })
+                        }
+
+                        SettingsSection("Logo", "Control the logo on this post.") {
+                            editorGroups(EditorTab.LOGO, doc, slots, photoArea != null, false).forEach { group ->
+                                if (group.key == "size") {
+                                    InlineEditorSlider(EditorSlider("Logo size", brand.logoScale, 0.4f..2f,
+                                        "${(brand.logoScale * 100).toInt()}%") { onBrand(brand.copy(logoScale = it)) })
+                                }
+                                EditorOptions(EditorTab.LOGO, group.key, doc, onDoc, brand, onBrand,
+                                    photoArea != null, onPickPhoto, onPickBackgroundPhoto, onPickLogo,
+                                    moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it })
+                            }
+                        }
+
+                        SettingsSection("Icons", "Add graphics, select one, then drag or pinch it on the preview.") {
+                            editorGroups(EditorTab.ICONS, doc, slots, photoArea != null, false).forEach { group ->
+                                if (group.key == "size") {
+                                    val slider = iconSizeSlider(doc, selectedIcon, onDoc)
+                                    if (slider != null) InlineEditorSlider(slider)
+                                }
+                                IconOptions(group.key, doc, onDoc, selectedIcon) { selectedIcon = it }
+                            }
+                        }
+
+                        SettingsSection("Footer", "Social icons shown on the post.") {
+                            editorGroups(EditorTab.FOOTER, doc, slots, photoArea != null, false).forEach { group ->
+                                EditorOptions(EditorTab.FOOTER, group.key, doc, onDoc, brand, onBrand,
+                                    photoArea != null, onPickPhoto, onPickBackgroundPhoto, onPickLogo,
+                                    moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it })
+                            }
+                        }
+
+                        SettingsSection("Decoration and text size", "Keep the template clean or add richer decoration.") {
+                            EditorOptions(EditorTab.LOOK, "style", doc, onDoc, brand, onBrand,
+                                photoArea != null, onPickPhoto, onPickBackgroundPhoto, onPickLogo,
+                                moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it })
+                            EditorOptions(EditorTab.LOOK, "size", doc, onDoc, brand, onBrand,
+                                photoArea != null, onPickPhoto, onPickBackgroundPhoto, onPickLogo,
+                                moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it })
                         }
                     }
                 }
             }
         }
         if (showSave) SaveDialog(doc, brand) { showSave = false }
+    }
+}
+
+@Composable
+private fun SettingsSection(title: String, subtitle: String? = null, content: @Composable Column.() -> Unit) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = PostPalette.Surface),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+            Text(title, color = PostPalette.Text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            if (subtitle != null) Text(subtitle, color = PostPalette.Muted, fontSize = 11.sp)
+            content(this)
+        }
+    }
+}
+
+@Composable
+private fun InlineEditorSlider(slider: EditorSlider) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(slider.label, color = PostPalette.Text, fontSize = 12.sp, modifier = Modifier.weight(1f))
+            Text(slider.display, color = PostPalette.Muted, fontSize = 12.sp)
+        }
+        androidx.compose.material3.Slider(
+            value = slider.value.coerceIn(slider.range.start, slider.range.endInclusive),
+            onValueChange = slider.onChange,
+            valueRange = slider.range
+        )
     }
 }
 

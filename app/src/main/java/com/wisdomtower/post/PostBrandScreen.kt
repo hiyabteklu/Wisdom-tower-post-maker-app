@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 
 /**
@@ -47,6 +48,7 @@ import kotlinx.coroutines.withContext
  * Same layout rule as the editor: the preview stays fixed at the top, categories are one sideways row of tabs,
  * and the options for the chosen category sit in an area of fixed height at the bottom, so nothing jumps.
  * The preview is the Follow us poster, so you see the icons big. Colors are picked from circles, never typed.
+ * About holds the way back to the old layer studio, which is no longer in the editor.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,6 +56,7 @@ fun PostBrandScreen(
     brand: PostBrand,
     onBrand: (PostBrand) -> Unit,
     onPickLogo: () -> Unit,
+    onOpenOldStudio: () -> Unit,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
@@ -65,7 +68,8 @@ fun PostBrandScreen(
         delay(150)
         val spec = postTemplate("social-follow")
         val sample = PostDoc(templateId = spec.id, texts = spec.samples)
-        preview = withContext(Dispatchers.Default) { PostRenderer.thumbnail(context, sample, brand, 720).bitmap }
+        // drawn straight at 720 px wide; a newer brand change stops this render early
+        preview = withContext(Dispatchers.Default) { PostRenderer.preview(context, sample, brand, 720) { !isActive }.bitmap }
     }
 
     PostTheme {
@@ -97,6 +101,7 @@ fun PostBrandScreen(
                     FilterChip(selected = tab == "icons", onClick = { tab = "icons" }, label = { Text("Social icons") })
                     FilterChip(selected = tab == "logo", onClick = { tab = "logo" }, label = { Text("Logo") })
                     FilterChip(selected = tab == "colors", onClick = { tab = "colors" }, label = { Text("Colors") })
+                    FilterChip(selected = tab == "about", onClick = { tab = "about" }, label = { Text("About") })
                 }
 
                 Column(
@@ -149,6 +154,26 @@ fun PostBrandScreen(
                                     )
                                 }
                             }
+                        }
+
+                        "about" -> {
+                            Text(
+                                "Wisdom Tower Post works fully offline. Templates, fonts, icons, photos and drafts all stay on this phone.",
+                                fontSize = 12.sp,
+                                color = PostPalette.Muted
+                            )
+                            Row(
+                                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedButton(onClick = onOpenOldStudio) { Text("Open old layer studio") }
+                            }
+                            Text(
+                                "The old layer studio is kept here only so your earlier designs stay reachable. It will be removed once you no longer need them.",
+                                fontSize = 11.sp,
+                                color = PostPalette.Muted
+                            )
                         }
 
                         else -> {

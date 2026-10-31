@@ -62,6 +62,16 @@ fun PostApp() {
             else Toast.makeText(context, "That file is not a readable image", Toast.LENGTH_LONG).show()
         }
     }
+    val iconPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        val available = (6 - doc.placedIcons.size).coerceAtLeast(0)
+        val imported = uris.take(available).mapIndexedNotNull { index, uri ->
+            val path = PostStore.importIcon(context, uri)
+            path?.let { PostPlacedIcon(id = "icon_${System.currentTimeMillis()}_$index", path = it) }
+        }
+        if (imported.isNotEmpty()) doc = doc.copy(placedIcons = (doc.placedIcons + imported).take(6))
+        if (uris.size > available) Toast.makeText(context, "A post can contain up to 6 icons", Toast.LENGTH_SHORT).show()
+    }
+
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             val stored = PostStore.importPhoto(context, uri)
@@ -94,6 +104,7 @@ fun PostApp() {
             onPickPhoto = { photoPicker.launch(arrayOf("image/*")) },
             onPickBackgroundPhoto = { backgroundPhotoPicker.launch(arrayOf("image/*")) },
             onPickLogo = { logoPicker.launch(arrayOf("image/*")) },
+            onPickIcons = { iconPicker.launch(arrayOf("image/png", "image/webp", "image/jpeg")) },
             onOpenBrand = { openBrand() },
             onBackHome = { screen = "home" },
             onSaveProject = {

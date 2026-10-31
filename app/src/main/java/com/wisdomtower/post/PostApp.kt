@@ -29,6 +29,7 @@ fun PostApp() {
     }
     val initialIndex = remember { PostDraftStore.loadIndex(context) }
     var doc by remember { mutableStateOf(initialDoc) }
+    var previousTexts by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var docDirty by remember { mutableStateOf(false) }
     var brand by remember { mutableStateOf(PostStore.loadBrand(context)) }
     var projects by remember { mutableStateOf(PostProjects.load(context)) }
@@ -115,6 +116,7 @@ fun PostApp() {
                 Toast.makeText(context, "Saved to My posts", Toast.LENGTH_SHORT).show()
             },
             bookmarked = doc.templateId in library.bookmarks,
+            previousTexts = previousTexts,
             onToggleBookmark = {
                 PostDraftStore.setBookmarked(context, doc.templateId, doc.templateId !in library.bookmarks)
                 library = PostDraftStore.loadIndex(context)
@@ -125,12 +127,14 @@ fun PostApp() {
             projects = projects,
             library = library,
             onChooseTemplate = { spec, size ->
+                previousTexts = doc.texts
                 doc = PostDraftStore.openTemplate(context, spec, size)
                 docDirty = false
                 library = PostDraftStore.loadIndex(context)
                 screen = "editor"
             },
             onOpenProject = { project ->
+                previousTexts = doc.texts
                 doc = project.document
                 docDirty = true
                 PostDraftStore.markOpened(context, doc.templateId)

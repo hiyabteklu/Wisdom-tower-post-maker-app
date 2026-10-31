@@ -93,6 +93,7 @@ fun PostStudioScreen(
     brand: PostBrand,
     onBrand: (PostBrand) -> Unit,
     onPickPhoto: () -> Unit,
+    onPickBackgroundPhoto: () -> Unit,
     onPickLogo: () -> Unit,
     onOpenBrand: () -> Unit,
     onOpenOldStudio: () -> Unit
@@ -110,7 +111,7 @@ fun PostStudioScreen(
                         Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        StudioDetails(doc, onDoc, brand, onBrand, onPickPhoto, onPickLogo, onOpenBrand, onOpenOldStudio, moveLogo, { moveLogo = it })
+                        StudioDetails(doc, onDoc, brand, onBrand, onPickPhoto, onPickBackgroundPhoto, onPickLogo, onOpenBrand, onOpenOldStudio, moveLogo, { moveLogo = it })
                     }
                 }
             }
@@ -304,6 +305,7 @@ private fun ColumnScope.StudioDetails(
     brand: PostBrand,
     onBrand: (PostBrand) -> Unit,
     onPickPhoto: () -> Unit,
+    onPickBackgroundPhoto: () -> Unit,
     onPickLogo: () -> Unit,
     onOpenBrand: () -> Unit,
     onOpenOldStudio: () -> Unit,
@@ -386,6 +388,27 @@ private fun ColumnScope.StudioDetails(
         }
         if (doc.bgMode != BgMode.TEMPLATE) {
             PostSmallLabel("Light templates use dark text and dark ones use light text. Pick colors that keep it readable.")
+        }
+    }
+
+    // ---- Full-canvas background photo ----
+    StudioSection("Background image", "Add a photo behind the template design. Text, shapes and template details stay editable above it.") {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            OutlinedButton(onClick = onPickBackgroundPhoto) {
+                Icon(Icons.Outlined.PhotoLibrary, contentDescription = null)
+                Spacer(Modifier.width(6.dp))
+                Text(if (doc.backgroundPhotoUri != null) "Replace background" else "Add background image")
+            }
+            if (doc.backgroundPhotoUri != null) {
+                TextButton(onClick = { onDoc(doc.copy(backgroundPhotoUri = null, backgroundPhotoOpacity = 1f)) }) { Text("Remove") }
+            }
+        }
+        if (doc.backgroundPhotoUri != null) {
+            PostLabeledSlider("Background image opacity", doc.backgroundPhotoOpacity, 0f..1f,
+                "${(doc.backgroundPhotoOpacity * 100).toInt()}%") {
+                onDoc(doc.copy(backgroundPhotoOpacity = it))
+            }
+            PostSmallLabel("100% = fully visible · 0% = hidden, revealing the color or gradient beneath.")
         }
     }
 

@@ -29,6 +29,7 @@ fun PostApp() {
     }
     val initialIndex = remember { PostDraftStore.loadIndex(context) }
     var doc by remember { mutableStateOf(initialDoc) }
+    var docDirty by remember { mutableStateOf(false) }
     var brand by remember { mutableStateOf(PostStore.loadBrand(context)) }
     var projects by remember { mutableStateOf(PostProjects.load(context)) }
     var library by remember { mutableStateOf(initialIndex) }
@@ -37,11 +38,13 @@ fun PostApp() {
     }
     var brandReturn by rememberSaveable { mutableStateOf("home") }
 
-    LaunchedEffect(doc) {
+    LaunchedEffect(doc, docDirty, screen) {
+        if (!docDirty || screen != "editor") return@LaunchedEffect
         delay(1_000)
         PostDraftStore.saveDraft(context, doc)
         PostStore.save(context, doc, brand)
         library = PostDraftStore.loadIndex(context)
+        docDirty = false
     }
     LaunchedEffect(brand) {
         delay(350)
@@ -58,7 +61,7 @@ fun PostApp() {
     val backgroundPhotoPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             val stored = PostStore.importPhoto(context, uri)
-            if (stored != null) doc = doc.copy(backgroundPhotoUri = stored, backgroundPhotoOpacity = 1f)
+            if (stored != null) { doc = doc.copy(backgroundPhotoUri = stored, backgroundPhotoOpacity = 1f); docDirty = true }
             else Toast.makeText(context, "That file is not a readable image", Toast.LENGTH_LONG).show()
         }
     }
@@ -68,14 +71,14 @@ fun PostApp() {
             val path = PostStore.importIcon(context, uri)
             path?.let { PostPlacedIcon(id = "icon_${System.currentTimeMillis()}_$index", path = it) }
         }
-        if (imported.isNotEmpty()) doc = doc.copy(placedIcons = (doc.placedIcons + imported).take(6))
+        if (imported.isNotEmpty()) { doc = doc.copy(placedIcons = (doc.placedIcons + imported).take(6)); docDirty = true }
         if (uris.size > available) Toast.makeText(context, "A post can contain up to 6 icons", Toast.LENGTH_SHORT).show()
     }
 
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             val stored = PostStore.importPhoto(context, uri)
-            if (stored != null) doc = doc.copy(photoUri = stored, photoZoom = 1f, photoFocusX = 0.5f, photoFocusY = 0.5f)
+            if (stored != null) { doc = doc.copy(photoUri = stored, photoZoom = 1f, photoFocusX = 0.5f, photoFocusY = 0.5f); docDirty = true }
             else Toast.makeText(context, "That file is not a readable image", Toast.LENGTH_LONG).show()
         }
     }
@@ -98,7 +101,7 @@ fun PostApp() {
         )
         "editor" -> PostStudioScreen(
             doc = doc,
-            onDoc = { doc = it },
+            onDoc = { doc = it; docDirty = true },
             brand = brand,
             onBrand = { brand = it },
             onPickPhoto = { photoPicker.launch(arrayOf("image/*")) },
@@ -123,11 +126,13 @@ fun PostApp() {
             library = library,
             onChooseTemplate = { spec, size ->
                 doc = PostDraftStore.openTemplate(context, spec, size)
+                docDirty = false
                 library = PostDraftStore.loadIndex(context)
                 screen = "editor"
             },
             onOpenProject = { project ->
                 doc = project.document
+                docDirty = true
                 PostDraftStore.markOpened(context, doc.templateId)
                 library = PostDraftStore.loadIndex(context)
                 screen = "editor"

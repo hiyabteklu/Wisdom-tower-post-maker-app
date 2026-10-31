@@ -85,7 +85,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private val thumbCache = LruCache<String, Bitmap>(48)
-private val AccentPresets = listOf("#176B4D", "#0E7490", "#1D4ED8", "#7C3AED", "#BE185D", "#C2410C", "#B45309", "#0F172A")
+private val AccentPresets = listOf("#176B4D", "#0F766E", "#0891B2", "#2563EB", "#4338CA", "#7C3AED", "#A21CAF", "#BE185D", "#E11D48", "#DC2626", "#EA580C", "#D97706", "#A16207", "#65A30D", "#334155")
 
 /** One tap sets the main color and the text color together: first is the pop color (bands, rings), second the ink (big words). */
 private val ColorPairs = listOf(

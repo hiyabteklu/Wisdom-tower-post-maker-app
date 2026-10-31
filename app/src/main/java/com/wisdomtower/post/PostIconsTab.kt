@@ -127,14 +127,23 @@ internal fun IconOptions(
     }
 
     when (group) {
-        "mine" -> IconChipRow {
-            OutlinedButton(onClick = { picker.launch(arrayOf("image/png", "image/webp", "image/jpeg")) }) {
-                Icon(Icons.Outlined.Add, contentDescription = null)
-                Text("Add")
-            }
+        "mine" -> Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             val files = remember(tick) { PostIconStore.list(context) }
-            files.forEach { f -> IconTile(f.absolutePath) { add(PostIconStore.FILE + f.absolutePath) } }
-            if (files.isEmpty()) IconHint("Tap Add to pick pictures from your phone. They stay here for every post.")
+            IconChipRow {
+                OutlinedButton(onClick = { picker.launch(arrayOf("image/png", "image/webp", "image/jpeg")) }) {
+                    Icon(Icons.Outlined.Add, contentDescription = null)
+                    Text("Add")
+                }
+                if (files.isEmpty()) IconHint("Your imported pictures stay in the icon library for every post.")
+            }
+            if (files.isNotEmpty()) {
+                val rowSize = (files.size + 1) / 2
+                files.chunked(rowSize.coerceAtLeast(1)).forEach { rowFiles ->
+                    IconChipRow {
+                        rowFiles.forEach { file -> IconTile(file.absolutePath) { add(PostIconStore.FILE + file.absolutePath) } }
+                    }
+                }
+            }
         }
 
         "shapes" -> Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {

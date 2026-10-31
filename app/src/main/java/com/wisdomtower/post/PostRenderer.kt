@@ -173,8 +173,9 @@ object PostRenderer {
 
     /**
      * Draws the post.
-     * scale: 1 is the real export size (the export always uses 1). Below 1 the bitmap is smaller, but every position, text-fit step
-     * and overflow decision is still made at full size and the canvas is scaled, so the overflow list and the look match the export.
+     * scale: 1 is the standard export size. Below 1 the bitmap is smaller (previews). 2 is the 4K export: the bitmap is twice as large in
+     * both directions. Every position, text-fit step and overflow decision is still made at the base size and the canvas is scaled,
+     * so the overflow list and the look match at every scale.
      * cancelled: asked between the drawing steps. When it returns true the render stops, frees its bitmap and throws a
      * CancellationException, so a preview that is already out of date does not keep the processor busy.
      */
@@ -182,13 +183,13 @@ object PostRenderer {
         val w = doc.size.width
         val h = doc.size.height
         val unit = min(w, h).toFloat()
-        val s = scale.coerceIn(0.05f, 1f)
-        // photos are decoded no bigger than the bitmap needs; near full size they keep the full-size target
-        val decodeTo = if (s >= 0.75f) max(w, h) else max(256, (max(w, h) * s * 1.5f).toInt())
+        val s = scale.coerceIn(0.05f, 2f)
+        // photos are decoded no bigger than the bitmap needs; near full size (and in 4K) they keep a full-size target
+        val decodeTo = if (s >= 0.75f) (max(w, h) * max(1f, s)).toInt() else max(256, (max(w, h) * s * 1.5f).toInt())
         fun stop() {
             if (cancelled()) throw java.util.concurrent.CancellationException("stale render")
         }
-        val layout = PostRich.apply(postTemplate(doc.templateId).layout(doc.size), doc.size, doc.richness)
+        val layout = postTemplate(doc.templateId).layout(doc.size)
         val colors = colorsFor(doc, brand)
         val bg = backgroundFor(doc, colors, layout)
         colors.page = bg.to
@@ -282,7 +283,7 @@ object PostRenderer {
      * Pass cancelled so a newer change can stop this render early (see render).
      */
     fun preview(context: Context, doc: PostDoc, brand: PostBrand, targetWidth: Int, cancelled: () -> Boolean = { false }): Result =
-        render(context, doc, brand, targetWidth.toFloat() / doc.size.width, cancelled)
+        render(context, doc, brand, min(1f, targetWidth.toFloat() / doc.size.width), cancelled)
 
     fun hasLogo(context: Context, brand: PostBrand): Boolean {
         val path = brand.logoPath
@@ -494,8 +495,8 @@ object PostRenderer {
         if (lines.isEmpty()) return true
         val rows = lines.mapIndexed { i, line ->
             when (box.list) {
-                ListStyle.DOT -> Row("\u2022", line)
-                ListStyle.CHECK -> Row("\u2713", line)
+                ListStyle.DOT -> Row("•", line)
+                ListStyle.CHECK -> Row("✓", line)
                 ListStyle.LETTER -> Row(('A' + i).toString() + ".", line)
                 ListStyle.NUMBER -> Row((i + 1).toString() + ".", line)
                 ListStyle.ROW -> {
@@ -717,7 +718,8 @@ object PostRenderer {
     /**
      * The header: a dark brand-gradient box hanging from the top-right corner with the white logo inside it.
      * Always on the right edge, on every template and size, so the logo reads on light and dark posters alike.
-     * On 9:16 the box is lowered to about 8.5% of the height so Instagram and TikTok top buttons do not cover it.
+     * On tall posts (9:16) the box is lowered to about 8.5% of the height so Instagram and TikTok top buttons do not cover it.
+     * 1:1, 4:5 and 4:3 keep it flush to the top.
      */
     private fun drawLogo(context: Context, canvas: Canvas, doc: PostDoc, brand: PostBrand, c: Colors, w: Int, h: Int, unit: Float) {
         val bmp = loadLogo(context, brand, (unit * 0.12f).toInt()) ?: return
@@ -734,7 +736,7 @@ object PostRenderer {
         val padY = unit * 0.020f
         val boxW = innerW + padX * 2f
         val boxH = innerH + padY * 2f
-        val detached = h > w
+        val detached = h >= w * 1.5f
         val top = if (detached) h * 0.085f else 0f
         val bleed = unit * 0.03f
         // the box runs a little past the right (and, when flush, the top) edge so no outline shows there

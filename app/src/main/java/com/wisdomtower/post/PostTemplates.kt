@@ -562,29 +562,30 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
         )
     },
 
-    // 13. Subject: course code in a pill, big subject name, soft glow
+    // 13. Subject: asymmetric editorial title with a pentagonal photo window
     template(
-        "subject-badge", "Course code badge", "Subject",
+        "subject-badge", "Course feature with photo", "Subject",
         mapOf(
             PostSlots.NUMBER to "PSYC 1011",
             PostSlots.HEADLINE to "General Psychology",
             PostSlots.BODY to "Chapter 1: The Essence of Psychology"
         )
     ) {
-        val badgeY = fy(.04f)
+        val badgeY = fy(.02f)
         TemplateLayout(
             PostBase.LIGHT,
             listOf(
-                glow(.92f, .82f, .50f, PostTone.ACCENT, PostTone.GLOW, 90),
-                ringAt(.90f, .30f, .20f, PostTone.ACCENT, 60, .006f),
-                DecorBox(DecorShape.ROUND, fx(0f), badgeY, fw(.5f), 74f / H, PostTone.ACCENT, 255, .05f, gradTo = PostTone.DEEP, angle = 0f),
-                rule(0f, .66f, .14f, PostTone.ACCENT, .008f)
+                glow(.92f, .82f, .42f, PostTone.ACCENT, PostTone.GLOW, 70),
+                DecorBox(DecorShape.ROUND, fx(0f), badgeY, fw(.48f), 68f / H, PostTone.ACCENT, 255, .045f, gradTo = PostTone.DEEP, angle = 0f),
+                DecorBox(DecorShape.WAVE, 0f, fy(.60f), 1f, fh(.28f), PostTone.TINT, 170),
+                ringAt(.76f, .37f, .22f, PostTone.ACCENT, 45, .006f)
             ),
             listOf(
-                abox(PostSlots.NUMBER, 0f, badgeY + 15f / H, .5f, 52f / H, .034f, PostFont.BOLD, PostTone.LIGHT, centered = true, caps = true),
-                box(PostSlots.HEADLINE, 0f, .20f, 1f, .42f, .092f, PostFont.DISPLAY, PostTone.TEXT),
-                box(PostSlots.BODY, 0f, .70f, 1f, .26f, .038f, PostFont.REGULAR, PostTone.MUTED)
+                abox(PostSlots.NUMBER, 0f, badgeY + 13f / H, .48f, 48f / H, .030f, PostFont.BOLD, PostTone.LIGHT, centered = true, caps = true),
+                box(PostSlots.HEADLINE, 0f, .18f, .50f, .43f, .078f, PostFont.DISPLAY, PostTone.TEXT),
+                box(PostSlots.BODY, 0f, .67f, 1f, .24f, .036f, PostFont.REGULAR, PostTone.MUTED)
             ),
+            photo = PostPhotoArea(fx(.57f), fy(.18f), fw(.38f), fh(.40f), 35, PhotoMask.PENTAGON),
             backdrop = Backdrop(PostTone.TINT, PostTone.SOFT, 135f)
         )
     },
@@ -721,27 +722,32 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
         )
     },
 
-    // 19. Announcement: soft gradient band behind the headline, accent bar on the details
+    // 19. Announcement: a sculpted wave panel creates a distinct text stage
     template(
-        "announce-plain", "Plain announcement", "Announcement",
+        "announce-plain", "Wave-cut announcement", "Announcement",
         mapOf(
             PostSlots.EYEBROW to "ANNOUNCEMENT",
             PostSlots.HEADLINE to "New study notes are now live",
             PostSlots.BODY to "Open the app to read the latest chapters. Share it with a friend who is preparing for the same exam."
         )
     ) {
+        val waveY = if (story) .53f else .55f
         TemplateLayout(
             PostBase.LIGHT,
             listOf(
-                DecorBox(DecorShape.RECT, 0f, fy(.03f), 1f, fh(.50f), PostTone.SECONDARY, 255, gradTo = PostTone.TINT, angle = 135f),
-                ringAt(.90f, fy(.14f), .12f, PostTone.ACCENT, 60, .006f),
-                vbar(0f, .58f, .36f, PostTone.ACCENT, .012f)
+                DecorBox(DecorShape.OVAL, .68f, -.15f, .52f, .42f, PostTone.ACCENT, 30),
+                DecorBox(DecorShape.WAVE, 0f, waveY - .035f, 1f, 1f - waveY + .035f, PostTone.GLOW, 105),
+                DecorBox(DecorShape.WAVE, 0f, waveY, 1f, 1f - waveY, PostTone.ACCENT, 245, gradTo = PostTone.DEEP, angle = 90f),
+                ringAt(.94f, .20f, .25f, PostTone.ACCENT, 32, .008f),
+                DecorBox(DecorShape.RECT, .07f, .12f, .12f, .008f, PostTone.ACCENT)
             ),
             listOf(
-                box(PostSlots.EYEBROW, .02f, .06f, .8f, .06f, .028f, PostFont.BOLD, PostTone.ACCENT, caps = true),
-                box(PostSlots.HEADLINE, .02f, .14f, .9f, .36f, .076f, PostFont.DISPLAY, PostTone.TEXT),
-                box(PostSlots.BODY, .05f, .58f, .95f, .38f, .04f, PostFont.REGULAR, PostTone.TEXT)
-            )
+                box(PostSlots.EYEBROW, .02f, .06f, .8f, .06f, .026f, PostFont.BOLD, PostTone.ACCENT, caps = true),
+                box(PostSlots.HEADLINE, .02f, .15f, .92f, .34f, .078f, PostFont.DISPLAY, PostTone.TEXT),
+                abox(PostSlots.BODY, .04f, waveY + .09f, .92f, .87f - waveY, .038f, PostFont.REGULAR, PostTone.LIGHT)
+            ),
+            footerLight = true,
+            backdrop = Backdrop(PostTone.TINT, PostTone.SOFT, 135f)
         )
     },
 

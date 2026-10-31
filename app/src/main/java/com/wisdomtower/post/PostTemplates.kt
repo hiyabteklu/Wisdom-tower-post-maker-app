@@ -235,9 +235,10 @@ private fun template(
  * because a headline can run one line or four.
  * The bold two-color templates at the end use TEXT as the ink (big words) and ACCENT as the pop (bands, rings),
  * so the Color pairs buttons in the studio restyle them in one tap.
- * The redesigned templates (PhotoTemplates, PostTemplatesPhoto.kt) come first.
+ * The redesigned templates come first: the photo ones (PhotoTemplates, PostTemplatesPhoto.kt), then the information ones
+ * (InfoTemplates, PostTemplatesInfo.kt).
  */
-val PostTemplates: List<PostTemplateSpec> = PhotoTemplates + listOf(
+val PostTemplates: List<PostTemplateSpec> = PhotoTemplates + InfoTemplates + listOf(
 
     // 1. Quote: centered, ring behind, rule above
     template(

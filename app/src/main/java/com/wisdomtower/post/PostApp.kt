@@ -14,18 +14,34 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.delay
 
-/** App navigation and offline state owner. */
+/** App navigation and offline state owner. Drafts are isolated per template; brand settings remain global. */
 @Composable
 fun PostApp() {
     val context = LocalContext.current
-    var doc by remember { mutableStateOf(PostStore.loadDoc(context)) }
+    val initialDoc = remember {
+        val legacy = PostStore.loadDoc(context)
+        PostDraftStore.migrateLegacy(context, legacy)
+        val index = PostDraftStore.loadIndex(context)
+        val last = PostTemplates.firstOrNull { it.id == index.lastOpenedTemplateId } ?: PostTemplates.first()
+        PostDraftStore.loadDraft(context, last.id) ?: legacy
+    }
+    val initialIndex = remember { PostDraftStore.loadIndex(context) }
+    var doc by remember { mutableStateOf(initialDoc) }
     var brand by remember { mutableStateOf(PostStore.loadBrand(context)) }
     var projects by remember { mutableStateOf(PostProjects.load(context)) }
-    var screen by rememberSaveable { mutableStateOf("home") }
+    var screen by rememberSaveable {
+        mutableStateOf(if (initialIndex.lastEditedAt.isNotEmpty()) "editor" else "home")
+    }
     var brandReturn by rememberSaveable { mutableStateOf("home") }
 
-    LaunchedEffect(doc, brand) {
-        delay(800)
+    // A draft is written one second after the final edit, not on every slider movement.
+    LaunchedEffect(doc) {
+        delay(1_000)
+        PostDraftStore.saveDraft(context, doc)
+        PostStore.save(context, doc, brand)
+    }
+    LaunchedEffect(brand) {
+        delay(350)
         PostStore.save(context, doc, brand)
     }
 
@@ -86,11 +102,12 @@ fun PostApp() {
             brand = brand,
             projects = projects,
             onChooseTemplate = { spec, size ->
-                doc = doc.withTemplate(spec).copy(size = size)
+                doc = PostDraftStore.openTemplate(context, spec, size)
                 screen = "editor"
             },
             onOpenProject = { project ->
                 doc = project.document
+                PostDraftStore.markOpened(context, doc.templateId)
                 screen = "editor"
             },
             onDeleteProject = { id -> projects = PostProjects.delete(context, id) },

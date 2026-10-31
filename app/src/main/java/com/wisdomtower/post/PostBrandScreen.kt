@@ -2,11 +2,8 @@ package com.wisdomtower.post
 
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -30,7 +26,6 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -45,7 +40,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -55,12 +49,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
-private val HexPattern = Regex("^#[0-9A-F]{6}$")
-
 /**
  * The one place where the brand is set: logo, colors, social icons. Sections are collapsed except one,
  * so the screen stays short. The preview at the top is the Follow us poster, so you see the icons big.
- * Everything here applies to every post that has no override.
+ * Everything here applies to every post that has no override. Colors are picked from circles, never typed.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -152,16 +144,16 @@ fun PostBrandScreen(
 
                 BrandSection(
                     title = "Colors",
-                    summary = "Main " + brand.primaryHex + ", light " + brand.lightHex,
+                    summary = "Four brand colors. Tap a circle to change one.",
                     open = open == "colors",
                     onToggle = { toggle("colors") }
                 ) {
-                    HexRow("Main color (accents, footer)", brand.primaryHex) { onBrand(brand.copy(primaryHex = it)) }
-                    HexRow("Second color (glows, highlights)", brand.secondaryHex) { onBrand(brand.copy(secondaryHex = it)) }
-                    HexRow("Light (backgrounds)", brand.lightHex) { onBrand(brand.copy(lightHex = it)) }
-                    HexRow("Dark (text, dark posters)", brand.darkHex) { onBrand(brand.copy(darkHex = it)) }
+                    BrandColorStrip("Main color (accents, footer)", brand.primaryHex) { onBrand(brand.copy(primaryHex = it)) }
+                    BrandColorStrip("Second color (glows, highlights)", brand.secondaryHex) { onBrand(brand.copy(secondaryHex = it)) }
+                    BrandColorStrip("Light (backgrounds)", brand.lightHex) { onBrand(brand.copy(lightHex = it)) }
+                    BrandColorStrip("Dark (text, dark posters)", brand.darkHex) { onBrand(brand.copy(darkHex = it)) }
                     Text(
-                        "Type a 6-digit code like #176B4D. Every gradient, ring and glow is built from these four, so changing one restyles all templates.",
+                        "Every gradient, ring and glow is built from these four, so changing one restyles all templates.",
                         fontSize = 11.sp,
                         color = PostPalette.Muted
                     )
@@ -196,25 +188,11 @@ private fun BrandSection(
     }
 }
 
+/** One brand color: its name, then one horizontal strip of circles. */
 @Composable
-private fun HexRow(label: String, value: String, onValid: (String) -> Unit) {
-    var text by remember(value) { mutableStateOf(value) }
-    val swatch = runCatching { Color(android.graphics.Color.parseColor(value)) }.getOrDefault(Color.Gray)
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Box(
-            Modifier.size(36.dp).clip(RoundedCornerShape(8.dp)).background(swatch)
-                .border(1.dp, Color.LightGray, RoundedCornerShape(8.dp))
-        )
-        OutlinedTextField(
-            value = text,
-            onValueChange = { typed ->
-                val upper = typed.uppercase()
-                text = upper
-                if (HexPattern.matches(upper)) onValid(upper)
-            },
-            label = { Text(label) },
-            singleLine = true,
-            modifier = Modifier.weight(1f)
-        )
+private fun BrandColorStrip(label: String, value: String, onPick: (String) -> Unit) {
+    Column {
+        Text(label, fontSize = 12.sp, color = PostPalette.Muted)
+        PaletteStrip(value, null, false) { hex -> if (hex != null) onPick(hex) }
     }
 }

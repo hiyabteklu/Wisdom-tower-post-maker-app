@@ -25,7 +25,6 @@ import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 
 private const val MAX_ICONS = 4
-private val IconColors = listOf("#FFFFFF", "#F4C95D", "#5DE0A5", "#229ED9", "#E1306C", "#FF0000", "#25D366", "#141414")
 
 /**
  * Everything about the social icons in one place: footer style, icon look, icon size, and per icon the platform,
@@ -103,14 +102,12 @@ fun FooterEditor(brand: PostBrand, onBrand: (PostBrand) -> Unit) {
                             Icon(Icons.Outlined.Delete, contentDescription = "Remove")
                         }
                     }
-                    PostSmallLabel("Icon color (A = automatic)")
-                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        PostSwatch(null, item.colorHex.isBlank()) { update(index) { it.copy(colorHex = "") } }
-                        IconColors.forEach { hex ->
-                            PostSwatch(hex, item.colorHex.equals(hex, ignoreCase = true)) { update(index) { it.copy(colorHex = hex) } }
-                        }
-                    }
-                    PostHexField("Own color (#RRGGBB)", item.colorHex.ifBlank { "#FFFFFF" }) { hex -> update(index) { it.copy(colorHex = hex) } }
+                    PostColorPicker(
+                        label = "Icon color",
+                        value = item.colorHex.takeIf { it.isNotBlank() },
+                        brand = brand,
+                        onPick = { hex -> update(index) { it.copy(colorHex = hex.orEmpty()) } }
+                    )
                 }
             }
         }

@@ -55,8 +55,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
-private val HexPattern = Regex("^#[0-9A-F]{6}$")
-
 /**
  * The one place where the brand is set: logo, colors, social icons. Sections are collapsed except one,
  * so the screen stays short. The preview at the top is the Follow us poster, so you see the icons big.
@@ -156,12 +154,12 @@ fun PostBrandScreen(
                     open = open == "colors",
                     onToggle = { toggle("colors") }
                 ) {
-                    HexRow("Main color (accents, footer)", brand.primaryHex) { onBrand(brand.copy(primaryHex = it)) }
-                    HexRow("Second color (glows, highlights)", brand.secondaryHex) { onBrand(brand.copy(secondaryHex = it)) }
-                    HexRow("Light (backgrounds)", brand.lightHex) { onBrand(brand.copy(lightHex = it)) }
-                    HexRow("Dark (text, dark posters)", brand.darkHex) { onBrand(brand.copy(darkHex = it)) }
+                    PostColorPicker("Main color", brand.primaryHex, brand, { hex -> if (hex != null) onBrand(brand.copy(primaryHex = hex)) }, includeBrandChoice = false)
+                    PostColorPicker("Second color", brand.secondaryHex, brand, { hex -> if (hex != null) onBrand(brand.copy(secondaryHex = hex)) }, includeBrandChoice = false)
+                    PostColorPicker("Light color", brand.lightHex, brand, { hex -> if (hex != null) onBrand(brand.copy(lightHex = hex)) }, includeBrandChoice = false)
+                    PostColorPicker("Dark color", brand.darkHex, brand, { hex -> if (hex != null) onBrand(brand.copy(darkHex = hex)) }, includeBrandChoice = false)
                     Text(
-                        "Type a 6-digit code like #176B4D. Every gradient, ring and glow is built from these four, so changing one restyles all templates.",
+                        "Choose a color visually. Changing a brand color restyles every template that still follows the brand.",
                         fontSize = 11.sp,
                         color = PostPalette.Muted
                     )
@@ -196,25 +194,3 @@ private fun BrandSection(
     }
 }
 
-@Composable
-private fun HexRow(label: String, value: String, onValid: (String) -> Unit) {
-    var text by remember(value) { mutableStateOf(value) }
-    val swatch = runCatching { Color(android.graphics.Color.parseColor(value)) }.getOrDefault(Color.Gray)
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Box(
-            Modifier.size(36.dp).clip(RoundedCornerShape(8.dp)).background(swatch)
-                .border(1.dp, Color.LightGray, RoundedCornerShape(8.dp))
-        )
-        OutlinedTextField(
-            value = text,
-            onValueChange = { typed ->
-                val upper = typed.uppercase()
-                text = upper
-                if (HexPattern.matches(upper)) onValid(upper)
-            },
-            label = { Text(label) },
-            singleLine = true,
-            modifier = Modifier.weight(1f)
-        )
-    }
-}

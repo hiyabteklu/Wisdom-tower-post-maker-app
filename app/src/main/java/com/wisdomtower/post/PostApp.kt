@@ -31,9 +31,10 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * Owns the open post, the brand and the library, and switches between the studio, the brand screen and the old studio.
+ * Owns the open post, the brand and the library, and switches between the studio, the Library home, the brand screen and the old studio.
  * Every template remembers how it was left: each one has its own draft file (see PostDrafts). Switching template saves the
  * one you leave and opens the other exactly as it was last edited, or in its factory look the first time.
+ * The app opens on the template you edited last; the Library is one tap away (grid button in the editor).
  */
 @Composable
 fun PostApp() {
@@ -43,6 +44,7 @@ fun PostApp() {
     var library by remember { mutableStateOf(startup.second) }
     var brand by remember { mutableStateOf(PostStore.loadBrand(context)) }
     var screen by rememberSaveable { mutableStateOf("studio") }
+    var libSize by remember { mutableStateOf(startup.first.size) }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     /** The last post that was written to its draft file (or opened), so opening a template does not count as an edit. */
@@ -75,6 +77,20 @@ fun PostApp() {
         library = lib
         persisted[0] = next
         doc = next
+    }
+
+    /** Writes the open post to its draft right away, so the Library shows it as you left it. */
+    fun saveOpenDraft() {
+        val lib = PostDrafts.persist(context, doc, library)
+        library = lib
+        persisted[0] = doc
+    }
+
+    fun toggleBookmark(id: String) {
+        val marks = if (id in library.bookmarks) library.bookmarks - id else library.bookmarks + id
+        val lib = library.copy(bookmarks = marks)
+        PostDrafts.saveLibrary(context, lib)
+        library = lib
     }
 
     fun resetCurrent() {
@@ -134,6 +150,24 @@ fun PostApp() {
 
     Box(Modifier.fillMaxSize()) {
         when (screen) {
+            "library" -> {
+                BackHandler { screen = "studio" }
+                PostLibraryScreen(
+                    brand = brand,
+                    library = library,
+                    size = libSize,
+                    onSize = { libSize = it },
+                    onOpen = { id ->
+                        val wasEdited = id in library.edited
+                        if (id != doc.templateId) openTemplate(id)
+                        // a template with no draft opens at the size chosen in the Library
+                        if (!wasEdited && doc.size != libSize) doc = doc.copy(size = libSize)
+                        screen = "studio"
+                    },
+                    onToggleBookmark = { toggleBookmark(it) },
+                    onBack = { screen = "studio" }
+                )
+            }
             "brand" -> {
                 BackHandler { screen = "studio" }
                 PostBrandScreen(
@@ -159,7 +193,14 @@ fun PostApp() {
                 onOpenOldStudio = { screen = "old" },
                 edited = PostDrafts.isEdited(doc),
                 onReset = { resetCurrent() },
-                onBringWords = if (library.lastWords.isNotEmpty()) bringWords else null
+                onBringWords = if (library.lastWords.isNotEmpty()) bringWords else null,
+                bookmarked = doc.templateId in library.bookmarks,
+                onToggleBookmark = { toggleBookmark(doc.templateId) },
+                onOpenLibrary = {
+                    saveOpenDraft()
+                    libSize = doc.size
+                    screen = "library"
+                }
             )
         }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 12.dp))

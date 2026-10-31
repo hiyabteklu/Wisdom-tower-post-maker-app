@@ -1,7 +1,6 @@
 package com.wisdomtower.post
 
 import android.graphics.Bitmap
-import android.util.LruCache
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -229,14 +228,22 @@ internal fun PostCircle(hex: String?, selected: Boolean, label: String? = null, 
 /** One horizontal strip: the brand or automatic circle first (when showAuto), then Bright, Soft, Dark and Neutral. */
 @Composable
 internal fun PaletteStrip(selected: String?, autoHex: String?, showAuto: Boolean, onPick: (String?) -> Unit) {
-    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
-        if (showAuto) {
-            PostCircle(autoHex, selected == null, if (autoHex != null) "B" else "A") { onPick(null) }
-            Spacer(Modifier.width(10.dp))
+    val colors = (PostColors.bright + PostColors.soft + PostColors.dark + PostColors.neutral)
+    val split = (colors.size + 1) / 2
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
+            if (showAuto) {
+                PostCircle(autoHex, selected == null, if (autoHex != null) "B" else "A") { onPick(null) }
+                Spacer(Modifier.width(8.dp))
+            }
+            colors.take(split).forEach { hex ->
+                PostCircle(hex, selected.equals(hex, ignoreCase = true)) { onPick(hex) }
+            }
         }
-        listOf(PostColors.bright, PostColors.soft, PostColors.dark, PostColors.neutral).forEachIndexed { index, colors ->
-            if (index > 0) Spacer(Modifier.width(10.dp))
-            colors.forEach { hex -> PostCircle(hex, selected.equals(hex, ignoreCase = true)) { onPick(hex) } }
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
+            colors.drop(split).forEach { hex ->
+                PostCircle(hex, selected.equals(hex, ignoreCase = true)) { onPick(hex) }
+            }
         }
     }
 }
@@ -260,8 +267,6 @@ private fun PairSwatch(accentHex: String, textHex: String, selected: Boolean, on
 // ---------------------------------------------------------------------------------------------------------------------
 // Template strip (a tab of its own until the Library home exists)
 // ---------------------------------------------------------------------------------------------------------------------
-
-private val thumbCache = LruCache<String, Bitmap>(48)
 
 @Composable
 internal fun TemplateStrip(doc: PostDoc, brand: PostBrand, library: PostLibrary, onDoc: (PostDoc) -> Unit) {

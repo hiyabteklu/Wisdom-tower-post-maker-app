@@ -10,6 +10,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -136,9 +137,15 @@ internal fun IconOptions(
             if (files.isEmpty()) IconHint("Tap Add to pick pictures from your phone. They stay here for every post.")
         }
 
-        "shapes" -> IconChipRow {
-            PostIconStore.shapes.forEach { name ->
-                FilterChip(selected = false, onClick = { add(PostIconStore.SHAPE + name) }, label = { Text(PostIconStore.shapeTitle(name)) })
+        "shapes" -> Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            val shapes = PostIconStore.shapes
+            val rows = (shapes.size + 1) / 2
+            shapes.chunked(rows.coerceAtLeast(1)).forEach { rowShapes ->
+                IconChipRow {
+                    rowShapes.forEach { name ->
+                        FilterChip(selected = false, onClick = { add(PostIconStore.SHAPE + name) }, label = { Text(PostIconStore.shapeTitle(name)) })
+                    }
+                }
             }
         }
 

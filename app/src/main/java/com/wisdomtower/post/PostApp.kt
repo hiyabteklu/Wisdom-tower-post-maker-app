@@ -14,13 +14,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.delay
 
-/** Owns the post and the brand, saves them, and switches between the studio, the brand screen and the old studio. */
+/** App navigation and offline state owner. */
 @Composable
 fun PostApp() {
     val context = LocalContext.current
     var doc by remember { mutableStateOf(PostStore.loadDoc(context)) }
     var brand by remember { mutableStateOf(PostStore.loadBrand(context)) }
-    var screen by rememberSaveable { mutableStateOf("studio") }
+    var projects by remember { mutableStateOf(PostProjects.load(context)) }
+    var screen by rememberSaveable { mutableStateOf("home") }
+    var brandReturn by rememberSaveable { mutableStateOf("home") }
 
     LaunchedEffect(doc, brand) {
         delay(800)
@@ -41,7 +43,6 @@ fun PostApp() {
             else Toast.makeText(context, "That file is not a readable image", Toast.LENGTH_LONG).show()
         }
     }
-
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             val stored = PostStore.importPhoto(context, uri)
@@ -50,21 +51,23 @@ fun PostApp() {
         }
     }
 
+    fun openBrand() {
+        brandReturn = screen
+        screen = "brand"
+    }
+
+    BackHandler(enabled = screen != "home") {
+        screen = if (screen == "brand") brandReturn else "home"
+    }
+
     when (screen) {
-        "brand" -> {
-            BackHandler { screen = "studio" }
-            PostBrandScreen(
-                brand = brand,
-                onBrand = { brand = it },
-                onPickLogo = { logoPicker.launch(arrayOf("image/*")) },
-                onBack = { screen = "studio" }
-            )
-        }
-        "old" -> {
-            BackHandler { screen = "studio" }
-            DesignStudioApp()
-        }
-        else -> PostStudioScreen(
+        "brand" -> PostBrandScreen(
+            brand = brand,
+            onBrand = { brand = it },
+            onPickLogo = { logoPicker.launch(arrayOf("image/*")) },
+            onBack = { screen = brandReturn }
+        )
+        "editor" -> PostStudioScreen(
             doc = doc,
             onDoc = { doc = it },
             brand = brand,
@@ -72,8 +75,26 @@ fun PostApp() {
             onPickPhoto = { photoPicker.launch(arrayOf("image/*")) },
             onPickBackgroundPhoto = { backgroundPhotoPicker.launch(arrayOf("image/*")) },
             onPickLogo = { logoPicker.launch(arrayOf("image/*")) },
-            onOpenBrand = { screen = "brand" },
-            onOpenOldStudio = { screen = "old" }
+            onOpenBrand = { openBrand() },
+            onOpenOldStudio = { screen = "home" },
+            onSaveProject = {
+                projects = PostProjects.save(context, doc)
+                Toast.makeText(context, "Saved to My posts", Toast.LENGTH_SHORT).show()
+            }
+        )
+        else -> PostHomeScreen(
+            brand = brand,
+            projects = projects,
+            onChooseTemplate = { spec ->
+                doc = doc.withTemplate(spec)
+                screen = "editor"
+            },
+            onOpenProject = { project ->
+                doc = project.document
+                screen = "editor"
+            },
+            onDeleteProject = { id -> projects = PostProjects.delete(context, id) },
+            onOpenBrand = { openBrand() }
         )
     }
 }

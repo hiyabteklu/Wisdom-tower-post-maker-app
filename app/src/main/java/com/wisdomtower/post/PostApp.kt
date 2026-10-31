@@ -29,16 +29,17 @@ fun PostApp() {
     var doc by remember { mutableStateOf(initialDoc) }
     var brand by remember { mutableStateOf(PostStore.loadBrand(context)) }
     var projects by remember { mutableStateOf(PostProjects.load(context)) }
+    var library by remember { mutableStateOf(initialIndex) }
     var screen by rememberSaveable {
         mutableStateOf(if (initialIndex.lastEditedAt.isNotEmpty()) "editor" else "home")
     }
     var brandReturn by rememberSaveable { mutableStateOf("home") }
 
-    // A draft is written one second after the final edit, not on every slider movement.
     LaunchedEffect(doc) {
         delay(1_000)
         PostDraftStore.saveDraft(context, doc)
         PostStore.save(context, doc, brand)
+        library = PostDraftStore.loadIndex(context)
     }
     LaunchedEffect(brand) {
         delay(350)
@@ -101,16 +102,23 @@ fun PostApp() {
         else -> PostHomeScreen(
             brand = brand,
             projects = projects,
+            library = library,
             onChooseTemplate = { spec, size ->
                 doc = PostDraftStore.openTemplate(context, spec, size)
+                library = PostDraftStore.loadIndex(context)
                 screen = "editor"
             },
             onOpenProject = { project ->
                 doc = project.document
                 PostDraftStore.markOpened(context, doc.templateId)
+                library = PostDraftStore.loadIndex(context)
                 screen = "editor"
             },
             onDeleteProject = { id -> projects = PostProjects.delete(context, id) },
+            onBookmark = { id, saved ->
+                PostDraftStore.setBookmarked(context, id, saved)
+                library = PostDraftStore.loadIndex(context)
+            },
             onOpenBrand = { openBrand() }
         )
     }

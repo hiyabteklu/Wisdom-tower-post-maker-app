@@ -116,7 +116,8 @@ fun PostStudioScreen(
     onSaveProject: () -> Unit,
     bookmarked: Boolean,
     previousTexts: Map<String, String>,
-    onToggleBookmark: () -> Unit
+    onToggleBookmark: () -> Unit,
+    onResetDraft: () -> Unit
 ) {
     var moveLogo by remember { mutableStateOf(false) }
     var selectedIconId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -138,6 +139,7 @@ fun PostStudioScreen(
                             val previous = doc
                             val template = postTemplate(doc.templateId)
                             onDoc(PostDoc(templateId = doc.templateId, size = doc.size, texts = template.samples))
+                            onResetDraft()
                             scope.launch {
                                 val snackbar = launch {
                                     val result = snackbarHostState.showSnackbar(

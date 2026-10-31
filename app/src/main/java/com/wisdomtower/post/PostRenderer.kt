@@ -8,6 +8,8 @@ import android.graphics.Color
 import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
 import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Shader
@@ -147,7 +149,8 @@ object PostFonts {
  * The single drawing path. The screen preview, the template thumbnails and the exported file all come from
  * render(). Layout, text fitting and every position are worked out at the real export size; a smaller
  * bitmap (the editor preview) only scales the canvas, so what you see is what you save.
- * Order: background gradient, shapes, photo, shapes marked overPhoto, icons placed "behind", text, header box with the logo, then the social block or the footer,
+ * Order: background gradient, mesh blend and grain, shapes, photo, shapes marked overPhoto, icons placed "behind",
+ * text set "behind the subject", the cut-out subject, the rest of the text, header box with the logo, then the social block or the footer,
  * then icons placed "in front".
  * Colors come from the Brand kit unless the post overrides them. Derived tones (DEEP, GLOW, TINT, SOFT, PAGE)
  * are built from the brand here, so every gradient follows a color change.
@@ -194,6 +197,8 @@ object PostRenderer {
             val canvas = Canvas(bitmap)
             canvas.scale(bitmap.width / w.toFloat(), bitmap.height / h.toFloat())
             drawBackground(canvas, bg, w, h)
+            PostEngine.drawMesh(canvas, doc.meshStyle, w, h, colors.accent, colors.glow, colors.deep, colors.secondary)
+            if (doc.grain) PostEngine.drawGrain(canvas, w, h)
             stop()
             doc.backgroundPhotoUri?.let { drawBackgroundPhoto(context, canvas, it, doc.backgroundPhotoOpacity, w, h, decodeTo) }
             stop()
@@ -201,7 +206,7 @@ object PostRenderer {
             layout.decor.filter { !it.overPhoto }.forEach { drawDecor(canvas, it, colors, w, h, unit) }
             val photoArea = layout.photo
             val photoUri = doc.photoUri
-            if (photoArea != null && photoUri != null) drawPhoto(context, canvas, photoUri, photoArea, doc, w, h, decodeTo)
+            if (photoArea != null && photoUri != null) drawPhoto(context, canvas, photoUri, photoArea, doc, colors, w, h, unit, decodeTo)
             stop()
             layout.decor.filter { it.overPhoto }.forEach { drawDecor(canvas, it, colors, w, h, unit) }
 
@@ -210,16 +215,39 @@ object PostRenderer {
             stop()
 
             val overflow = mutableListOf<String>()
-            canvas.save()
-            canvas.clipRect(0f, h * SAFE_TOP, w.toFloat(), h * SAFE_BOTTOM)
-            layout.slots.forEach { box ->
-                stop()
-                val text = (box.literal ?: doc.texts[box.slot].orEmpty()).trim()
-                if (text.isEmpty()) return@forEach
-                val fits = drawSlot(context, canvas, box, text, doc, colors, w, h, unit)
-                if (!fits && box.literal == null) overflow.add(box.slot)
+
+            // behind = true draws the words set "behind the subject", false the rest. Words the user dragged leave the safe band, so they are drawn without its clip.
+            fun drawSlots(behind: Boolean) {
+                canvas.save()
+                canvas.clipRect(0f, h * SAFE_TOP, w.toFloat(), h * SAFE_BOTTOM)
+                layout.slots.forEach { box ->
+                    stop()
+                    val isBehind = box.literal == null && box.slot in doc.textBehind
+                    if (isBehind != behind) return@forEach
+                    if (box.literal == null && doc.offsetFor(box.slot) != null) return@forEach
+                    val text = (box.literal ?: doc.texts[box.slot].orEmpty()).trim()
+                    if (text.isEmpty()) return@forEach
+                    val fits = drawSlot(context, canvas, box, text, doc, colors, w, h, unit)
+                    if (!fits && box.literal == null) overflow.add(box.slot)
+                }
+                canvas.restore()
+                layout.slots.forEach { box ->
+                    stop()
+                    if (box.literal != null) return@forEach
+                    val off = doc.offsetFor(box.slot) ?: return@forEach
+                    if ((box.slot in doc.textBehind) != behind) return@forEach
+                    val text = doc.texts[box.slot].orEmpty().trim()
+                    if (text.isEmpty()) return@forEach
+                    val moved = box.copy(x = box.x + off.dx, y = box.y + off.dy)
+                    if (!drawSlot(context, canvas, moved, text, doc, colors, w, h, unit)) overflow.add(box.slot)
+                }
             }
-            canvas.restore()
+
+            drawSlots(true)
+            stop()
+            doc.cutoutUri?.let { PostEngine.drawCutout(canvas, it, doc, w, h, decodeTo) }
+            stop()
+            drawSlots(false)
             stop()
 
             if (doc.showLogo) drawLogo(context, canvas, doc, brand, colors, w, h, unit)
@@ -571,12 +599,25 @@ object PostRenderer {
         bitmap.recycle()
     }
 
-    /** Crops the photo to fill the area (zoom and focus come from the post), then lays a dim layer over it so light text stays readable. */
-    private fun drawPhoto(context: Context, canvas: Canvas, uri: String, area: PostPhotoArea, doc: PostDoc, w: Int, h: Int, decodeTo: Int) {
+    /**
+     * Crops the photo to fill the area (zoom and focus come from the post), then lays a dim layer over it so light text stays readable.
+     * A frame picked on the post (rounded, arch, pill, circle, stacked) replaces the template's own shape on windows that do not
+     * fill the whole post. The frame edge is cut with a mask so it stays smooth.
+     */
+    private fun drawPhoto(
+        context: Context, canvas: Canvas, uri: String, area: PostPhotoArea, doc: PostDoc,
+        c: Colors, w: Int, h: Int, unit: Float, decodeTo: Int
+    ) {
         val dest = RectF(area.x * w, area.y * h, (area.x + area.w) * w, (area.y + area.h) * h)
         val bmp = runCatching { decodeSampled(context, Uri.parse(uri), decodeTo) }.getOrNull() ?: return
-        val clipSave = canvas.save()
-        if (area.mask == PhotoMask.PENTAGON) {
+        val frame = doc.photoFrame?.takeIf { area.w < 0.99f && area.h < 0.99f }
+        val framePath = frame?.let { PostEngine.framePath(it, dest, unit) }
+        if (frame == PhotoFrame.STACKED) PostEngine.drawStackedBacks(canvas, dest, unit, c.glow, c.secondary)
+        if (framePath != null) PostEngine.drawFrameShadow(canvas, framePath, unit)
+
+        val bounds = RectF(dest).apply { inset(-2f, -2f) }
+        val layerSave = if (framePath != null) canvas.saveLayer(bounds, null) else canvas.save()
+        if (framePath == null && area.mask == PhotoMask.PENTAGON) {
             val cut = dest.height() * 0.16f
             val mask = Path().apply {
                 moveTo(dest.left, dest.top)
@@ -607,8 +648,15 @@ object PostRenderer {
             dim.color = Color.argb(dimValue.coerceAtMost(255), 0, 0, 0)
             canvas.drawRect(dest, dim)
         }
+        if (framePath != null) {
+            val maskPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+            maskPaint.xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
+            maskPaint.color = Color.BLACK
+            canvas.drawPath(framePath, maskPaint)
+        }
         bmp.recycle()
-        canvas.restoreToCount(clipSave)
+        canvas.restoreToCount(layerSave)
+        if (framePath != null && doc.frameBorder) PostEngine.drawFrameBorder(canvas, framePath, unit, c.light)
     }
 
     private fun decodeSampled(context: Context, uri: Uri, target: Int): Bitmap? {

@@ -82,6 +82,18 @@ import kotlinx.coroutines.withContext
 private val thumbCache = LruCache<String, Bitmap>(48)
 private val AccentPresets = listOf("#176B4D", "#0E7490", "#1D4ED8", "#7C3AED", "#BE185D", "#C2410C", "#B45309", "#0F172A")
 
+/** One tap sets the main color and the text color together: first is the pop color (bands, rings), second the ink (big words). */
+private val ColorPairs = listOf(
+    "#D31926" to "#122A69",
+    "#1D4ED8" to "#0F1E4A",
+    "#F97316" to "#1F2937",
+    "#7C3AED" to "#2E1065",
+    "#0D9488" to "#0F2F2C",
+    "#DB2777" to "#4A0D2B",
+    "#D97706" to "#3B1F0A",
+    "#176B4D" to "#18221D"
+)
+
 /**
  * One screen. The top part never scrolls: size chips, the live preview, and a strip of template cards you swipe
  * sideways. Everything below it scrolls up and down: your words, look, photo, logo, social icons and export.
@@ -223,7 +235,7 @@ private fun TemplateStrip(doc: PostDoc, brand: PostBrand, onDoc: (PostDoc) -> Un
         modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
     ) {
         items(PostTemplates, key = { it.id }) { spec ->
-            TemplateCard(spec, doc.size, brand, doc.accentHex, spec.id == doc.templateId) { onDoc(doc.withTemplate(spec)) }
+            TemplateCard(spec, doc.size, brand, doc.accentHex, doc.textHex, spec.id == doc.templateId) { onDoc(doc.withTemplate(spec)) }
         }
     }
 }
@@ -234,6 +246,7 @@ private fun TemplateCard(
     size: PostSize,
     brand: PostBrand,
     accentHex: String?,
+    textHex: String?,
     selected: Boolean,
     onClick: () -> Unit
 ) {
@@ -241,14 +254,14 @@ private fun TemplateCard(
     val ratio = size.width.toFloat() / size.height
     val thumbH = 104.dp
     val thumbW = thumbH * ratio
-    val thumb by produceState<Bitmap?>(null, spec.id, size, brand, accentHex) {
-        val key = spec.id + "|" + size.name + "|" + brand.hashCode() + "|" + accentHex
+    val thumb by produceState<Bitmap?>(null, spec.id, size, brand, accentHex, textHex) {
+        val key = spec.id + "|" + size.name + "|" + brand.hashCode() + "|" + accentHex + "|" + textHex
         val cached = thumbCache.get(key)
         if (cached != null) {
             value = cached
         } else {
             val made = withContext(Dispatchers.Default) {
-                val sample = PostDoc(templateId = spec.id, size = size, texts = spec.samples, accentHex = accentHex)
+                val sample = PostDoc(templateId = spec.id, size = size, texts = spec.samples, accentHex = accentHex, textHex = textHex)
                 PostRenderer.thumbnail(context, sample, brand, 300).bitmap
             }
             thumbCache.put(key, made)
@@ -284,6 +297,22 @@ private fun TemplateCard(
             color = if (selected) PostPalette.Mint else PostPalette.Text
         )
         Text(spec.family, fontSize = 9.sp, color = PostPalette.Muted, maxLines = 1)
+    }
+}
+
+/** A two-color button: left half is the pop color, right half the ink. One tap applies both. */
+@Composable
+private fun PairSwatch(accentHex: String, textHex: String, selected: Boolean, onClick: () -> Unit) {
+    val a = remember(accentHex) { runCatching { Color(android.graphics.Color.parseColor(accentHex)) }.getOrDefault(Color.Gray) }
+    val t = remember(textHex) { runCatching { Color(android.graphics.Color.parseColor(textHex)) }.getOrDefault(Color.DarkGray) }
+    val shape = RoundedCornerShape(12.dp)
+    Row(
+        Modifier.width(56.dp).height(40.dp).clip(shape)
+            .border(if (selected) 3.dp else 1.dp, if (selected) PostPalette.Mint else PostPalette.Line, shape)
+            .clickable(onClick = onClick)
+    ) {
+        Box(Modifier.weight(1f).fillMaxSize().background(a))
+        Box(Modifier.weight(1f).fillMaxSize().background(t))
     }
 }
 
@@ -356,7 +385,18 @@ private fun ColumnScope.StudioDetails(
                 )
             }
         }
-        PostSmallLabel("Accent color (first circle = your brand color)")
+        PostSmallLabel("Colors: tap a pair. The first half colors bands and rings, the second half colors the big words. The first button is your brand.")
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            PairSwatch(brand.primaryHex, brand.darkHex, doc.accentHex == null && doc.textHex == null) {
+                onDoc(doc.copy(accentHex = null, textHex = null))
+            }
+            ColorPairs.forEach { (accent, ink) ->
+                PairSwatch(accent, ink, doc.accentHex.equals(accent, ignoreCase = true) && doc.textHex.equals(ink, ignoreCase = true)) {
+                    onDoc(doc.copy(accentHex = accent, textHex = ink))
+                }
+            }
+        }
+        PostSmallLabel("Only the main color (first circle = your brand color)")
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             PostSwatch(brand.primaryHex, doc.accentHex == null) { onDoc(doc.copy(accentHex = null)) }
             AccentPresets.forEach { hex ->

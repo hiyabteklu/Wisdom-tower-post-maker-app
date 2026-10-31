@@ -76,7 +76,7 @@ fun PostApp() {
             onPickBackgroundPhoto = { backgroundPhotoPicker.launch(arrayOf("image/*")) },
             onPickLogo = { logoPicker.launch(arrayOf("image/*")) },
             onOpenBrand = { openBrand() },
-            onOpenOldStudio = { screen = "home" },
+            onBackHome = { screen = "home" },
             onSaveProject = {
                 projects = PostProjects.save(context, doc)
                 Toast.makeText(context, "Saved to My posts", Toast.LENGTH_SHORT).show()

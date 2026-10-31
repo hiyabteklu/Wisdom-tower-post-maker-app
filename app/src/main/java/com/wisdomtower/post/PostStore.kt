@@ -56,6 +56,31 @@ object PostStore {
         return Uri.fromFile(out).toString()
     }
 
+    /** Imports one custom post icon into app-private storage. Only PNG, WebP and JPEG are accepted. */
+    fun importIcon(context: Context, uri: Uri): String? {
+        var displayName = "icon.png"
+        runCatching {
+            context.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) displayName = cursor.getString(0) ?: displayName
+            }
+        }
+        val extension = displayName.substringAfterLast('.', "").lowercase()
+        if (extension !in setOf("png", "webp", "jpg", "jpeg")) return null
+        val directory = File(context.filesDir, "icons").apply { mkdirs() }
+        val target = File(directory, "icon_${System.currentTimeMillis()}_${kotlin.random.Random.nextInt(1000, 9999)}.$extension")
+        val copied = runCatching {
+            context.contentResolver.openInputStream(uri)?.use { input -> target.outputStream().use { output -> input.copyTo(output) } } != null
+        }.getOrDefault(false)
+        if (!copied) return null
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(target.absolutePath, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
+            target.delete()
+            return null
+        }
+        return target.absolutePath
+    }
+
     /** Copies the picked image into app storage. Returns the stored path, or null if it is not a readable image. */
     fun importLogo(context: Context, uri: Uri): String? {
         val dir = File(context.filesDir, "brand")

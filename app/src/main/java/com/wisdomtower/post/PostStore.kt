@@ -21,6 +21,8 @@ object PostStore {
 
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
+    fun hasSavedDoc(context: Context): Boolean = prefs(context).contains("doc")
+
     fun loadDoc(context: Context): PostDoc =
         runCatching { prefs(context).getString("doc", null)?.let(PostCodec::decodeDoc) }.getOrNull() ?: PostDoc()
 

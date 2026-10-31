@@ -30,7 +30,7 @@ object PostThumbnailCache {
         val made = runCatching {
             PostRenderer.thumbnail(context, doc, brand, width).bitmap
         }.getOrNull() ?: return@withContext null
-        runCatching { cached.outputStream().use { made.compress(Bitmap.CompressFormat.WEBP_LOSSY, 82, it) } }
+        runCatching { cached.outputStream().use { made.compress(Bitmap.CompressFormat.WEBP, 82, it) } }
         made
     }
 }

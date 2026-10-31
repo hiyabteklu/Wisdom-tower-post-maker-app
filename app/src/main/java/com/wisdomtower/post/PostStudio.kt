@@ -123,6 +123,7 @@ fun PostStudioScreen(
     onBackHome: () -> Unit,
     onSaveProject: () -> Unit,
     bookmarked: Boolean,
+    previousTexts: Map<String, String>,
     onToggleBookmark: () -> Unit
 ) {
     var moveLogo by remember { mutableStateOf(false) }
@@ -178,7 +179,7 @@ fun PostStudioScreen(
                         Modifier.weight(1f).fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        StudioDetails(doc, onDoc, brand, onBrand, onPickPhoto, onPickBackgroundPhoto, onPickLogo, onPickIcons, onOpenBrand, moveLogo, { moveLogo = it }, selectedIconId, { selectedIconId = it }, activeCategory)
+                        StudioDetails(doc, onDoc, brand, onBrand, onPickPhoto, onPickBackgroundPhoto, onPickLogo, onPickIcons, onOpenBrand, moveLogo, { moveLogo = it }, selectedIconId, { selectedIconId = it }, activeCategory, previousTexts)
                     }
                 }
             }
@@ -458,7 +459,8 @@ private fun ColumnScope.StudioDetails(
     onMoveLogo: (Boolean) -> Unit,
     selectedIconId: String?,
     onSelectIcon: (String?) -> Unit,
-    activeCategory: String
+    activeCategory: String,
+    previousTexts: Map<String, String>
 ) {
     val context = LocalContext.current
     val spec = postTemplate(doc.templateId)
@@ -469,6 +471,12 @@ private fun ColumnScope.StudioDetails(
 
     // ---- Words ----
     if (activeCategory == "Words") StudioSection("Words", spec.name + ". Your words stay when you switch template.") {
+        if (previousTexts.isNotEmpty()) {
+            OutlinedButton(
+                onClick = { onDoc(doc.copy(texts = doc.texts + previousTexts.filterKeys { it in slots })) },
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Bring my words from the previous template") }
+        }
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             slots.forEach { slot ->
                 FilterChip(

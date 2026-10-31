@@ -626,26 +626,82 @@ object PostRenderer {
         unit: Float
     ) {
         icons.forEach { icon ->
-            val bitmap = runCatching { BitmapFactory.decodeFile(icon.path) }.getOrNull() ?: return@forEach
-            val side = unit * 0.14f * icon.scale.coerceIn(0.25f, 4f)
-            val aspect = bitmap.width.toFloat() / bitmap.height.toFloat()
-            val drawW = if (aspect >= 1f) side else side * aspect
-            val drawH = if (aspect >= 1f) side / aspect else side
             val cx = icon.x.coerceIn(0f, 1f) * w
             val cy = icon.y.coerceIn(0f, 1f) * h
-            val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+            val side = unit * 0.14f * icon.scale.coerceIn(0.25f, 4f)
             val tint = when {
                 icon.matchBrand -> brand.primaryHex
                 !icon.tintHex.isNullOrBlank() -> icon.tintHex
-                else -> null
+                else -> "#FFFFFF"
             }
-            if (tint != null) {
-                paint.colorFilter = runCatching {
-                    PorterDuffColorFilter(Color.parseColor(tint), PorterDuff.Mode.SRC_IN)
-                }.getOrNull()
+            val color = runCatching { Color.parseColor(tint) }.getOrDefault(Color.WHITE)
+            if (icon.path.startsWith("shape:")) {
+                drawStarterShape(canvas, icon.path.substringAfter(':'), cx, cy, side, color)
+                return@forEach
+            }
+            val bitmap = runCatching { BitmapFactory.decodeFile(icon.path) }.getOrNull() ?: return@forEach
+            val aspect = bitmap.width.toFloat() / bitmap.height.toFloat()
+            val drawW = if (aspect >= 1f) side else side * aspect
+            val drawH = if (aspect >= 1f) side / aspect else side
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+            if (icon.matchBrand || !icon.tintHex.isNullOrBlank()) {
+                paint.colorFilter = PorterDuffColorFilter(color, PorterDuff.Mode.SRC_IN)
             }
             canvas.drawBitmap(bitmap, null, RectF(cx - drawW / 2f, cy - drawH / 2f, cx + drawW / 2f, cy + drawH / 2f), paint)
             bitmap.recycle()
+        }
+    }
+
+    private fun drawStarterShape(canvas: Canvas, shape: String, cx: Float, cy: Float, side: Float, color: Int) {
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color; style = Paint.Style.FILL }
+        val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            this.color = color
+            style = Paint.Style.STROKE
+            strokeWidth = side * 0.09f
+            strokeCap = Paint.Cap.ROUND
+            strokeJoin = Paint.Join.ROUND
+        }
+        val half = side / 2f
+        val path = Path()
+        when (shape) {
+            "diamond" -> {
+                path.moveTo(cx, cy - half); path.lineTo(cx + half, cy)
+                path.lineTo(cx, cy + half); path.lineTo(cx - half, cy); path.close()
+                canvas.drawPath(path, paint)
+            }
+            "triangle" -> {
+                path.moveTo(cx, cy - half); path.lineTo(cx + half, cy + half)
+                path.lineTo(cx - half, cy + half); path.close()
+                canvas.drawPath(path, paint)
+            }
+            "hexagon" -> {
+                for (i in 0..5) {
+                    val angle = (Math.PI / 3.0 * i - Math.PI / 6.0)
+                    val x = cx + kotlin.math.cos(angle).toFloat() * half
+                    val y = cy + kotlin.math.sin(angle).toFloat() * half
+                    if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                }
+                path.close()
+                canvas.drawPath(path, paint)
+            }
+            "ring" -> canvas.drawCircle(cx, cy, half * 0.78f, stroke)
+            "plus" -> {
+                canvas.drawRoundRect(RectF(cx - half * 0.2f, cy - half, cx + half * 0.2f, cy + half), half * 0.15f, half * 0.15f, paint)
+                canvas.drawRoundRect(RectF(cx - half, cy - half * 0.2f, cx + half, cy + half * 0.2f), half * 0.15f, half * 0.15f, paint)
+            }
+            "arrow" -> {
+                canvas.drawLine(cx - half, cy, cx + half * 0.55f, cy, stroke)
+                path.moveTo(cx + half * 0.12f, cy - half * 0.42f)
+                path.lineTo(cx + half * 0.62f, cy)
+                path.lineTo(cx + half * 0.12f, cy + half * 0.42f)
+                canvas.drawPath(path, stroke)
+            }
+            "check" -> {
+                path.moveTo(cx - half * 0.75f, cy)
+                path.lineTo(cx - half * 0.18f, cy + half * 0.55f)
+                path.lineTo(cx + half * 0.8f, cy - half * 0.55f)
+                canvas.drawPath(path, stroke)
+            }
         }
     }
 

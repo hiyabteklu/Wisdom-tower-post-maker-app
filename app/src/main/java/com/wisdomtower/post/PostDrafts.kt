@@ -22,8 +22,9 @@ data class PostLibrary(
 
 /**
  * One draft file per template: filesDir/drafts/<templateId>.json, written with PostCodec.
- * A template with no draft file is shown in its factory look (sample words, brand colors).
+ * A template with no draft file is shown in its factory look (sample words, brand colors, and the template's own look).
  * Brand settings are never part of a draft, so a brand change restyles every template that has no color of its own.
+ * A draft saved under the id of a removed template opens as the template that replaced it (see PostTemplates.kt).
  */
 object PostDrafts {
     private fun draftsDir(context: Context): File = File(context.filesDir, "drafts").also { it.mkdirs() }
@@ -34,18 +35,27 @@ object PostDrafts {
 
     private fun libraryFile(context: Context) = File(context.filesDir, "library.json")
 
-    /** The template's own look: its sample words and the brand colors. */
+    /**
+     * The template's own look: its sample words, the brand colors, and its photo frame, mesh, grain, words-behind and cut-out position.
+     * The look has to be part of the factory post. Otherwise opening a template from the strip or the Library would drop it,
+     * and every template with a look would count as edited.
+     */
     fun factory(templateId: String, size: PostSize): PostDoc {
         val spec = postTemplate(templateId)
-        return PostDoc(templateId = spec.id, size = size, texts = spec.samples)
+        return PostDoc(templateId = spec.id, size = size, texts = spec.samples).withTemplate(spec)
     }
 
     /** True when the post differs from the template's factory look (the size counts as part of the draft). */
     fun isEdited(doc: PostDoc): Boolean = doc != factory(doc.templateId, doc.size)
 
+    /** A post saved under an old template id moves to the template that replaced it, keeping its words and taking the new look. */
+    private fun migrate(doc: PostDoc, spec: PostTemplateSpec): PostDoc =
+        if (doc.templateId == spec.id) doc else doc.copy(templateId = spec.id).withTemplate(spec)
+
     fun loadDraft(context: Context, templateId: String): PostDoc? = runCatching {
         val f = draftFile(context, templateId)
-        if (f.exists()) PostCodec.decodeDoc(f.readText()).copy(templateId = postTemplate(templateId).id) else null
+        if (!f.exists()) return@runCatching null
+        migrate(PostCodec.decodeDoc(f.readText()), postTemplate(templateId))
     }.getOrNull()
 
     /** All template ids that currently have a draft file. */
@@ -122,12 +132,13 @@ object PostDrafts {
     /**
      * Called once at launch. First launch after this update: the single post that was stored before becomes the draft
      * of its template, so nothing is lost. Later launches open the template that was open last, exactly as it was left.
+     * A template id from the removed list opens as the template that replaced it.
      */
     fun startup(context: Context): Pair<PostDoc, PostLibrary> {
         val existing = loadLibrary(context)
         if (existing == null) {
             val legacy = PostStore.loadDoc(context)
-            val doc = legacy.copy(templateId = postTemplate(legacy.templateId).id)
+            val doc = migrate(legacy, postTemplate(legacy.templateId))
             var library = PostLibrary(lastTemplate = doc.templateId)
             if (legacy != PostDoc() && isEdited(doc)) {
                 library = persist(context, doc, library)

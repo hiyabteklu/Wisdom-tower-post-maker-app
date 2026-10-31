@@ -56,32 +56,33 @@ internal fun PostColorPicker(
     onPick: (String?) -> Unit,
     includeBrandChoice: Boolean = true
 ) {
+    var palette by androidx.compose.runtime.rememberSaveable(label) { androidx.compose.runtime.mutableStateOf("Brand") }
     val bright = listOf("#F43F5E", "#EF4444", "#F97316", "#F59E0B", "#84CC16", "#22C55E", "#06B6D4", "#3B82F6")
     val soft = listOf("#FBCFE8", "#FECACA", "#FED7AA", "#FEF3C7", "#D9F99D", "#BBF7D0", "#A5F3FC", "#BFDBFE")
     val dark = listOf("#881337", "#991B1B", "#9A3412", "#92400E", "#3F6212", "#166534", "#155E75", "#1E40AF")
     val neutral = listOf("#FFFFFF", "#E5E7EB", "#9CA3AF", "#6B7280", "#4B5563", "#374151", "#1F2937", "#111827")
-
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    val colors = when (palette) {
+        "Bright" -> bright
+        "Soft" -> soft
+        "Dark" -> dark
+        "Neutral" -> neutral
+        else -> listOf(brand.primaryHex, brand.secondaryHex, brand.lightHex, brand.darkHex)
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
         PostSmallLabel(label)
-        if (includeBrandChoice) {
-            PostSmallLabel("Use brand")
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                PostSwatch(brand.primaryHex, value == null) { onPick(null) }
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf("Brand", "Bright", "Soft", "Dark", "Neutral").forEach { name ->
+                androidx.compose.material3.FilterChip(
+                    selected = palette == name,
+                    onClick = { palette = name },
+                    label = { Text(name, fontSize = 10.sp) }
+                )
             }
         }
-        val rows = listOf(
-            "Brand" to listOf(brand.primaryHex, brand.secondaryHex, brand.lightHex, brand.darkHex),
-            "Bright" to bright,
-            "Soft" to soft,
-            "Dark" to dark,
-            "Neutral" to neutral
-        )
-        rows.forEach { (name, colors) ->
-            PostSmallLabel(name)
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                colors.distinct().forEach { hex ->
-                    PostSwatch(hex, value.equals(hex, ignoreCase = true)) { onPick(hex) }
-                }
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (includeBrandChoice) PostSwatch(brand.primaryHex, value == null) { onPick(null) }
+            colors.distinct().forEach { hex ->
+                PostSwatch(hex, value.equals(hex, ignoreCase = true)) { onPick(hex) }
             }
         }
     }

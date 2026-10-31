@@ -87,7 +87,9 @@ data class TemplateLayout(
     val footerLight: Boolean = base != PostBase.LIGHT,
     val backdrop: Backdrop? = null,
     /** When set, the Brand's social icons are drawn big in this area, and the small footer is left out. */
-    val social: SocialArea? = null
+    val social: SocialArea? = null,
+    /** True for the redesigned templates: PostRich adds nothing behind them, because their structure is the design. */
+    val clean: Boolean = false
 )
 
 /** GRID: icon cards in up to two columns. LIST: one wide row per icon. */
@@ -103,19 +105,31 @@ data class SocialArea(
     val onDark: Boolean
 )
 
-/** A template is data: a layout function per size, plus sample text for every slot it uses. */
+/**
+ * A template is data: a layout function per size, plus sample text for every slot it uses.
+ * look is what picking the template sets on the post (photo frame, mesh, grain, words behind the subject, cut-out position). Old templates have none.
+ */
 data class PostTemplateSpec(
     val id: String,
     val name: String,
     val family: String,
     val samples: Map<String, String>,
+    val look: TemplateLook? = null,
     val layout: (PostSize) -> TemplateLayout
 )
 
-fun postTemplate(id: String): PostTemplateSpec = PostTemplates.firstOrNull { it.id == id } ?: PostTemplates.first()
+fun postTemplate(id: String): PostTemplateSpec =
+    PostTemplates.firstOrNull { it.id == id } ?: PostTemplates.first { it.id == "quote-center" }
 
-/** Switches template and keeps every word already typed. Slots the new template needs that are still missing get its sample text. */
-fun PostDoc.withTemplate(spec: PostTemplateSpec): PostDoc = copy(templateId = spec.id, texts = spec.samples + texts)
+/**
+ * Switches template and keeps every word already typed. Slots the new template needs that are still missing get its sample text.
+ * A template with a look also sets its frame, mesh, grain, words-behind and cut-out position.
+ */
+fun PostDoc.withTemplate(spec: PostTemplateSpec): PostDoc {
+    val next = copy(templateId = spec.id, texts = spec.samples + texts)
+    val look = spec.look ?: return next
+    return next.withLook(look)
+}
 
 /**
  * Helper that lays a template out in a content band between the logo and the footer.
@@ -221,8 +235,9 @@ private fun template(
  * because a headline can run one line or four.
  * The bold two-color templates at the end use TEXT as the ink (big words) and ACCENT as the pop (bands, rings),
  * so the Color pairs buttons in the studio restyle them in one tap.
+ * The redesigned templates (PhotoTemplates, PostTemplatesPhoto.kt) come first.
  */
-val PostTemplates: List<PostTemplateSpec> = listOf(
+val PostTemplates: List<PostTemplateSpec> = PhotoTemplates + listOf(
 
     // 1. Quote: centered, ring behind, rule above
     template(

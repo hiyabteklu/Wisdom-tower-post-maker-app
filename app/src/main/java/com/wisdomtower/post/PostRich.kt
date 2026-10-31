@@ -3,10 +3,11 @@ package com.wisdomtower.post
 /**
  * Extra decoration for the "Rich" look. It only adds low-opacity shapes BEHIND the template's own shapes and text,
  * so every text box, photo area and social block stays exactly where the template put it. "Clean" (level 1) leaves the template alone.
+ * Redesigned templates (layout.clean) are never decorated: their structure is the design.
  */
 internal object PostRich {
     fun apply(layout: TemplateLayout, size: PostSize, level: Int): TemplateLayout {
-        if (level < 2) return layout
+        if (level < 2 || layout.clean) return layout
         val w = size.width.toFloat()
         val h = size.height.toFloat()
         val u = 1080f

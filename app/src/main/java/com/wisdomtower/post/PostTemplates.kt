@@ -831,5 +831,166 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
                 box(PostSlots.BODY, 0f, .80f, 1f, .18f, .034f, PostFont.REGULAR, PostTone.LIGHT_MUTED)
             )
         )
+    },
+
+    // 25. Aurora: dark gradient, two soft glows, one loud statement
+    template(
+        "aurora-statement", "Aurora statement", "Motivation",
+        mapOf(
+            PostSlots.EYEBROW to "REMEMBER THIS",
+            PostSlots.HEADLINE to "You do not need more time. You need a start.",
+            PostSlots.BODY to "Open the book for ten minutes. The rest follows."
+        )
+    ) {
+        TemplateLayout(
+            PostBase.DARK,
+            listOf(
+                DecorBox(DecorShape.OVAL, .50f, -.10f, .85f, .85f * W / H, PostTone.ACCENT, 210, gradTo = PostTone.GLOW, alphaTo = 0, angle = 45f),
+                DecorBox(DecorShape.OVAL, -.35f, .62f, .80f, .80f * W / H, PostTone.GLOW, 150, gradTo = PostTone.DEEP, alphaTo = 0, angle = 135f),
+                DecorBox(DecorShape.SPARK, fx(.88f), fy(0f), .07f, .07f * W / H, PostTone.SECONDARY)
+            ),
+            listOf(
+                box(PostSlots.EYEBROW, 0f, 0f, .8f, .06f, .024f, PostFont.BOLD, PostTone.SECONDARY, caps = true),
+                box(PostSlots.HEADLINE, 0f, .10f, 1f, .62f, .092f, PostFont.DISPLAY, PostTone.LIGHT),
+                box(PostSlots.BODY, 0f, .78f, .9f, .20f, .036f, PostFont.REGULAR, PostTone.LIGHT_MUTED)
+            ),
+            backdrop = Backdrop(PostTone.DEEP, PostTone.PAGE, 130f)
+        )
+    },
+
+    // 26. Stat hero: one number inside a double ring, a fact under it
+    template(
+        "stat-hero", "Number in a ring", "Fact",
+        mapOf(
+            PostSlots.NUMBER to "72%",
+            PostSlots.HEADLINE to "of what you read is forgotten in 3 days",
+            PostSlots.BODY to "Review the same page again tomorrow and the loss drops sharply."
+        )
+    ) {
+        val r = if (story) .26f else .22f
+        val cx = fx(.5f)
+        val cy = fy(.32f)
+        val rx = r * U / W
+        val ry = r * U / H
+        val ns = if (story) .19f else .17f
+        val numberH = ns * U * 1.6f / H
+        val headY = cy + ry + .03f
+        val headH = if (story) .15f else .11f
+        val bodyY = headY + headH
+        TemplateLayout(
+            PostBase.LIGHT,
+            listOf(
+                DecorBox(DecorShape.OVAL, cx - rx, cy - ry, 2f * rx, 2f * ry, PostTone.ACCENT, 255, gradTo = PostTone.DEEP, angle = 135f),
+                DecorBox(DecorShape.RING, cx - rx * 1.14f, cy - ry * 1.14f, 2.28f * rx, 2.28f * ry, PostTone.ACCENT, 120, stroke = .006f),
+                DecorBox(DecorShape.DOTS, .05f, cy - .06f, .14f, .14f * W / H, PostTone.ACCENT, 110),
+                DecorBox(DecorShape.SPARK, .83f, cy - .02f, .08f, .08f * W / H, PostTone.ACCENT)
+            ),
+            listOf(
+                SlotBox(PostSlots.NUMBER, cx - rx, cy - numberH / 2f, 2f * rx, numberH, ns, PostFont.DISPLAY, PostTone.LIGHT, centered = true),
+                abox(PostSlots.HEADLINE, 0f, headY, 1f, headH, .05f, PostFont.DISPLAY, PostTone.TEXT, centered = true),
+                abox(PostSlots.BODY, .06f, bodyY, .88f, bottom - bodyY, .032f, PostFont.REGULAR, PostTone.MUTED, centered = true)
+            ),
+            backdrop = Backdrop(PostTone.TINT, PostTone.SOFT, 135f)
+        )
+    },
+
+    // 27. Stripe poster: hazard-style stripe edge, label pill, shouting headline
+    template(
+        "stripe-poster", "Stripe poster", "Announcement",
+        mapOf(
+            PostSlots.EYEBROW to "NOTICE",
+            PostSlots.HEADLINE to "Registration closes Friday",
+            PostSlots.BODY to "Send your name and student ID before 5:00 PM. Late forms are not accepted."
+        )
+    ) {
+        val pillY = fy(0f)
+        TemplateLayout(
+            PostBase.PRIMARY,
+            listOf(
+                DecorBox(DecorShape.STRIPES, 0f, 0f, .055f, 1f, PostTone.SECONDARY, 150),
+                DecorBox(DecorShape.ROUND, fx(.04f), pillY, fw(.46f), 64f / H, PostTone.SECONDARY, radius = .04f)
+            ),
+            listOf(
+                abox(PostSlots.EYEBROW, .04f, pillY + 16f / H, .46f, 36f / H, .022f, PostFont.BOLD, PostTone.DARK, centered = true, caps = true),
+                box(PostSlots.HEADLINE, .04f, .12f, .96f, .56f, .098f, PostFont.DISPLAY, PostTone.LIGHT, caps = true),
+                box(PostSlots.BODY, .04f, .74f, .96f, .24f, .036f, PostFont.REGULAR, PostTone.LIGHT_MUTED)
+            )
+        )
+    },
+
+    // 28. Wave: headline on light, message on a rolling brand-color wave
+    template(
+        "wave-announce", "Wave announcement", "Announcement",
+        mapOf(
+            PostSlots.EYEBROW to "NEW THIS WEEK",
+            PostSlots.HEADLINE to "Chapter 4 notes are ready",
+            PostSlots.BODY to "Open the app, pick your course and start with the summary page."
+        )
+    ) {
+        val waveTop = if (story) .60f else .58f
+        val bodyY = waveTop + .09f
+        TemplateLayout(
+            PostBase.LIGHT,
+            listOf(
+                DecorBox(DecorShape.WAVE, 0f, waveTop - .04f, 1f, 1f - waveTop + .04f, PostTone.GLOW, 140),
+                DecorBox(DecorShape.WAVE, 0f, waveTop, 1f, 1f - waveTop, PostTone.ACCENT, 255, gradTo = PostTone.DEEP, angle = 90f)
+            ),
+            listOf(
+                box(PostSlots.EYEBROW, 0f, 0f, 1f, .06f, .024f, PostFont.BOLD, PostTone.ACCENT, caps = true),
+                box(PostSlots.HEADLINE, 0f, .09f, 1f, .38f, .08f, PostFont.DISPLAY, PostTone.TEXT),
+                abox(PostSlots.BODY, 0f, bodyY, 1f, bottom - bodyY, .038f, PostFont.REGULAR, PostTone.LIGHT)
+            ),
+            footerLight = true
+        )
+    },
+
+    // 29. Definition: a term on a floating card over a gradient
+    template(
+        "definition-card", "Definition card", "Study tip",
+        mapOf(
+            PostSlots.EYEBROW to "DEFINITION",
+            PostSlots.HEADLINE to "Homeostasis",
+            PostSlots.BODY to "The way a living body keeps its inner conditions steady, such as temperature and water balance, while the outside keeps changing."
+        )
+    ) {
+        val tagY = fy(.07f)
+        TemplateLayout(
+            PostBase.PRIMARY,
+            listOf(
+                DecorBox(DecorShape.ROUND, fx(0f), fy(.02f), fw(1f), fh(.94f), PostTone.LIGHT, 255, .035f, shadow = true),
+                DecorBox(DecorShape.ROUND, fx(.06f), tagY, fw(.40f), 56f / H, PostTone.ACCENT, radius = .04f),
+                DecorBox(DecorShape.SPARK, fx(.84f), fy(.06f), .085f, .085f * W / H, PostTone.ACCENT)
+            ),
+            listOf(
+                abox(PostSlots.EYEBROW, .06f, tagY + 12f / H, .40f, 32f / H, .020f, PostFont.BOLD, PostTone.LIGHT, centered = true, caps = true),
+                box(PostSlots.HEADLINE, .06f, .18f, .88f, .24f, .104f, PostFont.DISPLAY, PostTone.ACCENT),
+                box(PostSlots.BODY, .06f, .46f, .88f, .46f, .04f, PostFont.REGULAR, PostTone.TEXT)
+            ),
+            backdrop = Backdrop(PostTone.DEEP, PostTone.ACCENT, 150f)
+        )
+    },
+
+    // 30. Glass list: key points on a frosted card over a dark gradient
+    template(
+        "tip-glass", "Glass checklist", "Study tip",
+        mapOf(
+            PostSlots.EYEBROW to "BEFORE YOU SLEEP",
+            PostSlots.HEADLINE to "Four things that help you remember",
+            PostSlots.LIST to "Review today's notes once\nWrite three questions for tomorrow\nPhone away from the bed\nSleep at least seven hours"
+        )
+    ) {
+        TemplateLayout(
+            PostBase.DARK,
+            listOf(
+                DecorBox(DecorShape.OVAL, .55f, -.08f, .60f, .60f * W / H, PostTone.ACCENT, 200, gradTo = PostTone.GLOW, alphaTo = 0, angle = 45f),
+                DecorBox(DecorShape.ROUND, fx(0f), fy(.36f), fw(1f), fh(.62f), PostTone.LIGHT, 34, .035f)
+            ),
+            listOf(
+                box(PostSlots.EYEBROW, 0f, 0f, 1f, .06f, .024f, PostFont.BOLD, PostTone.SECONDARY, caps = true),
+                box(PostSlots.HEADLINE, 0f, .08f, 1f, .25f, .064f, PostFont.DISPLAY, PostTone.LIGHT),
+                box(PostSlots.LIST, .06f, .41f, .88f, .52f, .038f, PostFont.BOLD, PostTone.LIGHT, list = ListStyle.CHECK)
+            ),
+            backdrop = Backdrop(PostTone.DEEP, PostTone.PAGE, 160f)
+        )
     }
 )

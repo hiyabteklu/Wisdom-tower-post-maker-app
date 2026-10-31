@@ -31,6 +31,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.outlined.Share
@@ -39,6 +41,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
@@ -53,6 +57,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -108,7 +113,8 @@ fun PostStudioScreen(
     onPickBackgroundPhoto: () -> Unit,
     onPickLogo: () -> Unit,
     onOpenBrand: () -> Unit,
-    onOpenOldStudio: () -> Unit
+    onOpenOldStudio: () -> Unit,
+    onSaveProject: () -> Unit
 ) {
     var moveLogo by remember { mutableStateOf(false) }
     PostTheme {
@@ -116,7 +122,7 @@ fun PostStudioScreen(
             BoxWithConstraints(Modifier.fillMaxSize().padding(padding).imePadding()) {
                 val previewHeight = maxHeight * 0.34f
                 Column(Modifier.fillMaxSize()) {
-                    StudioTopRow(doc, onDoc, onOpenBrand)
+                    StudioTopRow(doc, onDoc, onOpenBrand, onOpenOldStudio, onSaveProject)
                     PreviewPane(doc, brand, previewHeight, moveLogo, onDoc)
                     TemplateStrip(doc, brand, onDoc)
                     Column(
@@ -132,19 +138,21 @@ fun PostStudioScreen(
 }
 
 @Composable
-private fun StudioTopRow(doc: PostDoc, onDoc: (PostDoc) -> Unit, onOpenBrand: () -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text("Wisdom Tower Post", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = PostPalette.Text, modifier = Modifier.weight(1f))
+private fun StudioTopRow(doc: PostDoc, onDoc: (PostDoc) -> Unit, onOpenBrand: () -> Unit, onBackHome: () -> Unit, onSaveProject: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = onBackHome) { Icon(Icons.Outlined.ArrowBack, contentDescription = "Back to templates", tint = PostPalette.Text) }
+        Text("Editor", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = PostPalette.Text, modifier = Modifier.weight(1f))
         PostSize.values().forEach { size ->
             FilterChip(
                 selected = doc.size == size,
                 onClick = { onDoc(doc.copy(size = size)) },
-                label = { Text(size.label, fontSize = 12.sp) },
-                modifier = Modifier.padding(start = 6.dp)
+                label = { Text(size.label, fontSize = 11.sp) },
+                modifier = Modifier.padding(start = 3.dp)
             )
         }
+        IconButton(onClick = onSaveProject) { Icon(Icons.Outlined.Save, contentDescription = "Save to My posts", tint = PostPalette.Mint) }
         IconButton(onClick = onOpenBrand) {
-            Icon(Icons.Outlined.Palette, contentDescription = "Brand and social icons", tint = PostPalette.Mint)
+            Icon(Icons.Outlined.Palette, contentDescription = "Brand kit", tint = PostPalette.Mint)
         }
     }
 }
@@ -318,16 +326,26 @@ private fun PairSwatch(accentHex: String, textHex: String, selected: Boolean, on
 
 @Composable
 private fun StudioSection(title: String, subtitle: String? = null, content: @Composable ColumnScope.() -> Unit) {
+    var expanded by rememberSaveable(title) { mutableStateOf(false) }
     Card(colors = CardDefaults.cardColors(containerColor = PostPalette.Surface), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(title, fontWeight = FontWeight.Bold, color = PostPalette.Text)
-            if (subtitle != null) PostSmallLabel(subtitle)
-            content()
+            Row(
+                Modifier.fillMaxWidth().clickable { expanded = !expanded },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(title, fontWeight = FontWeight.Bold, color = PostPalette.Text)
+                    if (subtitle != null) PostSmallLabel(subtitle)
+                }
+                Text(if (expanded) "−" else "+", color = PostPalette.Mint, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            }
+            if (expanded) content()
         }
     }
 }
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 private fun ColumnScope.StudioDetails(
     doc: PostDoc,
     onDoc: (PostDoc) -> Unit,
@@ -516,6 +534,7 @@ private fun ColumnScope.StudioDetails(
 
     // ---- Export ----
     var chosen by remember { mutableStateOf(setOf(doc.size)) }
+    var exportOpen by remember { mutableStateOf(false) }
     var png by remember { mutableStateOf(true) }
     var busy by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf<String?>(null) }
@@ -547,35 +566,49 @@ private fun ColumnScope.StudioDetails(
         }
     }
 
-    StudioSection("Save", "Tick one size or all three. Every size is laid out again, not stretched.") {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            PostSize.values().forEach { size ->
-                FilterChip(
-                    selected = size in chosen,
-                    onClick = { chosen = if (size in chosen) chosen - size else chosen + size },
-                    label = { Text(size.label) }
-                )
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(selected = png, onClick = { png = true }, label = { Text("PNG") })
-            FilterChip(selected = !png, onClick = { png = false }, label = { Text("JPG") })
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { runExport(false) }, enabled = !busy, modifier = Modifier.weight(1f)) {
-                Icon(Icons.Outlined.Download, contentDescription = null)
-                Spacer(Modifier.width(6.dp))
-                Text(if (busy) "Saving..." else "Save")
-            }
-            OutlinedButton(onClick = { runExport(true) }, enabled = !busy, modifier = Modifier.weight(1f)) {
-                Icon(Icons.Outlined.Share, contentDescription = null)
-                Spacer(Modifier.width(6.dp))
-                Text("Save and share")
-            }
-        }
-        status?.let { Text(it, fontSize = 12.sp, color = PostPalette.Muted) }
+    OutlinedButton(onClick = { exportOpen = true }, modifier = Modifier.fillMaxWidth()) {
+        Icon(Icons.Outlined.Download, contentDescription = null)
+        Spacer(Modifier.width(8.dp))
+        Text("Export post")
     }
 
-    TextButton(onClick = onOpenOldStudio, modifier = Modifier.fillMaxWidth()) { Text("Open the old layer studio") }
+    if (exportOpen) {
+        ModalBottomSheet(onDismissRequest = { exportOpen = false }, containerColor = PostPalette.Surface) {
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Text("Export your post", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = PostPalette.Text)
+                PostSmallLabel("Choose one size or export all three. Each format is laid out independently.")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PostSize.values().forEach { size ->
+                        FilterChip(
+                            selected = size in chosen,
+                            onClick = { chosen = if (size in chosen) chosen - size else chosen + size },
+                            label = { Text(size.label) }
+                        )
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(selected = png, onClick = { png = true }, label = { Text("PNG") })
+                    FilterChip(selected = !png, onClick = { png = false }, label = { Text("JPG") })
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { runExport(false) }, enabled = !busy, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Outlined.Download, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
+                        Text(if (busy) "Saving..." else "Save")
+                    }
+                    OutlinedButton(onClick = { runExport(true) }, enabled = !busy, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Outlined.Share, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
+                        Text("Save and share")
+                    }
+                }
+                status?.let { Text(it, fontSize = 12.sp, color = PostPalette.Muted) }
+                PostSmallLabel("Check the preview for any text-fit warning before exporting.")
+            }
+        }
+    }
     Spacer(Modifier.height(24.dp))
 }

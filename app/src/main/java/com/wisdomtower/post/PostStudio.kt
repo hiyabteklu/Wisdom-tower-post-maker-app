@@ -74,6 +74,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.layout.ContentScale
@@ -117,6 +118,7 @@ fun PostStudioScreen(
     onPickPhoto: () -> Unit,
     onPickBackgroundPhoto: () -> Unit,
     onPickLogo: () -> Unit,
+    onPickIcons: () -> Unit,
     onOpenBrand: () -> Unit,
     onBackHome: () -> Unit,
     onSaveProject: () -> Unit,
@@ -124,6 +126,7 @@ fun PostStudioScreen(
     onToggleBookmark: () -> Unit
 ) {
     var moveLogo by remember { mutableStateOf(false) }
+    var selectedIconId by rememberSaveable { mutableStateOf<String?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     PostTheme {
@@ -156,13 +159,13 @@ fun PostStudioScreen(
                             }
                         }
                     )
-                    PreviewPane(doc, brand, previewHeight, moveLogo, onDoc)
+                    PreviewPane(doc, brand, previewHeight, moveLogo, onDoc, selectedIconId)
                     TemplateStrip(doc, brand, onDoc)
                     Column(
                         Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        StudioDetails(doc, onDoc, brand, onBrand, onPickPhoto, onPickBackgroundPhoto, onPickLogo, onOpenBrand, moveLogo, { moveLogo = it })
+                        StudioDetails(doc, onDoc, brand, onBrand, onPickPhoto, onPickBackgroundPhoto, onPickLogo, onPickIcons, onOpenBrand, moveLogo, { moveLogo = it }, selectedIconId, { selectedIconId = it })
                     }
                 }
             }
@@ -195,7 +198,7 @@ private fun StudioTopRow(doc: PostDoc, onDoc: (PostDoc) -> Unit, onOpenBrand: ()
 }
 
 @Composable
-private fun PreviewPane(doc: PostDoc, brand: PostBrand, height: Dp, moveLogo: Boolean, onDoc: (PostDoc) -> Unit) {
+private fun PreviewPane(doc: PostDoc, brand: PostBrand, height: Dp, moveLogo: Boolean, onDoc: (PostDoc) -> Unit, selectedIconId: String?) {
     val liveDoc by rememberUpdatedState(doc)
     val liveOnDoc by rememberUpdatedState(onDoc)
     val context = LocalContext.current
@@ -231,6 +234,15 @@ private fun PreviewPane(doc: PostDoc, brand: PostBrand, height: Dp, moveLogo: Bo
                                     style = Stroke(width = 3.dp.toPx())
                                 )
                             }
+                            val selected = liveDoc.placedIcons.firstOrNull { it.id == selectedIconId }
+                            if (selected != null) {
+                                drawCircle(
+                                    color = Color.White,
+                                    radius = (size.minDimension * 0.075f * selected.scale).coerceIn(14.dp.toPx(), 52.dp.toPx()),
+                                    center = Offset(selected.x * size.width, selected.y * size.height),
+                                    style = Stroke(width = 3.dp.toPx())
+                                )
+                            }
                         }
                         .pointerInput(moveLogo) {
                             if (moveLogo) {
@@ -250,6 +262,35 @@ private fun PreviewPane(doc: PostDoc, brand: PostBrand, height: Dp, moveLogo: Bo
                                         liveOnDoc(liveDoc.copy(logoCx = (change.position.x / size.width).coerceIn(0f, 1f), logoCy = (change.position.y / size.height).coerceIn(0f, 1f)))
                                     }
                                 )
+                            }
+                        }
+                        .pointerInput(selectedIconId) {
+                            if (selectedIconId != null) {
+                                detectDragGestures(
+                                    onDrag = { change, _ ->
+                                        change.consume()
+                                        val x = (change.position.x / size.width).coerceIn(0f, 1f)
+                                        val y = (change.position.y / size.height).coerceIn(0f, 1f)
+                                        liveOnDoc(liveDoc.copy(placedIcons = liveDoc.placedIcons.map {
+                                            if (it.id == selectedIconId) it.copy(x = x, y = y) else it
+                                        }))
+                                    }
+                                )
+                            }
+                        }
+                        .pointerInput(selectedIconId) {
+                            if (selectedIconId != null) {
+                                detectTransformGestures { _, pan, zoom, _ ->
+                                    val current = liveDoc.placedIcons.firstOrNull { it.id == selectedIconId }
+                                    if (current != null) {
+                                        val updated = current.copy(
+                                            x = (current.x + pan.x / size.width).coerceIn(0f, 1f),
+                                            y = (current.y + pan.y / size.height).coerceIn(0f, 1f),
+                                            scale = (current.scale * zoom).coerceIn(0.25f, 4f)
+                                        )
+                                        liveOnDoc(liveDoc.copy(placedIcons = liveDoc.placedIcons.map { if (it.id == selectedIconId) updated else it }))
+                                    }
+                                }
                             }
                         }
                 )
@@ -391,9 +432,12 @@ private fun ColumnScope.StudioDetails(
     onPickPhoto: () -> Unit,
     onPickBackgroundPhoto: () -> Unit,
     onPickLogo: () -> Unit,
+    onPickIcons: () -> Unit,
     onOpenBrand: () -> Unit,
     moveLogo: Boolean,
-    onMoveLogo: (Boolean) -> Unit
+    onMoveLogo: (Boolean) -> Unit,
+    selectedIconId: String?,
+    onSelectIcon: (String?) -> Unit
 ) {
     val context = LocalContext.current
     val spec = postTemplate(doc.templateId)
@@ -565,6 +609,11 @@ private fun ColumnScope.StudioDetails(
         }
         LogoMoveRow(doc, onDoc, moveLogo, onMoveLogo)
         TextButton(onClick = onOpenBrand) { Text("Brand colors and logo settings") }
+    }
+
+    // ---- Custom image and starter icons ----
+    StudioSection("Icons", "Add your own small graphics or use the bundled geometric shapes.") {
+        PostIconsPanel(doc, onDoc, brand, selectedIconId, onSelectIcon, onPickIcons)
     }
 
     // ---- Social icons ----

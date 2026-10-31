@@ -48,7 +48,7 @@ import kotlinx.coroutines.withContext
  * Same layout rule as the editor: the preview stays fixed at the top, categories are one sideways row of tabs,
  * and the options for the chosen category sit in an area of fixed height at the bottom, so nothing jumps.
  * The preview is the Follow us poster, so you see the icons big. Colors are picked from circles, never typed.
- * About holds the way back to the old layer studio, which is no longer in the editor.
+ * The logo always sits in the header box at the top-right corner, so there is no corner choice.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,7 +56,6 @@ fun PostBrandScreen(
     brand: PostBrand,
     onBrand: (PostBrand) -> Unit,
     onPickLogo: () -> Unit,
-    onOpenOldStudio: () -> Unit,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
@@ -98,10 +97,10 @@ fun PostBrandScreen(
                     Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    FilterChip(selected = tab == "icons", onClick = { tab = "icons" }, label = { Text("Social icons") })
-                    FilterChip(selected = tab == "logo", onClick = { tab = "logo" }, label = { Text("Logo") })
-                    FilterChip(selected = tab == "colors", onClick = { tab = "colors" }, label = { Text("Colors") })
-                    FilterChip(selected = tab == "about", onClick = { tab = "about" }, label = { Text("About") })
+                    FilterChip(selected = tab == "icons", onClick = { tab = "icons" }, label = { Text("Social icons", fontWeight = FontWeight.Bold) })
+                    FilterChip(selected = tab == "logo", onClick = { tab = "logo" }, label = { Text("Logo", fontWeight = FontWeight.Bold) })
+                    FilterChip(selected = tab == "colors", onClick = { tab = "colors" }, label = { Text("Colors", fontWeight = FontWeight.Bold) })
+                    FilterChip(selected = tab == "about", onClick = { tab = "about" }, label = { Text("About", fontWeight = FontWeight.Bold) })
                 }
 
                 Column(
@@ -112,17 +111,23 @@ fun PostBrandScreen(
                         "icons" -> FooterEditor(brand, onBrand)
 
                         "logo" -> {
+                            Text(
+                                "Your logo is placed in a dark brand box in the top-right corner of every post.",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = PostPalette.Text
+                            )
                             Row(
                                 Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 OutlinedButton(onClick = onPickLogo) {
-                                    Text(if (brand.logoPath != null) "Replace logo" else "Pick logo from phone")
+                                    Text(if (brand.logoPath != null) "Replace logo" else "Pick logo from phone", fontWeight = FontWeight.Bold)
                                 }
                                 if (brand.logoPath != null) {
                                     TextButton(onClick = { onBrand(brand.copy(logoPath = null, logoStamp = System.currentTimeMillis())) }) {
-                                        Text("Use bundled logo")
+                                        Text("Use bundled logo", fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }
@@ -131,26 +136,12 @@ fun PostBrandScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Text("Corner", fontSize = 12.sp, color = PostPalette.Muted)
-                                LogoCorner.values().forEach { corner ->
-                                    FilterChip(
-                                        selected = brand.logoCorner == corner,
-                                        onClick = { onBrand(brand.copy(logoCorner = corner)) },
-                                        label = { Text(corner.name.lowercase().replaceFirstChar { it.uppercase() }) }
-                                    )
-                                }
-                            }
-                            Row(
-                                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Text("Size", fontSize = 12.sp, color = PostPalette.Muted)
+                                Text("Size", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = PostPalette.Text)
                                 listOf("Small" to 0.8f, "Medium" to 1f, "Large" to 1.25f).forEach { (name, scale) ->
                                     FilterChip(
                                         selected = kotlin.math.abs(brand.logoScale - scale) < 0.01f,
                                         onClick = { onBrand(brand.copy(logoScale = scale)) },
-                                        label = { Text(name) }
+                                        label = { Text(name, fontWeight = FontWeight.Bold) }
                                     )
                                 }
                             }
@@ -159,20 +150,9 @@ fun PostBrandScreen(
                         "about" -> {
                             Text(
                                 "Wisdom Tower Post works fully offline. Templates, fonts, icons, photos and drafts all stay on this phone.",
-                                fontSize = 12.sp,
-                                color = PostPalette.Muted
-                            )
-                            Row(
-                                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                OutlinedButton(onClick = onOpenOldStudio) { Text("Open old layer studio") }
-                            }
-                            Text(
-                                "The old layer studio is kept here only so your earlier designs stay reachable. It will be removed once you no longer need them.",
-                                fontSize = 11.sp,
-                                color = PostPalette.Muted
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = PostPalette.Text
                             )
                         }
 
@@ -181,20 +161,21 @@ fun PostBrandScreen(
                                 Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                FilterChip(selected = colorSlot == "primary", onClick = { colorSlot = "primary" }, label = { Text("Main") })
-                                FilterChip(selected = colorSlot == "secondary", onClick = { colorSlot = "secondary" }, label = { Text("Second") })
-                                FilterChip(selected = colorSlot == "light", onClick = { colorSlot = "light" }, label = { Text("Light") })
-                                FilterChip(selected = colorSlot == "dark", onClick = { colorSlot = "dark" }, label = { Text("Dark") })
+                                FilterChip(selected = colorSlot == "primary", onClick = { colorSlot = "primary" }, label = { Text("Main", fontWeight = FontWeight.Bold) })
+                                FilterChip(selected = colorSlot == "secondary", onClick = { colorSlot = "secondary" }, label = { Text("Second", fontWeight = FontWeight.Bold) })
+                                FilterChip(selected = colorSlot == "light", onClick = { colorSlot = "light" }, label = { Text("Light", fontWeight = FontWeight.Bold) })
+                                FilterChip(selected = colorSlot == "dark", onClick = { colorSlot = "dark" }, label = { Text("Dark", fontWeight = FontWeight.Bold) })
                             }
                             Text(
                                 when (colorSlot) {
                                     "primary" -> "Main color: accents and footer"
                                     "secondary" -> "Second color: glows and highlights"
                                     "light" -> "Light: backgrounds"
-                                    else -> "Dark: text and dark posters"
+                                    else -> "Dark: text, dark posters and the logo box"
                                 },
-                                fontSize = 12.sp,
-                                color = PostPalette.Muted
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = PostPalette.Text
                             )
                             when (colorSlot) {
                                 "primary" -> PaletteStrip(brand.primaryHex, null, false) { hex -> if (hex != null) onBrand(brand.copy(primaryHex = hex)) }
@@ -203,8 +184,9 @@ fun PostBrandScreen(
                                 else -> PaletteStrip(brand.darkHex, null, false) { hex -> if (hex != null) onBrand(brand.copy(darkHex = hex)) }
                             }
                             Text(
-                                "Every gradient, ring and glow is built from these four, so changing one restyles all templates.",
-                                fontSize = 11.sp,
+                                "Every gradient and glow is built from these four, so changing one restyles all templates.",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
                                 color = PostPalette.Muted
                             )
                         }

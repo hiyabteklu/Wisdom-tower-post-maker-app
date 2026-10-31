@@ -17,9 +17,10 @@ Goal: one app that makes 10-20 consistent posts a day for TikTok, Instagram, Fac
 
 - [x] Phase 0: old studio removed (DesignStudio, DesignDocument, DesignExport, route in PostApp, Brand > About button).
 - [x] Header box: logo sits in a dark brand-gradient box flush to the top-right on every template and size (lowered on 9:16). Logo corner choice removed from the Brand screen.
+- [x] Engine, first push (not yet built or run, the assistant cannot compile): PostEngine.kt (photo frames ROUNDED / ARCH / PILL / CIRCLE / STACKED with border and shadow, mesh gradient blends AURORA / SPOTLIGHT / DUSK, grain, cut-out subject layer, text offsets), document version 4 in PostModel.kt, renderer order background > mesh > grain > shapes > photo > words set "behind" > cut-out > other words, and the studio section "Layers and style" with tap-and-drag for words and the subject on the preview.
+- [ ] Engine, still to do: on-device automatic cut-out (needs an ML dependency, so a transparent PNG import is what exists now), per-template default frame / layer / mesh set by the new templates (frames only shape windows that do not fill the whole post, so today only "Course feature with photo" shows them), pinch to resize words.
 - [ ] Remove waves, rings, dot grids, stripes, gems, Clean/Rich switch, PostLooks.kt, PostRich.kt (done together with the new templates so nothing is left flat).
-- [ ] 4K export and 4:5 size.
-- [ ] Drag text, photo frames, cut-out layering, new gradient engine.
+- [ ] 4K export and 4:5 size (done with the template rewrite, because every layout has a `when (size)` that has to learn the new size).
 - [ ] 25 new templates.
 - [ ] UI pass (bold fonts, contrast) on the editor and library.
 
@@ -71,9 +72,9 @@ Old template ids map to the nearest new one so saved drafts still open.
 
 ## 4. Features
 
-- **Photo frames:** mask types ROUNDED, ARCH, PILL, CIRCLE, STACKED, with optional border and shadow. Zoom and pan stay.
-- **Text behind subject:** layer order for these templates is background, back text, cut-out subject, front text, header, footer. A slot gets a layer (BACK or FRONT). The cut-out comes from a transparent PNG you import, or from an in-app "Cut out subject" button using on-device segmentation.
-- **Drag text in every template:** each slot gets a saved offset (and optional size). Tap a text block on the preview to select it, drag to move, "Reset position" to go back. Defaults stay exactly as designed. Saved in the post file (version 4); old drafts still load.
+- **Photo frames:** mask types ROUNDED, ARCH, PILL, CIRCLE, STACKED, with optional border and shadow. Zoom and pan stay. (Engine done; the new templates will set them.)
+- **Text behind subject:** layer order for these templates is background, back text, cut-out subject, front text, header, footer. A slot gets a layer (BACK or FRONT). The cut-out comes from a transparent PNG you import, or from an in-app "Cut out subject" button using on-device segmentation. (Layering and PNG import done; the automatic button is still to do.)
+- **Drag text in every template:** each slot gets a saved offset. Tap a text block on the preview to select it, drag to move, "Put words back" to go back. Defaults stay exactly as designed. Saved in the post file (version 4, offsets keyed by template and size); old drafts still load. (Done.)
 - **Header box (logo):** done. Fixed dark brand-gradient box flush to the top-right corner with the white logo inside, same place on every template and size.
 - **4K export:** Standard (1080 base) or 4K: 1:1 2160x2160, 4:5 2160x2700, 4:3 2880x2160, 9:16 2160x3840. PNG or JPG (quality 95). TikTok and Instagram recompress to about 1080, so 4K matters most for LinkedIn, Telegram files and keeping masters.
 - **UI:** bundled Plus Jakarta Sans / Outfit in the app UI, bold weights, body 15 sp minimum, labels 13 sp bold, lighter text colors (7:1 contrast target), 48 dp touch targets. Editor: Words open first, other sections collapsed.
@@ -84,6 +85,6 @@ Because nothing here can be compiled by the assistant, every push should be buil
 
 - **Phase 0:** cleanup. Done.
 - **Phase 1:** header box (done), 4K + 4:5, UI theme and fonts.
-- **Phase 2:** engine: gradient/mesh/grain, photo masks, layered cut-out, slot offsets and drag, document v4.
-- **Phase 3:** templates in three batches (photo 7, information 8, marketing + type 10), replacing PostTemplates.kt, PostLooks.kt and PostRich.kt.
+- **Phase 2:** engine: gradient/mesh/grain, photo masks, layered cut-out, slot offsets and drag, document v4. First push done, waiting for a build and a phone check.
+- **Phase 3:** templates in three batches (photo 7, information 8, marketing + type 10), replacing PostTemplates.kt, PostLooks.kt and PostRich.kt, together with 4K and 4:5.
 - **Phase 4:** library categories (Photo, Information, Marketing, Type), old-id mapping, final UI pass.

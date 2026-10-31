@@ -43,6 +43,24 @@ enum class BgMode { TEMPLATE, SOLID, GRADIENT }
 /** kind picks the icon. label is the text shown next to it. colorHex is an optional own color for that icon (empty = automatic). */
 data class FooterItem(val kind: String, val label: String, val colorHex: String = "")
 
+/**
+ * A small graphic placed on one post (UI_UX_PLAN.md section 6).
+ * source is "shape:<name>" for a bundled flat shape, or "file:<absolute path>" for a picture copied into app storage.
+ * cx and cy are the centre as a fraction of the post width and height. size is the longest side as a fraction of the shorter post side.
+ * tintHex null keeps the picture's own colors (a shape then uses the brand color); a color tints the whole icon.
+ * front true draws it above the words, false draws it behind them.
+ */
+data class PostIconItem(
+    val source: String,
+    val cx: Float = 0.5f,
+    val cy: Float = 0.5f,
+    val size: Float = 0.18f,
+    val tintHex: String? = null,
+    val front: Boolean = true
+)
+
+const val MAX_POST_ICONS = 6
+
 data class PostBrand(
     val primaryHex: String = "#176B4D",
     val secondaryHex: String = "#C9E7B8",
@@ -98,7 +116,9 @@ data class PostDoc(
     /** Path of the English font picked on this post (an asset path, or a file added from the phone). null = the default font. */
     val fontEnglish: String? = null,
     /** Path of the Amharic font picked on this post. null = the first Amharic font available. */
-    val fontAmharic: String? = null
+    val fontAmharic: String? = null,
+    /** Small graphics the user placed on this post (at most MAX_POST_ICONS). */
+    val icons: List<PostIconItem> = emptyList()
 ) {
     fun withText(slot: String, value: String): PostDoc = copy(texts = texts + (slot to value))
 }
@@ -131,11 +151,41 @@ object PostCodec {
         put("richness", d.richness)
         put("fontEnglish", d.fontEnglish ?: "")
         put("fontAmharic", d.fontAmharic ?: "")
+        put("icons", JSONArray().also { arr ->
+            d.icons.forEach {
+                arr.put(
+                    JSONObject()
+                        .put("source", it.source)
+                        .put("cx", it.cx.toDouble())
+                        .put("cy", it.cy.toDouble())
+                        .put("size", it.size.toDouble())
+                        .put("tintHex", it.tintHex ?: "")
+                        .put("front", it.front)
+                )
+            }
+        })
     }.toString()
 
     /** The first test build stored the default colors as if they were choices. Treat those as "use the brand color". */
     private fun colorOverride(j: JSONObject, key: String, legacyDefault: String): String? =
         j.optString(key).takeIf { it.isNotBlank() && it != "null" && !it.equals(legacyDefault, ignoreCase = true) }
+
+    private fun decodeIcons(j: JSONObject): List<PostIconItem> {
+        val arr = j.optJSONArray("icons") ?: return emptyList()
+        return (0 until arr.length()).mapNotNull { i ->
+            val o = arr.optJSONObject(i) ?: return@mapNotNull null
+            val source = o.optString("source")
+            if (source.isBlank()) return@mapNotNull null
+            PostIconItem(
+                source = source,
+                cx = o.optDouble("cx", 0.5).toFloat().coerceIn(0f, 1f),
+                cy = o.optDouble("cy", 0.5).toFloat().coerceIn(0f, 1f),
+                size = o.optDouble("size", 0.18).toFloat().coerceIn(0.04f, 0.9f),
+                tintHex = o.optString("tintHex").takeIf { it.isNotBlank() && it != "null" },
+                front = o.optBoolean("front", true)
+            )
+        }.take(MAX_POST_ICONS)
+    }
 
     fun decodeDoc(raw: String): PostDoc {
         val j = JSONObject(raw)
@@ -167,7 +217,8 @@ object PostCodec {
             logoSize = j.optDouble("logoSize", 1.0).toFloat().coerceIn(0.4f, 3f),
             richness = j.optInt("richness", 2).coerceIn(1, 2),
             fontEnglish = j.optString("fontEnglish").takeIf { it.isNotBlank() && it != "null" },
-            fontAmharic = j.optString("fontAmharic").takeIf { it.isNotBlank() && it != "null" }
+            fontAmharic = j.optString("fontAmharic").takeIf { it.isNotBlank() && it != "null" },
+            icons = decodeIcons(j)
         )
     }
 

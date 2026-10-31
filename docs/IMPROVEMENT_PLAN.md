@@ -92,8 +92,8 @@ Each phase ends with a debug APK you install and check on your phone. A phase is
 - **Phase 1: foundation.** Document v2, one renderer, three sizes, bundled fonts, logo copied to storage. *Check:* one template exports identical to its preview at all three sizes, with long text.
 - **Phase 2: brand.** Brand screen, locked header and footer, bundled icon set. *Check:* change a handle in Brand, see it on the canvas and in the export.
 - **Phase 3: templates.** The 20 templates with slot layouts per ratio and generated thumbnails. *Check:* all 20 render at 3 sizes without overflow using sample text.
-- **Phase 4: editor and navigation.** New Templates home, Editor with collapsed groups, My posts tab. *Check:* make a post from open-app to saved file in under a minute.
-- **Phase 5: export sheet and cleanup.** Multi-size export, overflow warning, remove the old layer UI and PDF code. *Check:* export all three sizes in one tap, files open in Telegram.
+- [x] **Phase 4: editor and navigation.** Templates home with search, family filters and size selector; fixed-preview Editor with collapsible groups; Brand screen; photo picker; and My posts tab storing editable documents. *Device check still required:* make a post from open-app to saved file in under a minute.
+- [x] **Phase 5: export workflow.** Modal export sheet, multi-size PNG/JPG save/share, and live text-fit warning in the preview. *Device check still required:* export all three sizes in one tap and open the files in Telegram. The unreachable legacy layer/PDF source files remain for a separate, reviewed cleanup.
 
 ## 8. Removed from the old plan
 

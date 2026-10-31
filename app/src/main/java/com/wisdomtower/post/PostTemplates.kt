@@ -203,6 +203,8 @@ private fun template(
  * Layouts in families. Two templates of one family differ in structure, not only in color.
  * Decoration hangs on fixed things (the label row, the number, the card) and never on the end of a headline,
  * because a headline can run one line or four.
+ * The bold two-color templates at the end use TEXT as the ink (big words) and ACCENT as the pop (bands, rings),
+ * so the Color pairs buttons in the studio restyle them in one tap.
  */
 val PostTemplates: List<PostTemplateSpec> = listOf(
 
@@ -802,7 +804,7 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
         )
     },
 
-    // 23. Exam alert: editorial navy-and-red hierarchy inspired by a weekly exam notice.
+    // 23. Exam alert: bold ink-and-pop hierarchy inspired by a weekly exam notice. Ink is the text color, pop the accent.
     template(
         "exam-tomorrow", "Weekly exam tomorrow", "Exam",
         mapOf(
@@ -819,14 +821,14 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
         val examH = if (story) .19f else .20f
         val tomorrowY = if (story) .70f else .71f
         val tomorrowH = if (story) .10f else .11f
-        val blue = PostTone.BLUE
-        val red = PostTone.RED
+        val blue = PostTone.TEXT
+        val red = PostTone.ACCENT
         TemplateLayout(
             PostBase.LIGHT,
             listOf(
-                // Quiet blue corner geometry and fine rules frame the typography.
+                // Quiet corner geometry and fine rules frame the typography.
                 DecorBox(DecorShape.OVAL, .78f, -.17f, .42f, .34f, blue, 245),
-                DecorBox(DecorShape.OVAL, .83f, -.13f, .34f, .27f, PostTone.LIGHT, 255),
+                DecorBox(DecorShape.OVAL, .83f, -.13f, .34f, .27f, PostTone.TINT, 255),
                 DecorBox(DecorShape.RECT, .10f, .255f, .80f, .0045f, blue, 210),
                 DecorBox(DecorShape.ROUND, .13f, examY, .74f, examH, red, 255, .018f, shadow = true),
                 DecorBox(DecorShape.RING, .17f, tomorrowY - .005f, .66f, tomorrowH + .025f, red, 235, stroke = .006f),
@@ -838,7 +840,8 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
                 abox(PostSlots.HEADLINE, .08f, headY, .84f, headH, if (story) .108f else .105f, PostFont.DISPLAY, blue, centered = true, caps = true),
                 abox(PostSlots.NUMBER, .16f, examY + .005f, .68f, examH - .01f, if (story) .145f else .14f, PostFont.DISPLAY, PostTone.LIGHT, centered = true, caps = true),
                 abox(PostSlots.BODY, .12f, tomorrowY, .76f, tomorrowH, if (story) .066f else .064f, PostFont.DISPLAY, blue, centered = true, caps = true)
-            )
+            ),
+            backdrop = Backdrop(PostTone.TINT, PostTone.SOFT, 135f)
         )
     },
 
@@ -857,10 +860,10 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
         TemplateLayout(
             PostBase.LIGHT,
             listOf(
-                DecorBox(DecorShape.RECT, 0f, panelY, 1f, panelH, PostTone.BLUE),
-                DecorBox(DecorShape.RECT, 0f, panelY, .025f, panelH, PostTone.RED),
-                DecorBox(DecorShape.ROUND, .08f, .72f, .84f, .105f, PostTone.RED, radius = .025f, shadow = true),
-                DecorBox(DecorShape.RECT, .08f, .65f, .18f, .006f, PostTone.BLUE)
+                DecorBox(DecorShape.RECT, 0f, panelY, 1f, panelH, PostTone.TEXT),
+                DecorBox(DecorShape.RECT, 0f, panelY, .025f, panelH, PostTone.ACCENT),
+                DecorBox(DecorShape.ROUND, .08f, .72f, .84f, .105f, PostTone.ACCENT, radius = .025f, shadow = true),
+                DecorBox(DecorShape.RECT, .08f, .65f, .18f, .006f, PostTone.TEXT)
             ),
             listOf(
                 abox(PostSlots.EYEBROW, .09f, panelY + .035f, .82f, .055f, .023f, PostFont.BOLD, PostTone.LIGHT_MUTED, caps = true),
@@ -884,14 +887,14 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
         TemplateLayout(
             PostBase.LIGHT,
             listOf(
-                DecorBox(DecorShape.RECT, .08f, .23f, .018f, .49f, PostTone.RED),
-                DecorBox(DecorShape.RECT, .08f, .20f, .18f, .006f, PostTone.BLUE),
-                DecorBox(DecorShape.ROUND, .68f, .20f, .23f, .16f, PostTone.BLUE, radius = .025f),
-                DecorBox(DecorShape.RING, .70f, .22f, .19f, .12f, PostTone.RED, 235, stroke = .004f)
+                DecorBox(DecorShape.RECT, .08f, .23f, .018f, .49f, PostTone.ACCENT),
+                DecorBox(DecorShape.RECT, .08f, .20f, .18f, .006f, PostTone.TEXT),
+                DecorBox(DecorShape.ROUND, .68f, .20f, .23f, .16f, PostTone.TEXT, radius = .025f),
+                DecorBox(DecorShape.RING, .70f, .22f, .19f, .12f, PostTone.ACCENT, 235, stroke = .004f)
             ),
             listOf(
-                abox(PostSlots.EYEBROW, .08f, .16f, .84f, .04f, .022f, PostFont.BOLD, PostTone.RED, caps = true),
-                abox(PostSlots.NUMBER, .12f, .25f, .48f, .25f, .18f, PostFont.DISPLAY, PostTone.BLUE),
+                abox(PostSlots.EYEBROW, .08f, .16f, .84f, .04f, .022f, PostFont.BOLD, PostTone.ACCENT, caps = true),
+                abox(PostSlots.NUMBER, .12f, .25f, .48f, .25f, .18f, PostFont.DISPLAY, PostTone.TEXT),
                 abox(PostSlots.HEADLINE, .12f, .51f, .78f, .18f, .062f, PostFont.DISPLAY, PostTone.TEXT),
                 abox(PostSlots.BODY, .12f, .70f, .78f, .14f, .032f, PostFont.REGULAR, PostTone.MUTED)
             )
@@ -1110,6 +1113,117 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
                 box(PostSlots.LIST, .06f, .41f, .88f, .52f, .038f, PostFont.BOLD, PostTone.LIGHT, list = ListStyle.CHECK)
             ),
             backdrop = Backdrop(PostTone.DEEP, PostTone.PAGE, 160f)
+        )
+    },
+
+    // 31. Bold date: ink day name, pop band with the date, ringed time. Pair buttons restyle it.
+    template(
+        "bold-date", "Bold date", "Exam",
+        mapOf(
+            PostSlots.EYEBROW to "FINAL EXAM",
+            PostSlots.HEADLINE to "SATURDAY",
+            PostSlots.NUMBER to "12 NOV",
+            PostSlots.BODY to "9:00 AM"
+        )
+    ) {
+        val eyY = if (story) .19f else .20f
+        val headY = if (story) .29f else .28f
+        val headH = if (story) .17f else .19f
+        val bandY = if (story) .47f else .48f
+        val bandH = if (story) .19f else .20f
+        val ringY = if (story) .70f else .71f
+        val ringH = if (story) .10f else .11f
+        val ink = PostTone.TEXT
+        val pop = PostTone.ACCENT
+        TemplateLayout(
+            PostBase.LIGHT,
+            listOf(
+                DecorBox(DecorShape.OVAL, -.20f, -.17f, .42f, .34f, ink, 245),
+                DecorBox(DecorShape.OVAL, -.17f, -.13f, .34f, .27f, PostTone.TINT, 255),
+                DecorBox(DecorShape.RECT, .10f, .257f, .33f, .0045f, ink, 210),
+                DecorBox(DecorShape.RECT, .57f, .257f, .33f, .0045f, ink, 210),
+                DecorBox(DecorShape.SPARK, .47f, .227f, .06f, .06f * W / H, pop),
+                DecorBox(DecorShape.ROUND, .13f, bandY, .74f, bandH, pop, 255, .018f, shadow = true),
+                DecorBox(DecorShape.RING, .17f, ringY - .005f, .66f, ringH + .025f, pop, 235, stroke = .006f)
+            ),
+            listOf(
+                SlotBox(PostSlots.EYEBROW, .08f, eyY, .84f, .045f, .024f, PostFont.BOLD, ink, centered = true, caps = true),
+                SlotBox(PostSlots.HEADLINE, .08f, headY, .84f, headH, if (story) .108f else .105f, PostFont.DISPLAY, ink, centered = true, caps = true),
+                SlotBox(PostSlots.NUMBER, .16f, bandY + .005f, .68f, bandH - .01f, if (story) .145f else .14f, PostFont.DISPLAY, PostTone.LIGHT, centered = true, caps = true),
+                SlotBox(PostSlots.BODY, .12f, ringY, .76f, ringH, if (story) .066f else .064f, PostFont.DISPLAY, ink, centered = true, caps = true)
+            ),
+            backdrop = Backdrop(PostTone.TINT, PostTone.SOFT, 135f)
+        )
+    },
+
+    // 32. Bold question: ink panel with the question, pop pill label, big lettered options
+    template(
+        "bold-question", "Bold question", "Question",
+        mapOf(
+            PostSlots.EYEBROW to "QUESTION 4",
+            PostSlots.HEADLINE to "Which organelle is called the powerhouse of the cell?",
+            PostSlots.LIST to "Nucleus\nMitochondrion\nRibosome\nGolgi apparatus"
+        )
+    ) {
+        val panelY = if (story) .24f else .25f
+        val panelH = if (story) .30f else .29f
+        val listY = panelY + panelH + .04f
+        val ink = PostTone.TEXT
+        val pop = PostTone.ACCENT
+        TemplateLayout(
+            PostBase.LIGHT,
+            listOf(
+                DecorBox(DecorShape.RECT, 0f, panelY, 1f, panelH, ink),
+                DecorBox(DecorShape.RECT, 0f, panelY, .03f, panelH, pop),
+                DecorBox(DecorShape.SPARK, .88f, panelY + panelH - .075f, .05f, .05f * W / H, PostTone.LIGHT, 150),
+                DecorBox(DecorShape.ROUND, .09f, panelY - .03f, .36f, .06f, pop, 255, .03f, shadow = true),
+                DecorBox(DecorShape.RECT, .09f, listY - .012f, .12f, .006f, pop)
+            ),
+            listOf(
+                SlotBox(PostSlots.EYEBROW, .09f, panelY - .03f + .013f, .36f, .036f, .024f, PostFont.BOLD, PostTone.LIGHT, centered = true, caps = true),
+                SlotBox(PostSlots.HEADLINE, .09f, panelY + .045f, .82f, panelH - .06f, .06f, PostFont.DISPLAY, PostTone.LIGHT),
+                SlotBox(PostSlots.LIST, .09f, listY + .01f, .82f, .85f - listY - .01f, .048f, PostFont.BOLD, ink, list = ListStyle.LETTER)
+            ),
+            backdrop = Backdrop(PostTone.TINT, PostTone.SOFT, 135f)
+        )
+    },
+
+    // 33. Bold call to action: ink headline, pop band with the message, ringed button words
+    template(
+        "bold-promo", "Bold call to action", "Promotion",
+        mapOf(
+            PostSlots.EYEBROW to "NEW ON THE APP",
+            PostSlots.HEADLINE to "FREE NOTES",
+            PostSlots.BODY to "ALL CHAPTERS",
+            PostSlots.BUTTON to "JOIN NOW"
+        )
+    ) {
+        val eyY = if (story) .19f else .20f
+        val headY = if (story) .29f else .28f
+        val headH = if (story) .17f else .19f
+        val bandY = if (story) .47f else .48f
+        val bandH = if (story) .19f else .20f
+        val ringY = if (story) .70f else .71f
+        val ringH = if (story) .10f else .11f
+        val ink = PostTone.TEXT
+        val pop = PostTone.ACCENT
+        TemplateLayout(
+            PostBase.LIGHT,
+            listOf(
+                DecorBox(DecorShape.OVAL, .78f, -.17f, .42f, .34f, ink, 245),
+                DecorBox(DecorShape.OVAL, .83f, -.13f, .34f, .27f, PostTone.TINT, 255),
+                DecorBox(DecorShape.RECT, .10f, .257f, .80f, .0045f, ink, 210),
+                DecorBox(DecorShape.SPARK, .88f, headY + .01f, .06f, .06f * W / H, pop),
+                DecorBox(DecorShape.ROUND, .13f, bandY, .74f, bandH, pop, 255, .018f, shadow = true),
+                DecorBox(DecorShape.RING, .17f, ringY - .005f, .66f, ringH + .025f, pop, 235, stroke = .006f)
+            ),
+            listOf(
+                SlotBox(PostSlots.EYEBROW, .08f, eyY, .84f, .045f, .024f, PostFont.BOLD, ink, centered = true, caps = true),
+                SlotBox(PostSlots.HEADLINE, .08f, headY, .84f, headH, if (story) .108f else .105f, PostFont.DISPLAY, ink, centered = true, caps = true),
+                SlotBox(PostSlots.BODY, .16f, bandY + .005f, .68f, bandH - .01f, if (story) .105f else .10f, PostFont.DISPLAY, PostTone.LIGHT, centered = true, caps = true),
+                SlotBox(PostSlots.BUTTON, .12f, ringY, .76f, ringH, if (story) .066f else .064f, PostFont.DISPLAY, ink, centered = true, caps = true)
+            ),
+            backdrop = Backdrop(PostTone.TINT, PostTone.SOFT, 135f)
         )
     }
 )

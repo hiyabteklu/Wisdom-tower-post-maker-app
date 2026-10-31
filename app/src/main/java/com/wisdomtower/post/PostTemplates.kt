@@ -69,7 +69,12 @@ data class DecorBox(
 )
 
 /** Where the post photo is drawn (canvas fractions) and how dark the dim layer on top of it is, 0 to 255. */
-data class PostPhotoArea(val x: Float, val y: Float, val w: Float, val h: Float, val dim: Int)
+enum class PhotoMask { RECT, PENTAGON }
+
+data class PostPhotoArea(
+    val x: Float, val y: Float, val w: Float, val h: Float, val dim: Int,
+    val mask: PhotoMask = PhotoMask.RECT
+)
 
 /** The gradient behind everything. angle: 0 = left to right, 90 = top to bottom. */
 data class Backdrop(val from: PostTone, val to: PostTone, val angle: Float = 135f, val mid: PostTone? = null)
@@ -553,7 +558,7 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
                 abox(PostSlots.HEADLINE, 0f, headY, 1f, headH, .08f, PostFont.DISPLAY, PostTone.TEXT),
                 abox(PostSlots.BODY, 0f, bodyY, 1f, bottom - bodyY, .036f, PostFont.REGULAR, PostTone.MUTED)
             ),
-            PostPhotoArea(0f, 0f, 1f, cover, 60)
+            PostPhotoArea(0f, 0f, 1f, cover, 60, PhotoMask.PENTAGON)
         )
     },
 

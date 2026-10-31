@@ -48,7 +48,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -322,23 +321,6 @@ private fun SizeRow(doc: PostDoc, onDoc: (PostDoc) -> Unit, edited: Boolean, onR
             Icon(Icons.Outlined.Download, contentDescription = null)
             Spacer(Modifier.width(6.dp))
             Text("Save")
-        }
-    }
-}
-
-/** Always takes the same height, so the preview does not jump when a control needs the slider. */
-@Composable
-private fun SliderRow(slider: EditorSlider?) {
-    Row(Modifier.fillMaxWidth().height(44.dp).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-        if (slider != null) {
-            Text(slider.label, fontSize = 12.sp, color = PostPalette.Muted, modifier = Modifier.width(76.dp))
-            Slider(
-                value = slider.value.coerceIn(slider.range.start, slider.range.endInclusive),
-                onValueChange = slider.onChange,
-                valueRange = slider.range,
-                modifier = Modifier.weight(1f)
-            )
-            Text(slider.display, fontSize = 12.sp, color = PostPalette.Muted, textAlign = TextAlign.End, modifier = Modifier.width(48.dp))
         }
     }
 }

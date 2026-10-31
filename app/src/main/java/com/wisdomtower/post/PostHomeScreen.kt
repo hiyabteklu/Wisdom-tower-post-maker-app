@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -31,13 +33,11 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.ExperimentalComposeApi
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -65,7 +65,7 @@ import java.util.Locale
 fun PostHomeScreen(
     brand: PostBrand,
     projects: List<PostProject>,
-    onChooseTemplate: (PostTemplateSpec) -> Unit,
+    onChooseTemplate: (PostTemplateSpec, PostSize) -> Unit,
     onOpenProject: (PostProject) -> Unit,
     onDeleteProject: (String) -> Unit,
     onOpenBrand: () -> Unit
@@ -73,6 +73,8 @@ fun PostHomeScreen(
     var tab by rememberSaveable { mutableStateOf("templates") }
     var family by rememberSaveable { mutableStateOf("All") }
     var search by rememberSaveable { mutableStateOf("") }
+    var selectedSizeName by rememberSaveable { mutableStateOf(PostSize.SQUARE.name) }
+    val selectedSize = PostSize.valueOf(selectedSizeName)
     val families = listOf("All") + PostTemplates.map { it.family }.distinct()
     val visible = PostTemplates.filter {
         (family == "All" || it.family == family) &&
@@ -104,13 +106,25 @@ fun PostHomeScreen(
                     FilterChip(selected = tab == "posts", onClick = { tab = "posts" }, label = { Text("My posts · ${projects.size}") })
                 }
                 if (tab == "templates") {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(7.dp)
+                    ) {
+                        PostSize.values().forEach { size ->
+                            FilterChip(
+                                selected = selectedSize == size,
+                                onClick = { selectedSizeName = size.name },
+                                label = { Text(size.label) }
+                            )
+                        }
+                    }
                     OutlinedTextField(
                         value = search, onValueChange = { search = it },
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
                         singleLine = true, label = { Text("Find a template") }
                     )
                     Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
+                        Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp).horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(7.dp)
                     ) {
                         families.forEach { item ->
@@ -125,7 +139,7 @@ fun PostHomeScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(visible, key = { it.id }) { spec ->
-                            TemplateHomeCard(spec, brand) { onChooseTemplate(spec) }
+                            TemplateHomeCard(spec, brand, selectedSize) { onChooseTemplate(spec, selectedSize) }
                         }
                     }
                 } else {
@@ -157,13 +171,13 @@ fun PostHomeScreen(
 }
 
 @Composable
-private fun TemplateHomeCard(spec: PostTemplateSpec, brand: PostBrand, onClick: () -> Unit) {
+private fun TemplateHomeCard(spec: PostTemplateSpec, brand: PostBrand, size: PostSize, onClick: () -> Unit) {
     val context = LocalContext.current
-    val bitmap by produceState<Bitmap?>(null, spec.id, brand) {
+    val bitmap by produceState<Bitmap?>(null, spec.id, brand, size) {
         value = withContext(Dispatchers.Default) {
             PostRenderer.thumbnail(
                 context,
-                PostDoc(templateId = spec.id, texts = spec.samples),
+                PostDoc(templateId = spec.id, size = size, texts = spec.samples),
                 brand,
                 480
             ).bitmap
@@ -174,7 +188,7 @@ private fun TemplateHomeCard(spec: PostTemplateSpec, brand: PostBrand, onClick: 
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = PostPalette.Surface)
     ) {
-        Box(Modifier.fillMaxWidth().aspectRatio(0.88f).background(PostPalette.Surface)) {
+        Box(Modifier.fillMaxWidth().aspectRatio(size.width.toFloat() / size.height).background(PostPalette.Surface)) {
             bitmap?.let {
                 Image(it.asImageBitmap(), contentDescription = spec.name, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
             }

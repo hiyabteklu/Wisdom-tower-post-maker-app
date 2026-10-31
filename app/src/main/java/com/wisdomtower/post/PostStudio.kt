@@ -23,7 +23,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Bookmark
+import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Refresh
@@ -78,10 +81,11 @@ private val OptionsAreaHeight = 124.dp
 
 /**
  * The editor (UI_UX_PLAN.md section 4.2). Nothing here scrolls vertically.
- * From the top: title row, size row (with Reset and Save), the live preview (takes all spare height and shrinks when the keyboard opens),
- * one shared slider, the category tabs, and one options row. Every category is one horizontal row.
+ * From the top: title row (name, bookmark, Library, Brand), size row (with Reset and Save), the live preview (takes all spare height
+ * and shrinks when the keyboard opens), one shared slider, the category tabs, and one options row. Every category is one horizontal row.
  * edited: this template differs from its factory look (shows a dot and the Reset button).
  * onBringWords: copies the words of the last template you edited into this one; null when there is nothing to bring.
+ * bookmarked / onToggleBookmark: the Saved row of the Library. onOpenLibrary: back to the Library home.
  */
 @Composable
 fun PostStudioScreen(
@@ -96,7 +100,10 @@ fun PostStudioScreen(
     onOpenOldStudio: () -> Unit,
     edited: Boolean = false,
     onReset: () -> Unit = {},
-    onBringWords: (() -> Unit)? = null
+    onBringWords: (() -> Unit)? = null,
+    bookmarked: Boolean = false,
+    onToggleBookmark: () -> Unit = {},
+    onOpenLibrary: () -> Unit = {}
 ) {
     var tab by remember { mutableStateOf(EditorTab.WORDS) }
     val groupChoice = remember { mutableStateMapOf<EditorTab, String>() }
@@ -116,7 +123,7 @@ fun PostStudioScreen(
     PostTheme {
         Scaffold(containerColor = PostPalette.Ink) { padding ->
             Column(Modifier.fillMaxSize().padding(padding).imePadding()) {
-                TitleRow(doc, edited, onOpenBrand, onOpenOldStudio)
+                TitleRow(doc, edited, bookmarked, onToggleBookmark, onOpenLibrary, onOpenBrand, onOpenOldStudio)
                 SizeRow(doc, onDoc, edited, onReset) { showSave = true }
                 PreviewPane(doc, brand, moving, onDoc, Modifier.weight(1f))
                 SliderRow(slider)
@@ -170,7 +177,15 @@ fun PostStudioScreen(
 }
 
 @Composable
-private fun TitleRow(doc: PostDoc, edited: Boolean, onOpenBrand: () -> Unit, onOpenOldStudio: () -> Unit) {
+private fun TitleRow(
+    doc: PostDoc,
+    edited: Boolean,
+    bookmarked: Boolean,
+    onToggleBookmark: () -> Unit,
+    onOpenLibrary: () -> Unit,
+    onOpenBrand: () -> Unit,
+    onOpenOldStudio: () -> Unit
+) {
     var menu by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(
@@ -182,6 +197,16 @@ private fun TitleRow(doc: PostDoc, edited: Boolean, onOpenBrand: () -> Unit, onO
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
         )
+        IconButton(onClick = onToggleBookmark) {
+            Icon(
+                if (bookmarked) Icons.Outlined.Bookmark else Icons.Outlined.BookmarkBorder,
+                contentDescription = if (bookmarked) "Remove from Saved" else "Save this template",
+                tint = if (bookmarked) PostPalette.Gold else PostPalette.Muted
+            )
+        }
+        IconButton(onClick = onOpenLibrary) {
+            Icon(Icons.Outlined.GridView, contentDescription = "Library", tint = PostPalette.Mint)
+        }
         IconButton(onClick = onOpenBrand) {
             Icon(Icons.Outlined.Palette, contentDescription = "Brand and social icons", tint = PostPalette.Mint)
         }

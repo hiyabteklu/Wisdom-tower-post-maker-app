@@ -326,6 +326,7 @@ private fun TitleRow(
     }
 }
 
+/** The size chips scroll inside the free space, so four sizes plus Reset and Save still fit on a narrow phone. Reset and Save stay pinned on the right. */
 @Composable
 private fun SizeRow(doc: PostDoc, onDoc: (PostDoc) -> Unit, edited: Boolean, onReset: () -> Unit, onSave: () -> Unit) {
     Row(
@@ -333,14 +334,19 @@ private fun SizeRow(doc: PostDoc, onDoc: (PostDoc) -> Unit, edited: Boolean, onR
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        PostSize.values().forEach { size ->
-            FilterChip(
-                selected = doc.size == size,
-                onClick = { onDoc(doc.copy(size = size)) },
-                label = { Text(size.label, fontSize = 12.sp) }
-            )
+        Row(
+            Modifier.weight(1f).horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            PostSize.values().forEach { size ->
+                FilterChip(
+                    selected = doc.size == size,
+                    onClick = { onDoc(doc.copy(size = size)) },
+                    label = { Text(size.label, fontSize = 12.sp) }
+                )
+            }
         }
-        Spacer(Modifier.weight(1f))
         if (edited) {
             IconButton(onClick = onReset) {
                 Icon(Icons.Outlined.Refresh, contentDescription = "Reset this template", tint = PostPalette.Gold)

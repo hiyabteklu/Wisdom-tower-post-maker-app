@@ -192,8 +192,7 @@ fun PostStudioScreen(
                                 if (group.key == "size") {
                                     InlineEditorSlider(EditorSlider("Logo size", brand.logoScale, 0.4f..2f,
                                         "${(brand.logoScale * 100).toInt()}%") { onBrand(brand.copy(logoScale = it)) })
-                                }
-                                EditorOptions(EditorTab.LOGO, group.key, doc, onDoc, brand, onBrand,
+                                } else EditorOptions(EditorTab.LOGO, group.key, doc, onDoc, brand, onBrand,
                                     photoArea != null, onPickPhoto, onPickBackgroundPhoto, onPickLogo,
                                     moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it })
                             }
@@ -211,7 +210,10 @@ fun PostStudioScreen(
 
                         SettingsSection("Footer", "Social icons shown on the post.") {
                             editorGroups(EditorTab.FOOTER, doc, slots, photoArea != null, false).forEach { group ->
-                                EditorOptions(EditorTab.FOOTER, group.key, doc, onDoc, brand, onBrand,
+                                if (group.key == "size") {
+                                InlineEditorSlider(EditorSlider("Footer icon size", brand.iconScale, 0.5f..1.8f,
+                                    "${(brand.iconScale * 100).toInt()}%") { onBrand(brand.copy(iconScale = it)) })
+                            } else EditorOptions(EditorTab.FOOTER, group.key, doc, onDoc, brand, onBrand,
                                     photoArea != null, onPickPhoto, onPickBackgroundPhoto, onPickLogo,
                                     moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it })
                             }
@@ -221,9 +223,8 @@ fun PostStudioScreen(
                             EditorOptions(EditorTab.LOOK, "style", doc, onDoc, brand, onBrand,
                                 photoArea != null, onPickPhoto, onPickBackgroundPhoto, onPickLogo,
                                 moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it })
-                            EditorOptions(EditorTab.LOOK, "size", doc, onDoc, brand, onBrand,
-                                photoArea != null, onPickPhoto, onPickBackgroundPhoto, onPickLogo,
-                                moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it })
+                            InlineEditorSlider(EditorSlider("Text size", doc.textScale, 0.7f..1.5f,
+                                "${(doc.textScale * 100).toInt()}%") { onDoc(doc.copy(textScale = it)) })
                         }
                     }
                 }

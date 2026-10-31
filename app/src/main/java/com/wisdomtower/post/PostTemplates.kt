@@ -687,6 +687,46 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
         )
     },
 
+    // 23. Exam alert: editorial navy-and-red hierarchy inspired by a weekly exam notice.
+    template(
+        "exam-tomorrow", "Weekly exam tomorrow", "Exam",
+        mapOf(
+            PostSlots.EYEBROW to "HAVAN ACADEMY  •  WEEKLY NOTICE",
+            PostSlots.HEADLINE to "WEEKLY",
+            PostSlots.NUMBER to "EXAM",
+            PostSlots.BODY to "TOMORROW"
+        )
+    ) {
+        val storyTop = if (story) .19f else .20f
+        val headY = if (story) .29f else .28f
+        val headH = if (story) .17f else .19f
+        val examY = if (story) .47f else .48f
+        val examH = if (story) .19f else .20f
+        val tomorrowY = if (story) .70f else .71f
+        val tomorrowH = if (story) .10f else .11f
+        val blue = PostTone.ACCENT
+        val red = PostTone.DEEP
+        TemplateLayout(
+            PostBase.LIGHT,
+            listOf(
+                // Quiet blue corner geometry and fine rules frame the typography.
+                DecorBox(DecorShape.OVAL, .78f, -.17f, .42f, .34f, blue, 245),
+                DecorBox(DecorShape.OVAL, .83f, -.13f, .34f, .27f, PostTone.LIGHT, 255),
+                DecorBox(DecorShape.RECT, .10f, .255f, .80f, .0045f, blue, 210),
+                DecorBox(DecorShape.ROUND, .13f, examY, .74f, examH, red, 255, .018f, shadow = true),
+                DecorBox(DecorShape.RING, .17f, tomorrowY - .005f, .66f, tomorrowH + .025f, red, 235, stroke = .006f),
+                DecorBox(DecorShape.RECT, .08f, .78f, .07f, .009f, blue, 255),
+                DecorBox(DecorShape.RECT, .85f, .78f, .07f, .009f, blue, 255)
+            ),
+            listOf(
+                abox(PostSlots.EYEBROW, .08f, storyTop, .84f, .045f, .022f, PostFont.BOLD, blue, centered = true, caps = true),
+                abox(PostSlots.HEADLINE, .08f, headY, .84f, headH, if (story) .108f else .105f, PostFont.DISPLAY, blue, centered = true, caps = true),
+                abox(PostSlots.NUMBER, .16f, examY + .005f, .68f, examH - .01f, if (story) .145f else .14f, PostFont.DISPLAY, PostTone.LIGHT, centered = true, caps = true),
+                abox(PostSlots.BODY, .12f, tomorrowY, .76f, tomorrowH, if (story) .066f else .064f, PostFont.DISPLAY, blue, centered = true, caps = true)
+            )
+        )
+    },
+
     // 23. Event: a ticket with notches and a dotted tear line, date below
     template(
         "event-ticket", "Event ticket", "Event",

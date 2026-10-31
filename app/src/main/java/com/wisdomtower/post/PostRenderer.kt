@@ -8,6 +8,8 @@ import android.graphics.Color
 import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffColorFilter
 import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Shader
@@ -184,6 +186,7 @@ object PostRenderer {
         val photoUri = doc.photoUri
         if (photoArea != null && photoUri != null) drawPhoto(context, canvas, photoUri, photoArea, doc, w, h)
         layout.decor.filter { it.overPhoto }.forEach { drawDecor(canvas, it, colors, w, h, unit) }
+        drawPlacedIcons(context, canvas, doc, brand, doc.placedIcons.filter { !it.front }, w, h, unit)
 
         val overflow = mutableListOf<String>()
         canvas.save()
@@ -195,6 +198,7 @@ object PostRenderer {
             if (!fits && box.literal == null) overflow.add(box.slot)
         }
         canvas.restore()
+        drawPlacedIcons(context, canvas, doc, brand, doc.placedIcons.filter { it.front }, w, h, unit)
 
         if (doc.showLogo) drawLogo(context, canvas, doc, brand, w, h, unit)
         val social = layout.social
@@ -608,6 +612,41 @@ object PostRenderer {
         val id = context.resources.getIdentifier("wt_logo", "drawable", context.packageName)
         if (id != 0) return BitmapFactory.decodeResource(context.resources, id)
         return null
+    }
+
+    /** Custom image icons are part of the document and use the same renderer for preview and export. */
+    private fun drawPlacedIcons(
+        context: Context,
+        canvas: Canvas,
+        doc: PostDoc,
+        brand: PostBrand,
+        icons: List<PostPlacedIcon>,
+        w: Int,
+        h: Int,
+        unit: Float
+    ) {
+        icons.forEach { icon ->
+            val bitmap = runCatching { BitmapFactory.decodeFile(icon.path) }.getOrNull() ?: return@forEach
+            val side = unit * 0.14f * icon.scale.coerceIn(0.25f, 4f)
+            val aspect = bitmap.width.toFloat() / bitmap.height.toFloat()
+            val drawW = if (aspect >= 1f) side else side * aspect
+            val drawH = if (aspect >= 1f) side / aspect else side
+            val cx = icon.x.coerceIn(0f, 1f) * w
+            val cy = icon.y.coerceIn(0f, 1f) * h
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+            val tint = when {
+                icon.matchBrand -> brand.primaryHex
+                !icon.tintHex.isNullOrBlank() -> icon.tintHex
+                else -> null
+            }
+            if (tint != null) {
+                paint.colorFilter = runCatching {
+                    PorterDuffColorFilter(Color.parseColor(tint), PorterDuff.Mode.SRC_IN)
+                }.getOrNull()
+            }
+            canvas.drawBitmap(bitmap, null, RectF(cx - drawW / 2f, cy - drawH / 2f, cx + drawW / 2f, cy + drawH / 2f), paint)
+            bitmap.recycle()
+        }
     }
 
     private fun drawLogo(context: Context, canvas: Canvas, doc: PostDoc, brand: PostBrand, w: Int, h: Int, unit: Float) {

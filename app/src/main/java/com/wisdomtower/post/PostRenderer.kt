@@ -146,7 +146,8 @@ object PostFonts {
 /**
  * The single drawing path. The screen preview, the template thumbnails and the exported file all come from
  * render(), always at the real export size, so what you see is what you save.
- * Order: background gradient, shapes, photo, shapes marked overPhoto, text, logo, then the social block or the footer.
+ * Order: background gradient, shapes, photo, shapes marked overPhoto, icons placed "behind", text, logo, then the social block or the footer,
+ * then icons placed "in front".
  * Colors come from the Brand kit unless the post overrides them. Derived tones (DEEP, GLOW, TINT, SOFT, PAGE)
  * are built from the brand here, so every gradient follows a color change.
  */
@@ -185,6 +186,9 @@ object PostRenderer {
         if (photoArea != null && photoUri != null) drawPhoto(context, canvas, photoUri, photoArea, doc, w, h)
         layout.decor.filter { it.overPhoto }.forEach { drawDecor(canvas, it, colors, w, h, unit) }
 
+        // icons the user placed behind the words
+        doc.icons.filter { !it.front }.forEach { PostIconStore.draw(canvas, it, w, h, unit, colors.accent) }
+
         val overflow = mutableListOf<String>()
         canvas.save()
         canvas.clipRect(0f, h * SAFE_TOP, w.toFloat(), h * SAFE_BOTTOM)
@@ -203,6 +207,9 @@ object PostRenderer {
         } else if (doc.showFooter) {
             drawFooter(context, canvas, brand, if (layout.footerLight) colors.light else colors.accent, colors, layout.footerLight, w, h, unit)
         }
+
+        // icons the user placed in front
+        doc.icons.filter { it.front }.forEach { PostIconStore.draw(canvas, it, w, h, unit, colors.accent) }
         return Result(bitmap, overflow)
     }
 

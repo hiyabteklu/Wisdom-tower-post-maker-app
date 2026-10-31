@@ -298,6 +298,8 @@ object PostRenderer {
         PostTone.LIGHT_MUTED -> withAlpha(c.light, 205)
         PostTone.SECONDARY -> c.secondary
         PostTone.DARK -> c.dark
+        PostTone.BLUE -> Color.rgb(18, 42, 105)
+        PostTone.RED -> Color.rgb(211, 25, 38)
         PostTone.DEEP -> c.deep
         PostTone.GLOW -> c.glow
         PostTone.TINT -> c.tint

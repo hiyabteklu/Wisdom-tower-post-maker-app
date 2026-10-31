@@ -23,10 +23,15 @@ Goal: one app that makes 10-20 consistent posts a day for TikTok, Instagram, Fac
   - The new layouts are marked `clean`, so PostRich adds nothing behind them, and they skip PostLooks. They use no diamond / triangle / hexagon shapes (the renderer draws nothing for those).
   - Behind the subject and Cutout spotlight need a transparent PNG of the subject (Layers and style > cut-out). Without one they show only the giant headline on its glow.
   - Known small gap: the template gallery cards are built from the template's sample text only (PostEditorTabs), so they do not show the look (mesh, grain). The editor does.
+- [x] Phase 3, batch 2 (information templates, 8), pushed, not yet built or run: PostTemplatesInfo.kt has Editorial quote, Numbered tip, Quiz (four options), Question and answer, Checklist, Weekly timetable, Definition, Big stat (family "Information", ids `info-quote`, `info-tip`, `info-quiz`, `info-qa`, `info-checklist`, `info-timetable`, `info-definition`, `info-stat`). They come right after the photo templates in `PostTemplates` (`PhotoTemplates + InfoTemplates + old list`).
+  - Same rules as batch 1: marked `clean`, no photo slot (text only), own placement for 1:1, 4:3 and 9:16 (other sizes use the 1:1 branch, through a small `size.pick(square, wide, story)` helper), only rectangles, rounded blocks, discs and thin rules. On 9:16 content starts at 16% of the height so the lowered logo box stays clear.
+  - The Q / A badges and the tick badge are a disc plus a fixed letter (`inBadge`). The letter is centered by an estimate of the font's metrics, so check on the phone that the letters sit in the middle of their discs (the tick uses the BOLD font and may need a nudge).
+  - The list templates (Quiz, Checklist, Weekly timetable) draw their markers and rules themselves; the card behind the list is fixed, so a very long list shrinks its text instead of growing the card.
+  - They use the same sample text as the old Question / Reminder / Study tip templates, so a post that switches between old and new keeps its words.
 - [ ] Engine, still to do: on-device automatic cut-out (needs an ML dependency, so a transparent PNG import is what exists now), pinch to resize words.
 - [ ] Remove waves, rings, dot grids, stripes, gems, Clean/Rich switch, PostLooks.kt, PostRich.kt (done together with the new templates so nothing is left flat).
-- [ ] 4K export and 4:5 size (done with the template rewrite, because every old layout has an exhaustive `when (size)` that has to learn the new size; the new photo templates already use if / else, so they will not break).
-- [ ] Templates batch 2 (information, 8) and batch 3 (marketing and type, 10): 18 templates left of the 25.
+- [ ] 4K export and 4:5 size (done with the template rewrite, because every old layout has an exhaustive `when (size)` that has to learn the new size; the new photo and information templates already use if / else or `pick`, so they will not break).
+- [ ] Templates batch 3 (marketing and type, 10): 10 templates left of the 25 (Feature Spotlight, Download Call to Action, Event Ticket, Event Poster, Notice, Milestone, Follow Us, Aurora Statement, Giant Ink Type, Split Block).
 - [ ] UI pass (bold fonts, contrast) on the editor and library.
 
 ## 1. What was wrong (found by reading the code)
@@ -64,7 +69,7 @@ Each is a different structure, not a recolor. Every one works at 1:1, 4:5, 4:3 a
 6. Cutout Spotlight: cut-out on a glowing gradient, text behind and beside
 7. Pill Portrait: stadium-shaped photo with halo gradient, name and title
 
-**Information (8)**
+**Information (8)** (batch 2, pushed)
 8. Editorial Quote 9. Numbered Tip 10. Quiz, four options 11. Question + Answer 12. Checklist 13. Weekly Timetable 14. Definition 15. Big Stat
 
 **Marketing (7)**
@@ -91,5 +96,5 @@ Because nothing here can be compiled by the assistant, every push should be buil
 - **Phase 0:** cleanup. Done.
 - **Phase 1:** header box (done), 4K + 4:5, UI theme and fonts.
 - **Phase 2:** engine: gradient/mesh/grain, photo masks, layered cut-out, slot offsets and drag, document v4. First push done, waiting for a build and a phone check.
-- **Phase 3:** templates in three batches (photo 7, information 8, marketing + type 10), replacing PostTemplates.kt, PostLooks.kt and PostRich.kt, together with 4K and 4:5. Batch 1 (photo 7) is pushed and waiting for a build and a phone check; batches 2 and 3 are next.
+- **Phase 3:** templates in three batches (photo 7, information 8, marketing + type 10), replacing PostTemplates.kt, PostLooks.kt and PostRich.kt, together with 4K and 4:5. Batches 1 (photo 7) and 2 (information 8) are pushed and waiting for a build and a phone check; batch 3 (marketing and type, 10) is next.
 - **Phase 4:** library categories (Photo, Information, Marketing, Type), old-id mapping, final UI pass.

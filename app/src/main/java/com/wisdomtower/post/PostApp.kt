@@ -85,8 +85,8 @@ fun PostApp() {
         else -> PostHomeScreen(
             brand = brand,
             projects = projects,
-            onChooseTemplate = { spec ->
-                doc = doc.withTemplate(spec)
+            onChooseTemplate = { spec, size ->
+                doc = doc.withTemplate(spec).copy(size = size)
                 screen = "editor"
             },
             onOpenProject = { project ->

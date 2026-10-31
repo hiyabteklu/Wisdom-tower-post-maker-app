@@ -245,12 +245,7 @@ fun PostStudioScreen(
                             }
                         }
 
-                        SettingsSection("Decoration and text size", "Keep the template clean or add richer decoration.") {
-                            ControlHeading("Decoration")
-                            EditorOptions(EditorTab.LOOK, "style", doc, onDoc, brand, onBrand,
-                                photoArea != null, onPickPhoto, onPickBackgroundPhoto, onPickLogo,
-                                moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it })
-                            ControlHeading("Text size")
+                        SettingsSection("Text size", "Make all the words on this post bigger or smaller.") {
                             InlineEditorSlider(EditorSlider("Text size", doc.textScale, 0.7f..1.5f,
                                 "${(doc.textScale * 100).toInt()}%") { onDoc(doc.copy(textScale = it)) })
                         }
@@ -307,7 +302,7 @@ private fun TitleRow(
 ) {
     Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(
-            (if (edited) "\u25CF " else "") + postTemplate(doc.templateId).name,
+            (if (edited) "● " else "") + postTemplate(doc.templateId).name,
             fontWeight = FontWeight.Bold,
             fontSize = 16.sp,
             color = PostPalette.Text,
@@ -560,13 +555,14 @@ private fun PreviewPane(
     }
 }
 
-/** The Save sheet: a row of sizes (tick one or all three), a row of formats, then Save and Save and share. */
+/** The Save sheet: a row of sizes (tick any of them), Standard or 4K, a row of formats, then Save and Save and share. */
 @Composable
 private fun SaveDialog(doc: PostDoc, brand: PostBrand, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var chosen by remember { mutableStateOf(setOf(doc.size)) }
     var png by remember { mutableStateOf(true) }
+    var fourK by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf<String?>(null) }
 
@@ -575,7 +571,7 @@ private fun SaveDialog(doc: PostDoc, brand: PostBrand, onDismiss: () -> Unit) {
         busy = true
         status = null
         scope.launch {
-            val outcome = runCatching { withContext(Dispatchers.Default) { PostExport.save(context, doc, brand, sizes, png) } }
+            val outcome = runCatching { withContext(Dispatchers.Default) { PostExport.save(context, doc, brand, sizes, png, fourK) } }
             busy = false
             val saved = outcome.getOrNull()
             if (saved == null) {
@@ -600,8 +596,8 @@ private fun SaveDialog(doc: PostDoc, brand: PostBrand, onDismiss: () -> Unit) {
         Card(colors = CardDefaults.cardColors(containerColor = PostPalette.Surface), modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Save", fontWeight = FontWeight.Bold, color = PostPalette.Text)
-                PostSmallLabel("Tick one size or all three. Every size is laid out again, not stretched.")
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PostSmallLabel("Tick the sizes you want. Every size is laid out again, not stretched.")
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     PostSize.values().forEach { size ->
                         FilterChip(
                             selected = size in chosen,
@@ -610,6 +606,14 @@ private fun SaveDialog(doc: PostDoc, brand: PostBrand, onDismiss: () -> Unit) {
                         )
                     }
                 }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(selected = !fourK, onClick = { fourK = false }, label = { Text("Standard") })
+                    FilterChip(selected = fourK, onClick = { fourK = true }, label = { Text("4K") })
+                }
+                PostSmallLabel(
+                    if (fourK) "4K is twice the pixels: 2160 wide (2880 for 4:3). Bigger files, best for LinkedIn, Telegram files and keeping masters."
+                    else "Standard is 1080 wide (1440 for 4:3), the size TikTok and Instagram use."
+                )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(selected = png, onClick = { png = true }, label = { Text("PNG") })
                     FilterChip(selected = !png, onClick = { png = false }, label = { Text("JPG") })

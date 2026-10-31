@@ -33,6 +33,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.PhotoLibrary
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -97,6 +98,8 @@ private val ColorPairs = listOf(
 /**
  * One screen. The top part never scrolls: size chips, the live preview, and a strip of template cards you swipe
  * sideways. Everything below it scrolls up and down: your words, look, photo, logo, social icons and export.
+ * edited: this template differs from its factory look (shows a dot and the Reset button).
+ * onBringWords: copies the words of the last template you edited into this one; null when there is nothing to bring.
  */
 @Composable
 fun PostStudioScreen(
@@ -108,7 +111,10 @@ fun PostStudioScreen(
     onPickBackgroundPhoto: () -> Unit,
     onPickLogo: () -> Unit,
     onOpenBrand: () -> Unit,
-    onOpenOldStudio: () -> Unit
+    onOpenOldStudio: () -> Unit,
+    edited: Boolean = false,
+    onReset: () -> Unit = {},
+    onBringWords: (() -> Unit)? = null
 ) {
     var moveLogo by remember { mutableStateOf(false) }
     PostTheme {
@@ -116,14 +122,14 @@ fun PostStudioScreen(
             BoxWithConstraints(Modifier.fillMaxSize().padding(padding).imePadding()) {
                 val previewHeight = maxHeight * 0.34f
                 Column(Modifier.fillMaxSize()) {
-                    StudioTopRow(doc, onDoc, onOpenBrand)
+                    StudioTopRow(doc, onDoc, onOpenBrand, edited, onReset)
                     PreviewPane(doc, brand, previewHeight, moveLogo, onDoc)
                     TemplateStrip(doc, brand, onDoc)
                     Column(
                         Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        StudioDetails(doc, onDoc, brand, onBrand, onPickPhoto, onPickBackgroundPhoto, onPickLogo, onOpenBrand, onOpenOldStudio, moveLogo, { moveLogo = it })
+                        StudioDetails(doc, onDoc, brand, onBrand, onPickPhoto, onPickBackgroundPhoto, onPickLogo, onOpenBrand, onOpenOldStudio, moveLogo, { moveLogo = it }, onBringWords)
                     }
                 }
             }
@@ -132,9 +138,17 @@ fun PostStudioScreen(
 }
 
 @Composable
-private fun StudioTopRow(doc: PostDoc, onDoc: (PostDoc) -> Unit, onOpenBrand: () -> Unit) {
+private fun StudioTopRow(doc: PostDoc, onDoc: (PostDoc) -> Unit, onOpenBrand: () -> Unit, edited: Boolean, onReset: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text("Wisdom Tower Post", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = PostPalette.Text, modifier = Modifier.weight(1f))
+        Text(
+            (if (edited) "\u25CF " else "") + postTemplate(doc.templateId).name,
+            fontWeight = FontWeight.Bold,
+            fontSize = 16.sp,
+            color = PostPalette.Text,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
         PostSize.values().forEach { size ->
             FilterChip(
                 selected = doc.size == size,
@@ -142,6 +156,11 @@ private fun StudioTopRow(doc: PostDoc, onDoc: (PostDoc) -> Unit, onOpenBrand: ()
                 label = { Text(size.label, fontSize = 12.sp) },
                 modifier = Modifier.padding(start = 6.dp)
             )
+        }
+        if (edited) {
+            IconButton(onClick = onReset) {
+                Icon(Icons.Outlined.Refresh, contentDescription = "Reset this template", tint = PostPalette.Gold)
+            }
         }
         IconButton(onClick = onOpenBrand) {
             Icon(Icons.Outlined.Palette, contentDescription = "Brand and social icons", tint = PostPalette.Mint)
@@ -339,7 +358,8 @@ private fun ColumnScope.StudioDetails(
     onOpenBrand: () -> Unit,
     onOpenOldStudio: () -> Unit,
     moveLogo: Boolean,
-    onMoveLogo: (Boolean) -> Unit
+    onMoveLogo: (Boolean) -> Unit,
+    onBringWords: (() -> Unit)?
 ) {
     val context = LocalContext.current
     val spec = postTemplate(doc.templateId)
@@ -347,7 +367,7 @@ private fun ColumnScope.StudioDetails(
     val slots = remember(doc.templateId, doc.size) { layout.slots.filter { it.literal == null }.map { it.slot }.distinct() }
 
     // ---- Words ----
-    StudioSection("Words", spec.name + ". Your words stay when you switch template.") {
+    StudioSection("Words", spec.name + ". Every template remembers its own words.") {
         slots.forEach { slot ->
             OutlinedTextField(
                 value = doc.texts[slot].orEmpty(),
@@ -365,6 +385,9 @@ private fun ColumnScope.StudioDetails(
                 },
                 modifier = Modifier.fillMaxWidth()
             )
+        }
+        if (onBringWords != null) {
+            TextButton(onClick = onBringWords) { Text("Bring my words from the last template I edited") }
         }
         if (layout.social != null) PostSmallLabel("The big icons on this poster come from Social icons below.")
     }

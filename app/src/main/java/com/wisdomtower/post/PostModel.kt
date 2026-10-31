@@ -63,6 +63,17 @@ data class PostBrand(
  * A null color means "use the brand color", so changing the Brand screen restyles every post that has no override.
  * photoDim -1 means "use the template's own darkening".
  */
+data class PostPlacedIcon(
+    val id: String,
+    val path: String,
+    val x: Float = 0.5f,
+    val y: Float = 0.5f,
+    val scale: Float = 1f,
+    val tintHex: String? = null,
+    val matchBrand: Boolean = false,
+    val front: Boolean = true
+)
+
 data class PostDoc(
     val templateId: String = "quote-center",
     val size: PostSize = PostSize.SQUARE,
@@ -98,7 +109,8 @@ data class PostDoc(
     /** Path of the English font picked on this post (an asset path, or a file added from the phone). null = the default font. */
     val fontEnglish: String? = null,
     /** Path of the Amharic font picked on this post. null = the first Amharic font available. */
-    val fontAmharic: String? = null
+    val fontAmharic: String? = null,
+    val placedIcons: List<PostPlacedIcon> = emptyList()
 ) {
     fun withText(slot: String, value: String): PostDoc = copy(texts = texts + (slot to value))
 }
@@ -131,6 +143,19 @@ object PostCodec {
         put("richness", d.richness)
         put("fontEnglish", d.fontEnglish ?: "")
         put("fontAmharic", d.fontAmharic ?: "")
+        put("placedIcons", JSONArray().also { array ->
+            d.placedIcons.take(6).forEach { icon ->
+                array.put(JSONObject()
+                    .put("id", icon.id)
+                    .put("path", icon.path)
+                    .put("x", icon.x.toDouble())
+                    .put("y", icon.y.toDouble())
+                    .put("scale", icon.scale.toDouble())
+                    .put("tintHex", icon.tintHex ?: "")
+                    .put("matchBrand", icon.matchBrand)
+                    .put("front", icon.front))
+            }
+        })
     }.toString()
 
     /** The first test build stored the default colors as if they were choices. Treat those as "use the brand color". */
@@ -142,6 +167,22 @@ object PostCodec {
         val base = PostDoc()
         val t = j.optJSONObject("texts")
         val texts = if (t == null) base.texts else t.keys().asSequence().associateWith { t.optString(it) }
+        val iconArray = j.optJSONArray("placedIcons")
+        val placedIcons = if (iconArray == null) emptyList() else (0 until iconArray.length()).mapNotNull { index ->
+            iconArray.optJSONObject(index)?.let { icon ->
+                val path = icon.optString("path")
+                if (path.isBlank()) null else PostPlacedIcon(
+                    id = icon.optString("id", index.toString()),
+                    path = path,
+                    x = icon.optDouble("x", 0.5).toFloat().coerceIn(0f, 1f),
+                    y = icon.optDouble("y", 0.5).toFloat().coerceIn(0f, 1f),
+                    scale = icon.optDouble("scale", 1.0).toFloat().coerceIn(0.25f, 4f),
+                    tintHex = icon.optString("tintHex").takeIf { it.isNotBlank() },
+                    matchBrand = icon.optBoolean("matchBrand", false),
+                    front = icon.optBoolean("front", true)
+                )
+            }
+        }.take(6)
         return PostDoc(
             templateId = j.optString("templateId", base.templateId),
             size = runCatching { PostSize.valueOf(j.optString("size", "SQUARE")) }.getOrDefault(PostSize.SQUARE),
@@ -167,7 +208,8 @@ object PostCodec {
             logoSize = j.optDouble("logoSize", 1.0).toFloat().coerceIn(0.4f, 3f),
             richness = j.optInt("richness", 2).coerceIn(1, 2),
             fontEnglish = j.optString("fontEnglish").takeIf { it.isNotBlank() && it != "null" },
-            fontAmharic = j.optString("fontAmharic").takeIf { it.isNotBlank() && it != "null" }
+            fontAmharic = j.optString("fontAmharic").takeIf { it.isNotBlank() && it != "null" },
+            placedIcons = placedIcons
         )
     }
 

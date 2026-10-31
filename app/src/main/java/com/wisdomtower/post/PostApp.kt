@@ -99,6 +99,11 @@ fun PostApp() {
             onSaveProject = {
                 projects = PostProjects.save(context, doc)
                 Toast.makeText(context, "Saved to My posts", Toast.LENGTH_SHORT).show()
+            },
+            bookmarked = doc.templateId in library.bookmarks,
+            onToggleBookmark = {
+                PostDraftStore.setBookmarked(context, doc.templateId, doc.templateId !in library.bookmarks)
+                library = PostDraftStore.loadIndex(context)
             }
         )
         else -> PostHomeScreen(

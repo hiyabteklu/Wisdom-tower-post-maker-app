@@ -264,7 +264,7 @@ private fun PairSwatch(accentHex: String, textHex: String, selected: Boolean, on
 private val thumbCache = LruCache<String, Bitmap>(48)
 
 @Composable
-internal fun TemplateStrip(doc: PostDoc, brand: PostBrand, onDoc: (PostDoc) -> Unit) {
+internal fun TemplateStrip(doc: PostDoc, brand: PostBrand, library: PostLibrary, onDoc: (PostDoc) -> Unit) {
     val state = rememberLazyListState()
     val index = PostTemplates.indexOfFirst { it.id == doc.templateId }.coerceAtLeast(0)
     LaunchedEffect(doc.templateId) {
@@ -277,7 +277,7 @@ internal fun TemplateStrip(doc: PostDoc, brand: PostBrand, onDoc: (PostDoc) -> U
         modifier = Modifier.fillMaxWidth()
     ) {
         items(PostTemplates, key = { it.id }) { spec ->
-            TemplateCard(spec, doc.size, brand, doc.accentHex, doc.textHex, spec.id == doc.templateId) { onDoc(doc.withTemplate(spec)) }
+            TemplateCard(spec, doc.size, brand, library.edited[spec.id], doc.accentHex, doc.textHex, spec.id == doc.templateId) { onDoc(doc.withTemplate(spec)) }
         }
     }
 }
@@ -287,6 +287,7 @@ private fun TemplateCard(
     spec: PostTemplateSpec,
     size: PostSize,
     brand: PostBrand,
+    editedAt: Long?,
     accentHex: String?,
     textHex: String?,
     selected: Boolean,
@@ -296,18 +297,14 @@ private fun TemplateCard(
     val ratio = size.width.toFloat() / size.height
     val thumbH = 84.dp
     val thumbW = thumbH * ratio
-    val thumb by produceState<Bitmap?>(null, spec.id, size, brand, accentHex, textHex) {
-        val key = spec.id + "|" + size.name + "|" + brand.hashCode() + "|" + accentHex + "|" + textHex
-        val cached = thumbCache.get(key)
-        if (cached != null) {
-            value = cached
-        } else {
-            val made = withContext(Dispatchers.Default) {
-                val sample = PostDoc(templateId = spec.id, size = size, texts = spec.samples, accentHex = accentHex, textHex = textHex)
-                PostRenderer.thumbnail(context, sample, brand, 300).bitmap
+    val thumb by produceState<Bitmap?>(null, spec.id, size, brand, editedAt, accentHex, textHex) {
+        value = withContext(Dispatchers.IO) {
+            val cached = PostThumbs.get(context, spec, size, brand, editedAt)
+            if (cached != null && (accentHex == null && textHex == null)) cached else {
+                val draft = if (editedAt != null) PostDrafts.loadDraft(context, spec.id) else null
+                val sample = draft ?: PostDoc(templateId = spec.id, size = size, texts = spec.samples)
+                PostRenderer.thumbnail(context, sample.copy(accentHex = accentHex, textHex = textHex), brand, 300).bitmap
             }
-            thumbCache.put(key, made)
-            value = made
         }
     }
     val shape = RoundedCornerShape(10.dp)

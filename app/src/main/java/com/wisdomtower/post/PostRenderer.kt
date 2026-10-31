@@ -376,15 +376,35 @@ object PostRenderer {
                 path.close()
                 canvas.drawPath(path, paint)
             }
-            DecorShape.SPARK -> {
-                val cx = r.centerX()
-                val cy = r.centerY()
+            DecorShape.DIAMOND -> {
                 val path = Path()
-                path.moveTo(cx, r.top)
-                path.quadTo(cx, cy, r.right, cy)
-                path.quadTo(cx, cy, cx, r.bottom)
-                path.quadTo(cx, cy, r.left, cy)
-                path.quadTo(cx, cy, cx, r.top)
+                path.moveTo(r.centerX(), r.top)
+                path.lineTo(r.right, r.centerY())
+                path.lineTo(r.centerX(), r.bottom)
+                path.lineTo(r.left, r.centerY())
+                path.close()
+                canvas.drawPath(path, paint)
+            }
+            DecorShape.TRIANGLE -> {
+                val path = Path()
+                path.moveTo(r.centerX(), r.top)
+                path.lineTo(r.right, r.bottom)
+                path.lineTo(r.left, r.bottom)
+                path.close()
+                canvas.drawPath(path, paint)
+            }
+            DecorShape.HEXAGON -> {
+                val hx = r.centerX()
+                val hy = r.centerY()
+                val hrx = r.width() / 2f
+                val hry = r.height() / 2f
+                val path = Path()
+                for (i in 0 until 6) {
+                    val a = Math.toRadians(-90.0 + 60.0 * i)
+                    val px = hx + hrx * cos(a).toFloat()
+                    val py = hy + hry * sin(a).toFloat()
+                    if (i == 0) path.moveTo(px, py) else path.lineTo(px, py)
+                }
                 path.close()
                 canvas.drawPath(path, paint)
             }

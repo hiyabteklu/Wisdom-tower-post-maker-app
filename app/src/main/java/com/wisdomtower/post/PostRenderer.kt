@@ -177,6 +177,7 @@ object PostRenderer {
         val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         drawBackground(canvas, bg, w, h)
+        doc.backgroundPhotoUri?.let { drawBackgroundPhoto(context, canvas, it, doc.backgroundPhotoOpacity, w, h) }
 
         layout.decor.filter { !it.overPhoto }.forEach { drawDecor(canvas, it, colors, w, h, unit) }
         val photoArea = layout.photo
@@ -516,6 +517,25 @@ object PostRenderer {
     }
 
     // ---- photo and logo ----
+
+    /** Full-canvas photo layer, drawn above the chosen color/gradient and below every template element. */
+    private fun drawBackgroundPhoto(context: Context, canvas: Canvas, uri: String, opacity: Float, w: Int, h: Int) {
+        val bitmap = runCatching { decodeSampled(context, Uri.parse(uri), max(w, h)) }.getOrNull() ?: return
+        val scale = max(w.toFloat() / bitmap.width, h.toFloat() / bitmap.height)
+        val cropW = w / scale
+        val cropH = h / scale
+        val crop = Rect(
+            ((bitmap.width - cropW) / 2f).toInt().coerceIn(0, bitmap.width - 1),
+            ((bitmap.height - cropH) / 2f).toInt().coerceIn(0, bitmap.height - 1),
+            ((bitmap.width + cropW) / 2f).toInt().coerceIn(1, bitmap.width),
+            ((bitmap.height + cropH) / 2f).toInt().coerceIn(1, bitmap.height)
+        )
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
+            alpha = (opacity.coerceIn(0f, 1f) * 255).toInt()
+        }
+        canvas.drawBitmap(bitmap, crop, RectF(0f, 0f, w.toFloat(), h.toFloat()), paint)
+        bitmap.recycle()
+    }
 
     /** Crops the photo to fill the area (zoom and focus come from the post), then lays a dim layer over it so light text stays readable. */
     private fun drawPhoto(context: Context, canvas: Canvas, uri: String, area: PostPhotoArea, doc: PostDoc, w: Int, h: Int) {

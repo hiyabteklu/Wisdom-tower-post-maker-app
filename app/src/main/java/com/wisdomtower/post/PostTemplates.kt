@@ -18,8 +18,11 @@ enum class PostTone {
 /** The flat color under everything else. PRIMARY and DARK templates use LIGHT / SECONDARY tones for their text. */
 enum class PostBase { LIGHT, PRIMARY, DARK }
 
-/** RING is an outline circle, DOTS a dot grid, STRIPES diagonal lines, WAVE a rolling edge, SPARK a four-point star. */
-enum class DecorShape { RECT, ROUND, OVAL, RING, DOTS, STRIPES, WAVE, SPARK }
+/**
+ * RING is an outline circle, DOTS a dot grid, STRIPES diagonal lines, WAVE a rolling edge,
+ * DIAMOND a tilted square, TRIANGLE a triangle pointing up, HEXAGON a six-sided shape.
+ */
+enum class DecorShape { RECT, ROUND, OVAL, RING, DOTS, STRIPES, WAVE, DIAMOND, TRIANGLE, HEXAGON }
 
 /** How a list slot marks each line. ROW splits "Mon: Physics" into a bold label column and a text column with a rule between rows. */
 enum class ListStyle { NONE, DOT, LETTER, NUMBER, CHECK, ROW }
@@ -186,9 +189,17 @@ private class Frame(val size: PostSize) {
     fun fade(y: Float, h: Float, tone: PostTone, from: Int, to: Int) =
         DecorBox(DecorShape.RECT, 0f, y, 1f, h, tone, from, overPhoto = true, gradTo = tone, alphaTo = to, angle = 90f)
 
-    /** A small four-point star at canvas fractions; size is a fraction of the shorter side. */
-    fun spark(cx: Float, cy: Float, size: Float, tone: PostTone, alpha: Int = 255) =
-        DecorBox(DecorShape.SPARK, cx - size * U / W / 2f, cy - size * U / H / 2f, size * U / W, size * U / H, tone, alpha)
+    private fun gem(shape: DecorShape, cx: Float, cy: Float, size: Float, tone: PostTone, alpha: Int) =
+        DecorBox(shape, cx - size * U / W / 2f, cy - size * U / H / 2f, size * U / W, size * U / H, tone, alpha)
+
+    /** A small diamond at canvas fractions; size is a fraction of the shorter side. */
+    fun dia(cx: Float, cy: Float, size: Float, tone: PostTone, alpha: Int = 255) = gem(DecorShape.DIAMOND, cx, cy, size, tone, alpha)
+
+    /** A small triangle at canvas fractions; size is a fraction of the shorter side. */
+    fun tri(cx: Float, cy: Float, size: Float, tone: PostTone, alpha: Int = 255) = gem(DecorShape.TRIANGLE, cx, cy, size, tone, alpha)
+
+    /** A small hexagon at canvas fractions; size is a fraction of the shorter side. */
+    fun hex(cx: Float, cy: Float, size: Float, tone: PostTone, alpha: Int = 255) = gem(DecorShape.HEXAGON, cx, cy, size, tone, alpha)
 }
 
 private fun template(
@@ -298,7 +309,7 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
             PostBase.PRIMARY,
             listOf(
                 ringAt(.92f, .80f, .42f, PostTone.SECONDARY, 45, .02f),
-                spark(fx(.93f), fy(.02f), .06f, PostTone.SECONDARY),
+                dia(fx(.93f), fy(.02f), .06f, PostTone.SECONDARY),
                 rule(0f, .075f, .18f, PostTone.SECONDARY, .010f)
             ),
             listOf(
@@ -377,8 +388,8 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
             PostBase.LIGHT,
             listOf(
                 DecorBox(DecorShape.ROUND, fx(0f), fy(.56f), fw(1f), fh(.42f), PostTone.ACCENT, 255, .035f, gradTo = PostTone.DEEP, angle = 125f, shadow = true),
-                spark(fx(.92f), fy(.63f), .05f, PostTone.SECONDARY, 200),
-                spark(fx(.06f), fy(.90f), .03f, PostTone.SECONDARY, 140)
+                dia(fx(.92f), fy(.63f), .05f, PostTone.SECONDARY, 200),
+                tri(fx(.06f), fy(.90f), .03f, PostTone.SECONDARY, 140)
             ),
             listOf(
                 box(PostSlots.EYEBROW, 0f, 0f, 1f, .06f, .028f, PostFont.BOLD, PostTone.ACCENT, centered = true, caps = true),
@@ -455,8 +466,8 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
                 ringAt(cx, cy, r * 1.16f, PostTone.ACCENT, 110, .006f),
                 ringAt(cx, cy, r * 1.30f, PostTone.ACCENT, 50, .004f),
                 DecorBox(DecorShape.OVAL, cx - rx, cy - ry, 2f * rx, 2f * ry, PostTone.ACCENT, 255, gradTo = PostTone.DEEP, angle = 135f, shadow = true),
-                spark(cx + rx * 1.25f, cy - ry * 0.95f, .04f, PostTone.ACCENT),
-                spark(cx - rx * 1.30f, cy + ry * 0.70f, .025f, PostTone.ACCENT, 160)
+                dia(cx + rx * 1.25f, cy - ry * 0.95f, .04f, PostTone.ACCENT),
+                tri(cx - rx * 1.30f, cy + ry * 0.70f, .025f, PostTone.ACCENT, 160)
             ),
             slots,
             backdrop = Backdrop(PostTone.TINT, PostTone.SOFT, 135f)
@@ -502,7 +513,7 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
             PostBase.PRIMARY,
             listOf(
                 lift(0f, .02f, 1f, .94f, radius = .035f),
-                spark(fx(.90f), fy(.095f), .05f, PostTone.ACCENT),
+                hex(fx(.90f), fy(.095f), .05f, PostTone.ACCENT),
                 rule(.07f, .36f, .12f, PostTone.ACCENT, .008f)
             ),
             listOf(
@@ -640,7 +651,7 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
             listOf(
                 DecorBox(DecorShape.ROUND, fx(0f), pillY, fw(.46f), 64f / H, PostTone.ACCENT, 255, .04f, gradTo = PostTone.DEEP, angle = 0f),
                 lift(0f, .34f, 1f, .64f, radius = .03f),
-                spark(fx(.93f), fy(.04f), .05f, PostTone.ACCENT)
+                hex(fx(.93f), fy(.04f), .05f, PostTone.ACCENT)
             ),
             listOf(
                 abox(PostSlots.EYEBROW, 0f, pillY + 16f / H, .46f, 36f / H, .024f, PostFont.BOLD, PostTone.LIGHT, centered = true, caps = true),
@@ -691,8 +702,8 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
             listOf(
                 glow(.5f, .36f, .48f, PostTone.ACCENT, PostTone.GLOW, 170),
                 ringAt(.5f, .36f, .30f, PostTone.SECONDARY, 55, .006f),
-                spark(fx(.90f), fy(.08f), .05f, PostTone.SECONDARY),
-                spark(fx(.08f), fy(.50f), .03f, PostTone.SECONDARY, 160),
+                dia(fx(.90f), fy(.08f), .05f, PostTone.SECONDARY),
+                tri(fx(.08f), fy(.50f), .03f, PostTone.SECONDARY, 160),
                 rule(0f, .58f, 1f, PostTone.SECONDARY, .008f)
             ),
             listOf(
@@ -808,7 +819,7 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
     template(
         "exam-tomorrow", "Weekly exam tomorrow", "Exam",
         mapOf(
-            PostSlots.EYEBROW to "HAVAN ACADEMY  •  WEEKLY NOTICE",
+            PostSlots.EYEBROW to "HAVAN ACADEMY  \u2022  WEEKLY NOTICE",
             PostSlots.HEADLINE to "WEEKLY",
             PostSlots.NUMBER to "EXAM",
             PostSlots.BODY to "TOMORROW"
@@ -969,7 +980,7 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
             listOf(
                 DecorBox(DecorShape.OVAL, .50f, -.10f, .85f, .85f * W / H, PostTone.ACCENT, 210, gradTo = PostTone.GLOW, alphaTo = 0, angle = 45f),
                 DecorBox(DecorShape.OVAL, -.35f, .62f, .80f, .80f * W / H, PostTone.GLOW, 150, gradTo = PostTone.DEEP, alphaTo = 0, angle = 135f),
-                DecorBox(DecorShape.SPARK, fx(.88f), fy(0f), .07f, .07f * W / H, PostTone.SECONDARY)
+                DecorBox(DecorShape.TRIANGLE, fx(.88f), fy(0f), .07f, .07f * W / H, PostTone.SECONDARY)
             ),
             listOf(
                 box(PostSlots.EYEBROW, 0f, 0f, .8f, .06f, .024f, PostFont.BOLD, PostTone.SECONDARY, caps = true),
@@ -1005,7 +1016,7 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
                 DecorBox(DecorShape.OVAL, cx - rx, cy - ry, 2f * rx, 2f * ry, PostTone.ACCENT, 255, gradTo = PostTone.DEEP, angle = 135f),
                 DecorBox(DecorShape.RING, cx - rx * 1.14f, cy - ry * 1.14f, 2.28f * rx, 2.28f * ry, PostTone.ACCENT, 120, stroke = .006f),
                 DecorBox(DecorShape.DOTS, .05f, cy - .06f, .14f, .14f * W / H, PostTone.ACCENT, 110),
-                DecorBox(DecorShape.SPARK, .83f, cy - .02f, .08f, .08f * W / H, PostTone.ACCENT)
+                DecorBox(DecorShape.HEXAGON, .83f, cy - .02f, .08f, .08f * W / H, PostTone.ACCENT)
             ),
             listOf(
                 SlotBox(PostSlots.NUMBER, cx - rx, cy - numberH / 2f, 2f * rx, numberH, ns, PostFont.DISPLAY, PostTone.LIGHT, centered = true),
@@ -1081,7 +1092,7 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
             listOf(
                 DecorBox(DecorShape.ROUND, fx(0f), fy(.02f), fw(1f), fh(.94f), PostTone.LIGHT, 255, .035f, shadow = true),
                 DecorBox(DecorShape.ROUND, fx(.06f), tagY, fw(.40f), 56f / H, PostTone.ACCENT, radius = .04f),
-                DecorBox(DecorShape.SPARK, fx(.84f), fy(.06f), .085f, .085f * W / H, PostTone.ACCENT)
+                DecorBox(DecorShape.DIAMOND, fx(.84f), fy(.06f), .085f, .085f * W / H, PostTone.ACCENT)
             ),
             listOf(
                 abox(PostSlots.EYEBROW, .06f, tagY + 12f / H, .40f, 32f / H, .020f, PostFont.BOLD, PostTone.LIGHT, centered = true, caps = true),
@@ -1142,7 +1153,7 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
                 DecorBox(DecorShape.OVAL, -.17f, -.13f, .34f, .27f, PostTone.TINT, 255),
                 DecorBox(DecorShape.RECT, .10f, .257f, .33f, .0045f, ink, 210),
                 DecorBox(DecorShape.RECT, .57f, .257f, .33f, .0045f, ink, 210),
-                DecorBox(DecorShape.SPARK, .47f, .227f, .06f, .06f * W / H, pop),
+                DecorBox(DecorShape.DIAMOND, .47f, .227f, .06f, .06f * W / H, pop),
                 DecorBox(DecorShape.ROUND, .13f, bandY, .74f, bandH, pop, 255, .018f, shadow = true),
                 DecorBox(DecorShape.RING, .17f, ringY - .005f, .66f, ringH + .025f, pop, 235, stroke = .006f)
             ),
@@ -1175,7 +1186,7 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
             listOf(
                 DecorBox(DecorShape.RECT, 0f, panelY, 1f, panelH, ink),
                 DecorBox(DecorShape.RECT, 0f, panelY, .03f, panelH, pop),
-                DecorBox(DecorShape.SPARK, .88f, panelY + panelH - .075f, .05f, .05f * W / H, PostTone.LIGHT, 150),
+                DecorBox(DecorShape.DIAMOND, .88f, panelY + panelH - .075f, .05f, .05f * W / H, PostTone.LIGHT, 150),
                 DecorBox(DecorShape.ROUND, .09f, panelY - .03f, .36f, .06f, pop, 255, .03f, shadow = true),
                 DecorBox(DecorShape.RECT, .09f, listY - .012f, .12f, .006f, pop)
             ),
@@ -1213,7 +1224,7 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
                 DecorBox(DecorShape.OVAL, .78f, -.17f, .42f, .34f, ink, 245),
                 DecorBox(DecorShape.OVAL, .83f, -.13f, .34f, .27f, PostTone.TINT, 255),
                 DecorBox(DecorShape.RECT, .10f, .257f, .80f, .0045f, ink, 210),
-                DecorBox(DecorShape.SPARK, .88f, headY + .01f, .06f, .06f * W / H, pop),
+                DecorBox(DecorShape.HEXAGON, .88f, headY + .01f, .06f, .06f * W / H, pop),
                 DecorBox(DecorShape.ROUND, .13f, bandY, .74f, bandH, pop, 255, .018f, shadow = true),
                 DecorBox(DecorShape.RING, .17f, ringY - .005f, .66f, ringH + .025f, pop, 235, stroke = .006f)
             ),

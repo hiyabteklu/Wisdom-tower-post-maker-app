@@ -34,12 +34,11 @@ object PostStore {
             .apply()
     }
 
-    /** Copies a picked photo into app storage so it never goes stale. Returns a file URI string, or null if it is not a readable image. Only one photo is kept. */
+    /** Copies a picked photo into app storage so it never goes stale. Multiple photos may be kept because a design can use both a full-canvas background and a template photo. */
     fun importPhoto(context: Context, uri: Uri): String? {
         val dir = File(context.filesDir, "photos")
         dir.mkdirs()
-        dir.listFiles()?.forEach { it.delete() }
-        val out = File(dir, "photo_" + System.currentTimeMillis() + ".img")
+        val out = File(dir, "photo_" + System.currentTimeMillis() + "_" + kotlin.random.Random.nextInt(1000, 9999) + ".img")
         val copied = runCatching {
             context.contentResolver.openInputStream(uri)?.use { input ->
                 out.outputStream().use { input.copyTo(it) }

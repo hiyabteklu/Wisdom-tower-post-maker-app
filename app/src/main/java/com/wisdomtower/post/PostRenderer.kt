@@ -575,6 +575,19 @@ object PostRenderer {
     private fun drawPhoto(context: Context, canvas: Canvas, uri: String, area: PostPhotoArea, doc: PostDoc, w: Int, h: Int, decodeTo: Int) {
         val dest = RectF(area.x * w, area.y * h, (area.x + area.w) * w, (area.y + area.h) * h)
         val bmp = runCatching { decodeSampled(context, Uri.parse(uri), decodeTo) }.getOrNull() ?: return
+        val clipSave = canvas.save()
+        if (area.mask == PhotoMask.PENTAGON) {
+            val cut = dest.height() * 0.16f
+            val mask = Path().apply {
+                moveTo(dest.left, dest.top)
+                lineTo(dest.right, dest.top)
+                lineTo(dest.right, dest.bottom - cut)
+                lineTo(dest.centerX(), dest.bottom)
+                lineTo(dest.left, dest.bottom - cut)
+                close()
+            }
+            canvas.clipPath(mask)
+        }
         val zoom = max(1f, doc.photoZoom)
         val scale = max(dest.width() / bmp.width, dest.height() / bmp.height) * zoom
         val cropW = dest.width() / scale

@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -23,12 +22,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Bookmark
@@ -89,9 +84,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
-private val thumbCache = LruCache<String, Bitmap>(48)
-private val AccentPresets = listOf("#176B4D", "#0F766E", "#0891B2", "#2563EB", "#4338CA", "#7C3AED", "#A21CAF", "#BE185D", "#E11D48", "#DC2626", "#EA580C", "#D97706", "#A16207", "#65A30D", "#334155")
 
 /** One tap sets the main color and the text color together: first is the pop color (bands, rings), second the ink (big words). */
 private val ColorPairs = listOf(
@@ -325,85 +317,6 @@ private fun PreviewPane(doc: PostDoc, brand: PostBrand, height: Dp, moveLogo: Bo
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun TemplateStrip(doc: PostDoc, brand: PostBrand, onDoc: (PostDoc) -> Unit) {
-    val state = rememberLazyListState()
-    val index = PostTemplates.indexOfFirst { it.id == doc.templateId }.coerceAtLeast(0)
-    LaunchedEffect(doc.templateId) {
-        if (state.layoutInfo.visibleItemsInfo.none { it.index == index }) state.animateScrollToItem(index)
-    }
-    LazyRow(
-        state = state,
-        contentPadding = PaddingValues(horizontal = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
-    ) {
-        items(PostTemplates, key = { it.id }) { spec ->
-            TemplateCard(spec, doc.size, brand, doc.accentHex, doc.textHex, spec.id == doc.templateId) { onDoc(doc.withTemplate(spec)) }
-        }
-    }
-}
-
-@Composable
-private fun TemplateCard(
-    spec: PostTemplateSpec,
-    size: PostSize,
-    brand: PostBrand,
-    accentHex: String?,
-    textHex: String?,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    val context = LocalContext.current
-    val ratio = size.width.toFloat() / size.height
-    val thumbH = 104.dp
-    val thumbW = thumbH * ratio
-    val thumb by produceState<Bitmap?>(null, spec.id, size, brand, accentHex, textHex) {
-        val key = spec.id + "|" + size.name + "|" + brand.hashCode() + "|" + accentHex + "|" + textHex
-        val cached = thumbCache.get(key)
-        if (cached != null) {
-            value = cached
-        } else {
-            val made = withContext(Dispatchers.Default) {
-                val sample = PostDoc(templateId = spec.id, size = size, texts = spec.samples, accentHex = accentHex, textHex = textHex)
-                PostRenderer.thumbnail(context, sample, brand, 300).bitmap
-            }
-            thumbCache.put(key, made)
-            value = made
-        }
-    }
-    val shape = RoundedCornerShape(10.dp)
-    Column(
-        Modifier.width(maxOf(thumbW, 84.dp)).clickable(onClick = onClick),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Box(
-            Modifier.width(thumbW).height(thumbH).clip(shape)
-                .background(PostPalette.Surface)
-                .border(if (selected) 2.dp else 1.dp, if (selected) PostPalette.Mint else PostPalette.Line, shape)
-        ) {
-            thumb?.let {
-                Image(
-                    bitmap = it.asImageBitmap(),
-                    contentDescription = spec.name,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-            }
-        }
-        Spacer(Modifier.height(4.dp))
-        Text(
-            spec.name,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            color = if (selected) PostPalette.Mint else PostPalette.Text
-        )
-        Text(spec.family, fontSize = 9.sp, color = PostPalette.Muted, maxLines = 1)
     }
 }
 

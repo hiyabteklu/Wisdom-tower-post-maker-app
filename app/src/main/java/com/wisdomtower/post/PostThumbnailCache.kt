@@ -1,6 +1,7 @@
 package com.wisdomtower.post
 
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -19,18 +20,22 @@ object PostThumbnailCache {
         brand: PostBrand,
         width: Int,
         version: Long
-    ): Bitmap? = withContext(Dispatchers.IO) {
+    ): Bitmap? {
         val key = "${doc.templateId}_${doc.size.name}_${brand.hashCode()}_${version}_${width}"
-        val cached = file(context, key)
-        if (cached.exists()) {
-            val decoded = android.graphics.BitmapFactory.decodeFile(cached.absolutePath)
-            if (decoded != null) return@withContext decoded
-            cached.delete()
+        val cachedFile = file(context, key)
+        val cached = withContext(Dispatchers.IO) {
+            if (cachedFile.exists()) BitmapFactory.decodeFile(cachedFile.absolutePath) else null
         }
-        val made = runCatching {
-            PostRenderer.thumbnail(context, doc, brand, width).bitmap
-        }.getOrNull() ?: return@withContext null
-        runCatching { cached.outputStream().use { made.compress(Bitmap.CompressFormat.WEBP, 82, it) } }
-        made
+        if (cached != null) return cached
+
+        val made = withContext(Dispatchers.Default) {
+            runCatching { PostRenderer.thumbnail(context, doc, brand, width).bitmap }.getOrNull()
+        } ?: return null
+        withContext(Dispatchers.IO) {
+            runCatching {
+                cachedFile.outputStream().use { made.compress(Bitmap.CompressFormat.WEBP, 82, it) }
+            }
+        }
+        return made
     }
 }

@@ -31,6 +31,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.Bookmark
+import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material.icons.outlined.Palette
@@ -117,7 +119,9 @@ fun PostStudioScreen(
     onPickLogo: () -> Unit,
     onOpenBrand: () -> Unit,
     onBackHome: () -> Unit,
-    onSaveProject: () -> Unit
+    onSaveProject: () -> Unit,
+    bookmarked: Boolean,
+    onToggleBookmark: () -> Unit
 ) {
     var moveLogo by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -131,7 +135,7 @@ fun PostStudioScreen(
                 val previewHeight = maxHeight * 0.34f
                 Column(Modifier.fillMaxSize()) {
                     StudioTopRow(
-                        doc, onDoc, onOpenBrand, onBackHome, onSaveProject,
+                        doc, onDoc, onOpenBrand, onBackHome, onSaveProject, bookmarked, onToggleBookmark,
                         onReset = {
                             val previous = doc
                             val template = postTemplate(doc.templateId)
@@ -167,7 +171,7 @@ fun PostStudioScreen(
 }
 
 @Composable
-private fun StudioTopRow(doc: PostDoc, onDoc: (PostDoc) -> Unit, onOpenBrand: () -> Unit, onBackHome: () -> Unit, onSaveProject: () -> Unit, onReset: () -> Unit) {
+private fun StudioTopRow(doc: PostDoc, onDoc: (PostDoc) -> Unit, onOpenBrand: () -> Unit, onBackHome: () -> Unit, onSaveProject: () -> Unit, bookmarked: Boolean, onToggleBookmark: () -> Unit, onReset: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = onBackHome) { Icon(Icons.Outlined.ArrowBack, contentDescription = "Back to templates", tint = PostPalette.Text) }
         Text("Editor", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = PostPalette.Text, modifier = Modifier.weight(1f))
@@ -178,6 +182,9 @@ private fun StudioTopRow(doc: PostDoc, onDoc: (PostDoc) -> Unit, onOpenBrand: ()
                 label = { Text(size.label, fontSize = 11.sp) },
                 modifier = Modifier.padding(start = 3.dp)
             )
+        }
+        IconButton(onClick = onToggleBookmark) {
+            Icon(if (bookmarked) Icons.Outlined.Bookmark else Icons.Outlined.BookmarkBorder, contentDescription = "Bookmark template", tint = if (bookmarked) PostPalette.Gold else PostPalette.Muted)
         }
         TextButton(onClick = onReset) { Text("Reset", fontSize = 12.sp, color = PostPalette.Muted) }
         IconButton(onClick = onSaveProject) { Icon(Icons.Outlined.Save, contentDescription = "Save to My posts", tint = PostPalette.Mint) }

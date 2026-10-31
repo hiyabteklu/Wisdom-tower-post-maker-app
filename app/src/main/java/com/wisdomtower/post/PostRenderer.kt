@@ -147,7 +147,7 @@ object PostFonts {
  * The single drawing path. The screen preview, the template thumbnails and the exported file all come from
  * render(). Layout, text fitting and every position are worked out at the real export size; a smaller
  * bitmap (the editor preview) only scales the canvas, so what you see is what you save.
- * Order: background gradient, shapes, photo, shapes marked overPhoto, icons placed "behind", text, logo, then the social block or the footer,
+ * Order: background gradient, shapes, photo, shapes marked overPhoto, icons placed "behind", text, header box with the logo, then the social block or the footer,
  * then icons placed "in front".
  * Colors come from the Brand kit unless the post overrides them. Derived tones (DEEP, GLOW, TINT, SOFT, PAGE)
  * are built from the brand here, so every gradient follows a color change.
@@ -222,7 +222,7 @@ object PostRenderer {
             canvas.restore()
             stop()
 
-            if (doc.showLogo) drawLogo(context, canvas, doc, brand, w, h, unit)
+            if (doc.showLogo) drawLogo(context, canvas, doc, brand, colors, w, h, unit)
             val social = layout.social
             if (social != null) {
                 drawSocial(context, canvas, brand, social, colors, w, h, unit)
@@ -636,21 +636,79 @@ object PostRenderer {
         return null
     }
 
-    private fun drawLogo(context: Context, canvas: Canvas, doc: PostDoc, brand: PostBrand, w: Int, h: Int, unit: Float) {
-        val logoH = unit * 0.08f * brand.logoScale * doc.logoSize
-        val margin = unit * 0.06f
-        val bmp = loadLogo(context, brand, logoH.toInt()) ?: return
-        val logoW = logoH * bmp.width.toFloat() / bmp.height
-        val left = when (brand.logoCorner) {
-            LogoCorner.LEFT -> margin
-            LogoCorner.CENTER -> (w - logoW) / 2f
-            LogoCorner.RIGHT -> w - margin - logoW
+    /** The box around the visible part of the logo, so empty transparent margins do not make the header box too big. */
+    private fun visibleBounds(bmp: Bitmap): Rect {
+        val step = max(1, max(bmp.width, bmp.height) / 256)
+        var minX = bmp.width
+        var minY = bmp.height
+        var maxX = -1
+        var maxY = -1
+        var y = 0
+        while (y < bmp.height) {
+            var x = 0
+            while (x < bmp.width) {
+                if (Color.alpha(bmp.getPixel(x, y)) > 24) {
+                    if (x < minX) minX = x
+                    if (x > maxX) maxX = x
+                    if (y < minY) minY = y
+                    if (y > maxY) maxY = y
+                }
+                x += step
+            }
+            y += step
         }
-        val cx = doc.logoCx
-        val cy = doc.logoCy
-        val x = if (cx != null) (cx * w - logoW / 2f).coerceIn(0f, max(0f, w - logoW)) else left
-        val y = if (cy != null) (cy * h - logoH / 2f).coerceIn(0f, max(0f, h - logoH)) else margin
-        canvas.drawBitmap(bmp, null, RectF(x, y, x + logoW, y + logoH), Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG))
+        if (maxX < 0) return Rect(0, 0, bmp.width, bmp.height)
+        return Rect(
+            max(0, minX - step),
+            max(0, minY - step),
+            min(bmp.width, maxX + step + 1),
+            min(bmp.height, maxY + step + 1)
+        )
+    }
+
+    /**
+     * The header: a dark brand-gradient box hanging from the top-right corner with the white logo inside it.
+     * Always on the right edge, on every template and size, so the logo reads on light and dark posters alike.
+     * On 9:16 the box is lowered to about 8.5% of the height so Instagram and TikTok top buttons do not cover it.
+     */
+    private fun drawLogo(context: Context, canvas: Canvas, doc: PostDoc, brand: PostBrand, c: Colors, w: Int, h: Int, unit: Float) {
+        val bmp = loadLogo(context, brand, (unit * 0.12f).toInt()) ?: return
+        val src = visibleBounds(bmp)
+        val aspect = src.width().toFloat() / max(1, src.height())
+        var innerH = unit * 0.056f * brand.logoScale * doc.logoSize
+        var innerW = innerH * aspect
+        val maxInnerW = unit * 0.34f
+        if (innerW > maxInnerW) {
+            innerW = maxInnerW
+            innerH = innerW / max(0.01f, aspect)
+        }
+        val padX = unit * 0.034f
+        val padY = unit * 0.020f
+        val boxW = innerW + padX * 2f
+        val boxH = innerH + padY * 2f
+        val detached = h > w
+        val top = if (detached) h * 0.085f else 0f
+        val bleed = unit * 0.03f
+        // the box runs a little past the right (and, when flush, the top) edge so no outline shows there
+        val rect = RectF(w - boxW, if (detached) top else top - bleed, w + bleed, top + boxH)
+        val r = boxH * 0.32f
+        val radii = if (detached) floatArrayOf(r, r, 0f, 0f, 0f, 0f, r, r) else floatArrayOf(0f, 0f, 0f, 0f, 0f, 0f, r, r)
+        val shape = Path().apply { addRoundRect(rect, radii, Path.Direction.CW) }
+
+        val fill = Paint(Paint.ANTI_ALIAS_FLAG)
+        fill.shader = gradientShader(rect, 135f, intArrayOf(c.deep, c.dark))
+        fill.setShadowLayer(unit * 0.02f, 0f, unit * 0.008f, Color.argb(90, 0, 0, 0))
+        canvas.drawPath(shape, fill)
+
+        val edge = Paint(Paint.ANTI_ALIAS_FLAG)
+        edge.style = Paint.Style.STROKE
+        edge.strokeWidth = max(1.5f, unit * 0.0028f)
+        edge.color = withAlpha(c.secondary, 170)
+        canvas.drawPath(shape, edge)
+
+        val left = w - boxW + padX
+        val logoTop = top + padY
+        canvas.drawBitmap(bmp, src, RectF(left, logoTop, left + innerW, logoTop + innerH), Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG))
         bmp.recycle()
     }
 

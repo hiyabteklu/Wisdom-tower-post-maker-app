@@ -63,14 +63,16 @@ import kotlinx.coroutines.withContext
 
 /**
  * The tabs of the editor (UI_UX_PLAN.md section 4.2). Every tab shows ONE horizontal row of options at the bottom, so the
- * editor never scrolls vertically. A tab with several controls (Look, Photo, Logo, Footer, Font) has a small row of
+ * editor never scrolls vertically. A tab with several controls (Look, Photo, Icons, Logo, Footer, Font) has a small row of
  * group chips above its options; tapping a group swaps the options row. The area has a fixed height so the preview never jumps.
+ * The Icons tab draws its own options (see PostIconsTab.kt); EditorOptions does nothing for it.
  */
 enum class EditorTab(val title: String) {
     TEMPLATES("Templates"),
     WORDS("Words"),
     LOOK("Look"),
     PHOTO("Photo"),
+    ICONS("Icons"),
     LOGO("Logo"),
     FOOTER("Footer"),
     FONT("Font")
@@ -137,6 +139,14 @@ internal fun editorGroups(
         add(EditorGroup("bgimg", "Background image"))
         if (doc.backgroundPhotoUri != null) add(EditorGroup("bgop", "Opacity"))
     }
+    EditorTab.ICONS -> listOf(
+        EditorGroup("mine", "My icons"),
+        EditorGroup("shapes", "Shapes"),
+        EditorGroup("placed", "On this post"),
+        EditorGroup("size", "Size"),
+        EditorGroup("color", "Color"),
+        EditorGroup("layer", "Layer")
+    )
     EditorTab.LOGO -> listOf(
         EditorGroup("show", "Show"),
         EditorGroup("corner", "Corner"),
@@ -373,6 +383,7 @@ internal fun EditorOptions(
         EditorTab.WORDS -> WordsOptions(doc, onDoc, group)
         EditorTab.LOOK -> LookOptions(doc, onDoc, brand, group)
         EditorTab.PHOTO -> PhotoOptions(doc, onDoc, group, hasPhotoArea, onPickPhoto, onPickBackgroundPhoto)
+        EditorTab.ICONS -> Unit // drawn by IconOptions in PostIconsTab.kt, called from the studio
         EditorTab.LOGO -> LogoOptions(doc, onDoc, brand, onBrand, group, onPickLogo, moveLogo, onMoveLogo)
         EditorTab.FOOTER -> FooterOptions(doc, onDoc, brand, onBrand, group, footerItem, onFooterItem)
         EditorTab.FONT -> FontRow(doc, onDoc, amharic = group == "am")

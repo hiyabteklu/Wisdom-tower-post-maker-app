@@ -704,8 +704,8 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
         val examH = if (story) .19f else .20f
         val tomorrowY = if (story) .70f else .71f
         val tomorrowH = if (story) .10f else .11f
-        val blue = PostTone.ACCENT
-        val red = PostTone.DEEP
+        val blue = PostTone.BLUE
+        val red = PostTone.RED
         TemplateLayout(
             PostBase.LIGHT,
             listOf(

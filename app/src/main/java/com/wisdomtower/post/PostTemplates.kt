@@ -267,7 +267,7 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
             PostBase.LIGHT,
             listOf(
                 vbar(0f, .02f, .94f, PostTone.ACCENT, .016f),
-                DecorBox(DecorShape.DOTS, fx(.86f), fy(0f), fw(.12f), fw(.12f) * W / H, PostTone.ACCENT, 90)
+                DecorBox(DecorShape.STRIPES, fx(.86f), fy(0f), fw(.12f), fw(.12f) * W / H, PostTone.ACCENT, 35)
             ),
             listOf(
                 mark("\u201C", .07f, -.01f, .4f, .21f, .2f, PostFont.DISPLAY, PostTone.ACCENT),
@@ -1026,7 +1026,7 @@ val PostTemplates: List<PostTemplateSpec> = listOf(
             listOf(
                 DecorBox(DecorShape.OVAL, cx - rx, cy - ry, 2f * rx, 2f * ry, PostTone.ACCENT, 255, gradTo = PostTone.DEEP, angle = 135f),
                 DecorBox(DecorShape.RING, cx - rx * 1.14f, cy - ry * 1.14f, 2.28f * rx, 2.28f * ry, PostTone.ACCENT, 120, stroke = .006f),
-                DecorBox(DecorShape.DOTS, .05f, cy - .06f, .14f, .14f * W / H, PostTone.ACCENT, 110),
+                DecorBox(DecorShape.STRIPES, .05f, cy - .06f, .14f, .14f * W / H, PostTone.ACCENT, 30),
                 DecorBox(DecorShape.HEXAGON, .83f, cy - .02f, .08f, .08f * W / H, PostTone.ACCENT)
             ),
             listOf(

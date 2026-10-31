@@ -34,6 +34,14 @@ fun PostApp() {
             else Toast.makeText(context, "That file is not a readable image", Toast.LENGTH_LONG).show()
         }
     }
+    val backgroundPhotoPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            val stored = PostStore.importPhoto(context, uri)
+            if (stored != null) doc = doc.copy(backgroundPhotoUri = stored, backgroundPhotoOpacity = 1f)
+            else Toast.makeText(context, "That file is not a readable image", Toast.LENGTH_LONG).show()
+        }
+    }
+
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             val stored = PostStore.importPhoto(context, uri)
@@ -62,6 +70,7 @@ fun PostApp() {
             brand = brand,
             onBrand = { brand = it },
             onPickPhoto = { photoPicker.launch(arrayOf("image/*")) },
+            onPickBackgroundPhoto = { backgroundPhotoPicker.launch(arrayOf("image/*")) },
             onPickLogo = { logoPicker.launch(arrayOf("image/*")) },
             onOpenBrand = { screen = "brand" },
             onOpenOldStudio = { screen = "old" }

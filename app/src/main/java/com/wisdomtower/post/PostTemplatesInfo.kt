@@ -11,6 +11,9 @@ package com.wisdomtower.post
  * DIAMOND, TRIANGLE or HEXAGON because the renderer draws nothing for those, and every layout has its own placement for 1:1, 4:3 and 9:16.
  * Any other size (4:5 later) falls into the 1:1 branch until it gets its own. Text sits between 12% and 88% of the height;
  * on 9:16 it starts at 16% so the lowered logo box stays clear.
+ *
+ * InfoTemplates at the bottom of the list also carries the batch 3 marketing and type templates (PostTemplatesMarketing.kt),
+ * so PostTemplates.kt did not need to change. Phase 4 will tidy this.
  */
 
 private const val INU = 1080f
@@ -81,7 +84,7 @@ private fun inBadge(
         inMark(letter, cx - boxW / 2f, inTopFor(size, cy, fontPx), boxW, boxH, fontPx / INU, font, ink, centered = true)
 }
 
-internal val InfoTemplates: List<PostTemplateSpec> = listOf(
+private val InfoOnlyTemplates: List<PostTemplateSpec> = listOf(
 
     // 8. Editorial quote: a tall brand tab with a giant quote mark, the quote in a wide column beside it (a short tab on top on 9:16)
     infoTemplate(
@@ -173,6 +176,9 @@ internal val InfoTemplates: List<PostTemplateSpec> = listOf(
         ::statLayout
     )
 )
+
+/** The eight information templates (batch 2) followed by the ten marketing and type templates (batch 3). */
+internal val InfoTemplates: List<PostTemplateSpec> = InfoOnlyTemplates + MarketingTemplates
 
 private fun quoteLayout(size: PostSize): TemplateLayout {
     val decor = size.pick(

@@ -28,10 +28,16 @@ Goal: one app that makes 10-20 consistent posts a day for TikTok, Instagram, Fac
   - The Q / A badges and the tick badge are a disc plus a fixed letter (`inBadge`). The letter is centered by an estimate of the font's metrics, so check on the phone that the letters sit in the middle of their discs (the tick uses the BOLD font and may need a nudge).
   - The list templates (Quiz, Checklist, Weekly timetable) draw their markers and rules themselves; the card behind the list is fixed, so a very long list shrinks its text instead of growing the card.
   - They use the same sample text as the old Question / Reminder / Study tip templates, so a post that switches between old and new keeps its words.
+- [x] Phase 3, batch 3 (marketing and type templates, 10), pushed, not yet built or run: PostTemplatesMarketing.kt has Feature spotlight, Download call to action, Event ticket, Event poster, Notice, Milestone, Follow us (family "Marketing", ids `mkt-feature`, `mkt-download`, `mkt-ticket`, `mkt-poster`, `mkt-notice`, `mkt-milestone`, `mkt-follow`) and Aurora statement, Giant ink type, Split block (family "Type", ids `type-aurora`, `type-ink`, `type-split`). That completes the 25 new templates (7 photo + 8 information + 10 marketing and type).
+  - Registration: `InfoTemplates` in PostTemplatesInfo.kt is now `InfoOnlyTemplates + MarketingTemplates`, so PostTemplates.kt did not have to be resent. Order in the list is photo, information, marketing, type, then the old templates. Phase 4 should move this into a proper `PostTemplates` line when the old list is removed.
+  - Same rules as batches 1 and 2: marked `clean`, own placement for 1:1, 4:3 and 9:16 (other sizes use the 1:1 branch through `size.mkPick`), only rectangles, rounded blocks, discs, soft glows and thin rules (no rings, dots, stripes, waves or gems). On 9:16 content starts at 16% to 17% of the height.
+  - Words inside a button, a tab or a date block (Download button, Notice tab and button, Poster date) are placed by `mkLine`, which centers one line on a point using an estimate of the font's metrics, like the badges in batch 2. Check on the phone that they sit in the middle of their shapes.
+  - Event ticket: the ticket and its stub are two separate blocks with a thin line in the gap (no notches, because the page behind is a gradient). Milestone has a thin rule on each side of its label. Follow us uses the Brand icons as big GRID cards (`SocialArea`), so the small footer is left out there.
+  - Split block: the plan said a diagonal cut, but the renderer only draws axis-aligned rectangles, so it uses a straight vertical cut on 1:1 and 4:3 and a straight horizontal cut on 9:16. The colored block stops at 88% of the height on 1:1 and 4:3 so the footer stays readable on the page.
+  - Giant ink type expects a headline of short words (one word per line at that size). A long headline shrinks.
 - [ ] Engine, still to do: on-device automatic cut-out (needs an ML dependency, so a transparent PNG import is what exists now), pinch to resize words.
-- [ ] Remove waves, rings, dot grids, stripes, gems, Clean/Rich switch, PostLooks.kt, PostRich.kt (done together with the new templates so nothing is left flat).
-- [ ] 4K export and 4:5 size (done with the template rewrite, because every old layout has an exhaustive `when (size)` that has to learn the new size; the new photo and information templates already use if / else or `pick`, so they will not break).
-- [ ] Templates batch 3 (marketing and type, 10): 10 templates left of the 25 (Feature Spotlight, Download Call to Action, Event Ticket, Event Poster, Notice, Milestone, Follow Us, Aurora Statement, Giant Ink Type, Split Block).
+- [ ] Remove waves, rings, dot grids, stripes, gems, Clean/Rich switch, PostLooks.kt, PostRich.kt, and the old template list in PostTemplates.kt (all 25 new templates now exist, so this is next). Map old template ids to the nearest new one so saved drafts still open.
+- [ ] 4K export and 4:5 size (done with the template rewrite, because every old layout has an exhaustive `when (size)` that has to learn the new size; the new photo, information and marketing templates already use if / else or `pick`, so they will not break).
 - [ ] UI pass (bold fonts, contrast) on the editor and library.
 
 ## 1. What was wrong (found by reading the code)
@@ -72,11 +78,11 @@ Each is a different structure, not a recolor. Every one works at 1:1, 4:5, 4:3 a
 **Information (8)** (batch 2, pushed)
 8. Editorial Quote 9. Numbered Tip 10. Quiz, four options 11. Question + Answer 12. Checklist 13. Weekly Timetable 14. Definition 15. Big Stat
 
-**Marketing (7)**
+**Marketing (7)** (batch 3, pushed)
 16. Feature Spotlight (dark) 17. Download Call to Action 18. Event Ticket 19. Event Poster (date block) 20. Notice (title panel + action strip) 21. Milestone 22. Follow Us (icon cards)
 
-**Type-led (3)**
-23. Aurora Statement 24. Giant Ink Type (stacked huge words) 25. Split Block (straight diagonal cut, two tones)
+**Type-led (3)** (batch 3, pushed)
+23. Aurora Statement 24. Giant Ink Type (stacked huge words) 25. Split Block (straight cut, two tones; vertical on 1:1 and 4:3, horizontal on 9:16)
 
 Old template ids map to the nearest new one so saved drafts still open.
 
@@ -96,5 +102,5 @@ Because nothing here can be compiled by the assistant, every push should be buil
 - **Phase 0:** cleanup. Done.
 - **Phase 1:** header box (done), 4K + 4:5, UI theme and fonts.
 - **Phase 2:** engine: gradient/mesh/grain, photo masks, layered cut-out, slot offsets and drag, document v4. First push done, waiting for a build and a phone check.
-- **Phase 3:** templates in three batches (photo 7, information 8, marketing + type 10), replacing PostTemplates.kt, PostLooks.kt and PostRich.kt, together with 4K and 4:5. Batches 1 (photo 7) and 2 (information 8) are pushed and waiting for a build and a phone check; batch 3 (marketing and type, 10) is next.
+- **Phase 3:** templates in three batches (photo 7, information 8, marketing + type 10), replacing PostTemplates.kt, PostLooks.kt and PostRich.kt, together with 4K and 4:5. All three batches are pushed and waiting for a build and a phone check. What is left of this phase is the removal of the old list, PostLooks.kt and PostRich.kt, with the 4:5 size and 4K export.
 - **Phase 4:** library categories (Photo, Information, Marketing, Type), old-id mapping, final UI pass.

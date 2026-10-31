@@ -5,9 +5,11 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -16,15 +18,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Bookmark
+import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Add
@@ -65,21 +67,24 @@ import java.util.Locale
 fun PostHomeScreen(
     brand: PostBrand,
     projects: List<PostProject>,
+    library: PostLibraryIndex,
     onChooseTemplate: (PostTemplateSpec, PostSize) -> Unit,
     onOpenProject: (PostProject) -> Unit,
     onDeleteProject: (String) -> Unit,
+    onBookmark: (String, Boolean) -> Unit,
     onOpenBrand: () -> Unit
 ) {
-    var tab by rememberSaveable { mutableStateOf("templates") }
-    var family by rememberSaveable { mutableStateOf("All") }
+    var tab by rememberSaveable { mutableStateOf("library") }
     var search by rememberSaveable { mutableStateOf("") }
     var selectedSizeName by rememberSaveable { mutableStateOf(PostSize.SQUARE.name) }
     val selectedSize = PostSize.valueOf(selectedSizeName)
-    val families = listOf("All") + PostTemplates.map { it.family }.distinct()
-    val visible = PostTemplates.filter {
-        (family == "All" || it.family == family) &&
-            (search.isBlank() || it.name.contains(search, true) || it.family.contains(search, true))
-    }
+    val templates = PostTemplates.filter { search.isBlank() || it.name.contains(search, true) || it.family.contains(search, true) }
+    val families = listOf("Quote", "Motivation", "Question", "Exam", "Study tip", "Subject", "Promotion", "Reminder", "Achievement", "Announcement", "Social", "Event", "Fact")
+    val continueTemplates = library.lastEditedAt.entries
+        .sortedByDescending { it.value }
+        .mapNotNull { entry -> PostTemplates.firstOrNull { it.id == entry.key } }
+        .filter { search.isBlank() || it.name.contains(search, true) || it.family.contains(search, true) }
+    val savedTemplates = templates.filter { it.id in library.bookmarks }
 
     PostTheme {
         Scaffold(
@@ -89,7 +94,7 @@ fun PostHomeScreen(
                     title = {
                         Column {
                             Text("Wisdom Tower Post", fontWeight = FontWeight.Bold)
-                            Text("A focused studio for Academy posts", fontSize = 11.sp, color = PostPalette.Muted)
+                            Text("Your offline design library", fontSize = 11.sp, color = PostPalette.Muted)
                         }
                     },
                     actions = {
@@ -101,13 +106,16 @@ fun PostHomeScreen(
             }
         ) { padding ->
             Column(Modifier.fillMaxSize().padding(padding)) {
-                Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = tab == "templates", onClick = { tab = "templates" }, label = { Text("Templates · 20") })
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(selected = tab == "library", onClick = { tab = "library" }, label = { Text("Library") })
                     FilterChip(selected = tab == "posts", onClick = { tab = "posts" }, label = { Text("My posts · ${projects.size}") })
                 }
-                if (tab == "templates") {
+                if (tab == "library") {
                     Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp),
+                        Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp),
                         horizontalArrangement = Arrangement.spacedBy(7.dp)
                     ) {
                         PostSize.values().forEach { size ->
@@ -119,27 +127,30 @@ fun PostHomeScreen(
                         }
                     }
                     OutlinedTextField(
-                        value = search, onValueChange = { search = it },
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
-                        singleLine = true, label = { Text("Find a template") }
+                        value = search,
+                        onValueChange = { search = it },
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp),
+                        singleLine = true,
+                        label = { Text("Find a template") }
                     )
-                    Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp).horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(7.dp)
-                    ) {
-                        families.forEach { item ->
-                            FilterChip(selected = family == item, onClick = { family = item }, label = { Text(item) })
-                        }
-                    }
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(2),
+                    LazyColumn(
                         modifier = Modifier.weight(1f).fillMaxWidth(),
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 20.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        contentPadding = PaddingValues(top = 8.dp, bottom = 28.dp),
+                        verticalArrangement = Arrangement.spacedBy(18.dp)
                     ) {
-                        items(visible, key = { it.id }) { spec ->
-                            TemplateHomeCard(spec, brand, selectedSize) { onChooseTemplate(spec, selectedSize) }
+                        if (continueTemplates.isNotEmpty()) {
+                            item { TemplateShelf("Continue", "Pick up exactly where you left off", continueTemplates, brand, selectedSize, library, onChooseTemplate, onBookmark) }
+                        }
+                        if (savedTemplates.isNotEmpty()) {
+                            item { TemplateShelf("Saved", "Your bookmarked templates", savedTemplates, brand, selectedSize, library, onChooseTemplate, onBookmark) }
+                        }
+                        families.forEach { family ->
+                            val familyTemplates = templates.filter { it.family.equals(family, true) && it.id !in library.bookmarks }
+                            if (familyTemplates.isNotEmpty()) {
+                                item(key = "family-$family") {
+                                    TemplateShelf(family, null, familyTemplates, brand, selectedSize, library, onChooseTemplate, onBookmark)
+                                }
+                            }
                         }
                     }
                 } else {
@@ -156,7 +167,7 @@ fun PostHomeScreen(
                     } else {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp),
+                            contentPadding = PaddingValues(14.dp),
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             items(projects, key = { it.id }) { project ->
@@ -171,31 +182,88 @@ fun PostHomeScreen(
 }
 
 @Composable
-private fun TemplateHomeCard(spec: PostTemplateSpec, brand: PostBrand, size: PostSize, onClick: () -> Unit) {
-    val context = LocalContext.current
-    val bitmap by produceState<Bitmap?>(null, spec.id, brand, size) {
-        value = withContext(Dispatchers.Default) {
-            PostRenderer.thumbnail(
-                context,
-                PostDoc(templateId = spec.id, size = size, texts = spec.samples),
-                brand,
-                480
-            ).bitmap
+private fun TemplateShelf(
+    title: String,
+    subtitle: String?,
+    templates: List<PostTemplateSpec>,
+    brand: PostBrand,
+    size: PostSize,
+    library: PostLibraryIndex,
+    onChoose: (PostTemplateSpec, PostSize) -> Unit,
+    onBookmark: (String, Boolean) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        Column(Modifier.padding(horizontal = 14.dp)) {
+            Text(title, color = PostPalette.Text, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+            if (subtitle != null) Text(subtitle, color = PostPalette.Muted, fontSize = 11.sp)
+        }
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(11.dp)
+        ) {
+            items(templates, key = { it.id }) { spec ->
+                TemplateHomeCard(
+                    spec = spec,
+                    brand = brand,
+                    size = size,
+                    version = library.draftVersions[spec.id] ?: 0L,
+                    edited = spec.id in library.lastEditedAt,
+                    bookmarked = spec.id in library.bookmarks,
+                    onClick = { onChoose(spec, size) },
+                    onBookmark = { onBookmark(spec.id, !bookmarked) }
+                )
+            }
         }
     }
+}
+
+@Composable
+private fun TemplateHomeCard(
+    spec: PostTemplateSpec,
+    brand: PostBrand,
+    size: PostSize,
+    version: Long,
+    edited: Boolean,
+    bookmarked: Boolean,
+    onClick: () -> Unit,
+    onBookmark: () -> Unit
+) {
+    val context = LocalContext.current
+    val draft = remember(spec.id, version, size) {
+        PostDraftStore.loadDraft(context, spec.id)
+            ?: PostDoc(templateId = spec.id, size = size, texts = spec.samples)
+    }.copy(size = size)
+    val bitmap by produceState<Bitmap?>(null, spec.id, brand, size, version, draft) {
+        value = PostThumbnailCache.getOrRender(context, draft, brand, 480, version)
+    }
+    val ratio = size.width.toFloat() / size.height
+    val thumbHeight = 142.dp
+    val thumbWidth = thumbHeight * ratio
     Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        modifier = Modifier.width(thumbWidth.coerceIn(118.dp, 210.dp)).clickable(onClick = onClick),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = PostPalette.Surface)
     ) {
-        Box(Modifier.fillMaxWidth().aspectRatio(size.width.toFloat() / size.height).background(PostPalette.Surface)) {
+        Box(Modifier.fillMaxWidth().aspectRatio(ratio).background(PostPalette.Surface)) {
             bitmap?.let {
                 Image(it.asImageBitmap(), contentDescription = spec.name, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
             }
+            Box(
+                Modifier.align(Alignment.TopStart).padding(7.dp).size(8.dp).clip(CircleShape)
+                    .background(if (edited) PostPalette.Mint else androidx.compose.ui.graphics.Color.Transparent)
+                    .border(1.dp, if (edited) PostPalette.Mint else PostPalette.Line, CircleShape)
+            )
+            IconButton(onClick = onBookmark, modifier = Modifier.align(Alignment.TopEnd).padding(1.dp).size(42.dp)) {
+                Icon(
+                    if (bookmarked) Icons.Outlined.Bookmark else Icons.Outlined.BookmarkBorder,
+                    contentDescription = if (bookmarked) "Remove bookmark" else "Save template",
+                    tint = if (bookmarked) PostPalette.Gold else androidx.compose.ui.graphics.Color.White
+                )
+            }
         }
         Column(Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
-            Text(spec.name, color = PostPalette.Text, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(spec.family, color = PostPalette.Muted, fontSize = 11.sp)
+            Text(spec.name, color = PostPalette.Text, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 12.sp)
+            Text(spec.family, color = PostPalette.Muted, fontSize = 10.sp)
         }
     }
 }

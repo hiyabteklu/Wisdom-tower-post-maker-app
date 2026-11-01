@@ -292,15 +292,22 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, onBack: () -> Unit)
 
 ## 9. Status
 
-- [ ] Step 0: build passes, icon and theme checked on the phone
-- [ ] B0 Save choices stick
-- [ ] B1 Parser and export
-- [ ] B2 Screen, one-line mode, Make posts
-- [ ] B3 Full blocks, notes, remembered text
-- [ ] B4 Check text fit, share, polish
-- [ ] B5 Photos in order (optional)
+- [ ] Step 0: release build passes (Hiyab confirmed); icon and theme checked on the phone (visual check pending)
+- [x] B0 Save choices stick (source pushed; build verification pending)
+- [x] B1 Parser and export (source pushed; build verification pending)
+- [x] B2 Screen, one-line mode, Make posts (source pushed; build verification pending)
+- [x] B3 Full blocks, notes, remembered text (source pushed; build verification pending)
+- [x] B4 Check text fit, share, polish (source pushed; build verification pending)
+- [x] B5 Photos in order (optional; source pushed; build verification pending)
 
-Notes from assistants go below this line, newest first, one or two lines each.
+Implementation trace against section 5.3:
+- A: three one-line items; each sets only the Fill slot, preserving all other base text.
+- B: two plain-line blocks; the second '-' skips the Small label, then assigns Headline and Message.
+- C: two key-line blocks; each list value is joined with newlines and has no leading blank line.
+- D: one key-line block; 'Mon: Physics', 'Tue: Chemistry' and 'Wed: Biology' remain list content because they are not defined keys.
+- E: recognized key line selects key mode; preceding plain lines are ignored with the required note.
+
+Implementation pushed to main in small commits. The user confirmed the baseline release build is green before these changes; the new source has not been compiled yet. Phone verification remains required.
 
 ## 10. Phone test (Hiyab)
 

@@ -33,6 +33,13 @@ abstract class PrepareLauncherLogo : DefaultTask() {
     }
 }
 
+// Permanent signing key (see signing/README.md). It is stored as text in the repo; turn it back into a keystore file.
+val wtpKeystoreFile = rootProject.file("signing/wtp.keystore")
+val wtpKeystoreText = rootProject.file("signing/wtp.keystore.b64")
+if (!wtpKeystoreFile.exists() && wtpKeystoreText.exists()) {
+    wtpKeystoreFile.writeBytes(java.util.Base64.getDecoder().decode(wtpKeystoreText.readText().trim()))
+}
+
 android {
     namespace = "com.wisdomtower.post"
     compileSdk = 35
@@ -47,13 +54,23 @@ android {
         resourceConfigurations += listOf("en", "am")
     }
 
+    // Same key for every build, so every new APK installs over the old one.
+    signingConfigs {
+        create("wtp") {
+            storeFile = wtpKeystoreFile
+            storePassword = "sr7O64XCj2DfqsIXpXtp"
+            keyAlias = "wtpost"
+            keyPassword = "sr7O64XCj2DfqsIXpXtp"
+        }
+    }
+
     buildTypes {
         release {
-            // R8 removes the code and the icons the app never uses. Signed with the debug key so the file installs directly.
+            // R8 removes the code and the icons the app never uses.
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("wtp")
         }
     }
 

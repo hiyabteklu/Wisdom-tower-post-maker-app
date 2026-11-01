@@ -108,8 +108,15 @@ object PostFonts {
         }
     }
 
-    /** The typeface for a text role: the English font picked on the post, else the bundled default. */
-    fun resolve(context: Context, font: PostFont, doc: PostDoc): Typeface = load(context, doc.fontEnglish) ?: get(context, font)
+    /** The typeface of a font path from list() (a bundled asset or a file added from the phone), or null when it cannot be read. Used to draw font previews. */
+    fun typeface(context: Context, path: String?): Typeface? = load(context, path)
+
+    /**
+     * The typeface for a text role. Order: the font picked on this one text box (own), the English font picked on the post,
+     * then the template's bundled default.
+     */
+    fun resolve(context: Context, font: PostFont, doc: PostDoc, own: String? = null): Typeface =
+        load(context, own) ?: load(context, doc.fontEnglish) ?: get(context, font)
 
     private fun isEthiopic(c: Char): Boolean =
         c.code in 0x1200..0x139F || c.code in 0x2D80..0x2DDF || c.code in 0xAB00..0xAB2F
@@ -120,12 +127,15 @@ object PostFonts {
     }
 
     /**
-     * Amharic letters are drawn with the Amharic font (the one picked on the post, else the first one available, else the phone's own).
+     * Amharic letters are drawn with the Amharic font: the one picked on this text box (amharicOwn), else the one picked on the post,
+     * else the first one available, else the phone's own.
      * Everything else keeps the English font, so mixed English and Amharic text works in one box.
      */
-    fun styled(context: Context, text: String, doc: PostDoc): CharSequence {
+    fun styled(context: Context, text: String, doc: PostDoc, amharicOwn: String? = null): CharSequence {
         if (text.none { isEthiopic(it) }) return text
-        val face = load(context, doc.fontAmharic ?: list(context, AMHARIC).firstOrNull()?.path) ?: return text
+        val face = load(context, amharicOwn)
+            ?: load(context, doc.fontAmharic ?: list(context, AMHARIC).firstOrNull()?.path)
+            ?: return text
         val out = SpannableString(text)
         var i = 0
         while (i < text.length) {
@@ -154,6 +164,8 @@ object PostFonts {
  * then icons placed "in front".
  * Colors come from the Brand kit unless the post overrides them. Derived tones (DEEP, GLOW, TINT, SOFT, PAGE)
  * are built from the brand here, so every gradient follows a color change.
+ * Text: each word box takes its color from the template's tone unless the post has a style for that box (PostDoc.slotStyles),
+ * which can set its color, its English and Amharic fonts and its size. See docs/TEXT_STYLE.md.
  */
 object PostRenderer {
     data class Result(val bitmap: Bitmap, val overflow: List<String>)
@@ -164,6 +176,9 @@ object PostRenderer {
     ) {
         /** The color at the bottom of the background. Set once the background is known. */
         var page: Int = Color.WHITE
+
+        /** The color picked for the footer and social text on this post, or null for the automatic one. */
+        var footerText: Int? = null
     }
 
     private class Bg(val from: Int, val mid: Int?, val to: Int, val angle: Float)
@@ -300,7 +315,7 @@ object PostRenderer {
         val dark = parseHex(brand.darkHex, Color.BLACK)
         val light = parseHex(brand.lightHex, Color.WHITE)
         val secondary = parseHex(brand.secondaryHex, Color.WHITE)
-        return Colors(
+        val colors = Colors(
             accent = accent,
             text = parseHex(doc.textHex ?: brand.darkHex, Color.BLACK),
             light = light,
@@ -311,6 +326,8 @@ object PostRenderer {
             tint = mix(light, accent, 0.10f),
             soft = mix(light, secondary, 0.45f)
         )
+        colors.footerText = parseHexOrNull(doc.slotStyles[PostSlots.FOOTER]?.colorHex)
+        return colors
     }
 
     private fun backgroundFor(doc: PostDoc, c: Colors, layout: TemplateLayout): Bg = when (doc.bgMode) {
@@ -467,23 +484,32 @@ object PostRenderer {
 
     // ---- text ----
 
-    /** Draws one slot. Shrinks the text down to 60% of its size to fit; returns false if it still does not fit. */
+    /**
+     * Draws one slot. Shrinks the text down to 60% of its size to fit; returns false if it still does not fit.
+     * A word box takes its color, fonts and size from its style on the post (doc.slotStyles[slot]) when it has one.
+     * A fixed mark (box.literal) only takes the color of the "marks" style: its font and size stay as the template placed them,
+     * because the template centers it with the font's metrics.
+     */
     private fun drawSlot(
         context: Context, canvas: Canvas, box: SlotBox, rawText: String,
         doc: PostDoc, colors: Colors, w: Int, h: Int, unit: Float
     ): Boolean {
         if (box.slot == PostSlots.LIST || box.list != ListStyle.NONE) return drawList(context, canvas, box, rawText, doc, colors, w, h, unit)
-        val text: CharSequence = PostFonts.styled(context, if (box.caps) rawText.uppercase(Locale.getDefault()) else rawText, doc)
+        val own = box.literal == null
+        val style = doc.slotStyles[if (own) box.slot else PostSlots.MARKS]
+        val text: CharSequence = PostFonts.styled(
+            context, if (box.caps) rawText.uppercase(Locale.getDefault()) else rawText, doc, if (own) style?.fontAm else null
+        )
         val left = box.x * w
         val top = box.y * h
         val boxW = (box.w * w).toInt().coerceAtLeast(1)
         val boxH = box.h * h
         val paint = TextPaint(Paint.ANTI_ALIAS_FLAG)
-        paint.typeface = PostFonts.resolve(context, box.font, doc)
-        paint.color = toneColor(colors, box.tone)
+        paint.typeface = PostFonts.resolve(context, box.font, doc, if (own) style?.fontEn else null)
+        paint.color = parseHexOrNull(style?.colorHex) ?: toneColor(colors, box.tone)
         if (box.caps) paint.letterSpacing = 0.12f
         val alignment = if (box.centered) Layout.Alignment.ALIGN_CENTER else Layout.Alignment.ALIGN_NORMAL
-        var size = box.size * unit * doc.textScale
+        var size = box.size * unit * doc.textScale * (if (own) (style?.scale ?: 1f) else 1f)
         val minSize = size * 0.6f
         var layout = buildLayout(text, paint, size, boxW, alignment)
         while (layout.height > boxH && size > minSize) {
@@ -497,7 +523,10 @@ object PostRenderer {
         return layout.height <= boxH + 1f
     }
 
-    /** One line of text per list item, each with a marker (dot, check, letter, number) or a label column. Shrinks as a block. */
+    /**
+     * One line of text per list item, each with a marker (dot, check, letter, number) or a label column. Shrinks as a block.
+     * A color picked for the list box colors the text, the markers and the row rules.
+     */
     private fun drawList(
         context: Context, canvas: Canvas, box: SlotBox, rawText: String,
         doc: PostDoc, colors: Colors, w: Int, h: Int, unit: Float
@@ -520,14 +549,16 @@ object PostRenderer {
             }
         }
 
+        val style = doc.slotStyles[box.slot]
+        val ownColor = parseHexOrNull(style?.colorHex)
         val left = box.x * w
         val top = box.y * h
         val boxW = box.w * w
         val boxH = box.h * h
-        val markColor = if (isLightTone(box.tone)) colors.secondary else colors.accent
+        val markColor = ownColor ?: (if (isLightTone(box.tone)) colors.secondary else colors.accent)
         val paint = TextPaint(Paint.ANTI_ALIAS_FLAG)
-        paint.typeface = PostFonts.resolve(context, box.font, doc)
-        paint.color = toneColor(colors, box.tone)
+        paint.typeface = PostFonts.resolve(context, box.font, doc, style?.fontEn)
+        paint.color = ownColor ?: toneColor(colors, box.tone)
         val markPaint = TextPaint(Paint.ANTI_ALIAS_FLAG)
         markPaint.typeface = PostFonts.get(context, PostFont.BOLD)
         markPaint.color = markColor
@@ -543,10 +574,10 @@ object PostRenderer {
 
         fun build(sz: Float): List<StaticLayout> {
             val width = (boxW - indentFor(sz)).toInt().coerceAtLeast(1)
-            return rows.map { buildLayout(PostFonts.styled(context, it.body.ifEmpty { " " }, doc), paint, sz, width, Layout.Alignment.ALIGN_NORMAL) }
+            return rows.map { buildLayout(PostFonts.styled(context, it.body.ifEmpty { " " }, doc, style?.fontAm), paint, sz, width, Layout.Alignment.ALIGN_NORMAL) }
         }
 
-        var size = box.size * unit * doc.textScale
+        var size = box.size * unit * doc.textScale * (style?.scale ?: 1f)
         val minSize = size * 0.6f
         var layouts = build(size)
 
@@ -805,6 +836,7 @@ object PostRenderer {
     /**
      * One centered row at the bottom: icon, then label, for each footer item. PILL puts each item in its own chip,
      * LINE draws a thin rule above the row. The row shrinks as a whole to fit the width. fg is the footer color.
+     * The label text takes the color picked for the footer text on this post (c.footerText), else fg.
      */
     private fun drawFooter(
         context: Context, canvas: Canvas, brand: PostBrand, fg: Int, c: Colors, onDark: Boolean,
@@ -826,7 +858,7 @@ object PostRenderer {
 
         val paint = TextPaint(Paint.ANTI_ALIAS_FLAG)
         paint.typeface = PostFonts.get(context, PostFont.BOLD)
-        paint.color = fg
+        paint.color = c.footerText ?: fg
 
         fun rowWidth(ts: Float): Float {
             paint.textSize = ts
@@ -926,7 +958,7 @@ object PostRenderer {
         edge.color = if (onDark) withAlpha(Color.WHITE, 80) else withAlpha(c.accent, 60)
         canvas.drawRoundRect(cell, radius, radius, edge)
 
-        val textColor = if (onDark) c.light else c.text
+        val textColor = c.footerText ?: (if (onDark) c.light else c.text)
         val d = min(cell.height() * 0.60f * brand.iconScale, cell.height() * 0.84f)
         val pad = (cell.height() - d) / 2f
         drawIconFor(canvas, brand, item, cell.left + pad + d / 2f, cell.centerY(), d, if (onDark) c.light else c.accent, c, onDark)

@@ -87,6 +87,9 @@ data class SlotStyle(
     val isDefault: Boolean get() = colorHex == null && fontEn == null && fontAm == null && scale == 1f
 }
 
+/**
+ * bgLook: the poster background look (PostBackdrops, docs/BACKDROPS.md). 0 = Auto (no look). Only used when the brand is dark-first.
+ */
 data class PostBrand(
     val primaryHex: String = "#176B4D",
     val secondaryHex: String = "#C9E7B8",
@@ -99,7 +102,8 @@ data class PostBrand(
     val footerItems: List<FooterItem> = listOf(FooterItem("website", "www.wisdom-tower-academy.live")),
     val footerStyle: FooterStyle = FooterStyle.PILL,
     val iconLook: IconLook = IconLook.OFFICIAL,
-    val iconScale: Float = 1f
+    val iconScale: Float = 1f,
+    val bgLook: Int = 0
 )
 
 /**
@@ -348,6 +352,7 @@ object PostCodec {
         put("footerStyle", b.footerStyle.name)
         put("iconLook", b.iconLook.name)
         put("iconScale", b.iconScale.toDouble())
+        put("bgLook", b.bgLook)
         put("footerItems", JSONArray().also { arr ->
             b.footerItems.forEach { arr.put(JSONObject().put("kind", it.kind).put("label", it.label).put("colorHex", it.colorHex)) }
         })
@@ -372,7 +377,8 @@ object PostCodec {
             footerItems = items,
             footerStyle = runCatching { FooterStyle.valueOf(j.optString("footerStyle", "PILL")) }.getOrDefault(FooterStyle.PILL),
             iconLook = runCatching { IconLook.valueOf(j.optString("iconLook", "OFFICIAL")) }.getOrDefault(IconLook.OFFICIAL),
-            iconScale = j.optDouble("iconScale", 1.0).toFloat()
+            iconScale = j.optDouble("iconScale", 1.0).toFloat(),
+            bgLook = j.optInt("bgLook", 0)
         )
     }
 }

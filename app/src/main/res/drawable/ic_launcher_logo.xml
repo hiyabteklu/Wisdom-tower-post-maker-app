@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher icon layer: new_logo.png (copied from the repo root at build time as @drawable/launcher_logo, see app/build.gradle.kts), shrunk a little so the round mask never touches the letters. -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/launcher_logo"
+    android:inset="8%" />

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Same as PostPalette.Ink, so the window, status bar and navigation bar match the screens (no dark-green flash on start). -->
+    <color name="wt_ink">#0B1220</color>
+
+    <style name="Theme.WisdomTowerPost" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/wt_ink</item>
+        <item name="android:statusBarColor">@color/wt_ink</item>
+        <item name="android:navigationBarColor">@color/wt_ink</item>
+    </style>
+</resources>

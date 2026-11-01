@@ -1,7 +1,36 @@
+import org.gradle.api.DefaultTask
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.tasks.InputFile
+import org.gradle.api.tasks.OutputDirectory
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
+import org.gradle.api.tasks.TaskAction
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
+}
+
+/**
+ * Copies new_logo.png from the repo root into the app's resources as @drawable/launcher_logo, so the launcher icon is
+ * exactly that file. Keep new_logo.png in the repo root (to change the icon, replace that file).
+ */
+abstract class PrepareLauncherLogo : DefaultTask() {
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val logo: RegularFileProperty
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @TaskAction
+    fun copyLogo() {
+        val target = outputDir.get().asFile.resolve("drawable-nodpi")
+        target.mkdirs()
+        logo.get().asFile.copyTo(target.resolve("launcher_logo.png"), overwrite = true)
+    }
 }
 
 android {
@@ -34,6 +63,16 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
+}
+
+androidComponents {
+    onVariants { variant ->
+        val cap = variant.name.replaceFirstChar { it.uppercase() }
+        val prepare = tasks.register<PrepareLauncherLogo>("prepare${cap}LauncherLogo") {
+            logo.set(rootProject.layout.projectDirectory.file("new_logo.png"))
+        }
+        variant.sources.res?.addGeneratedSourceDirectory(prepare, PrepareLauncherLogo::outputDir)
+    }
 }
 
 dependencies {

@@ -5,17 +5,22 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-/** The app's own look: deep green ink, mint and gold accents. The posts themselves use the Brand colors, not these. */
+/**
+ * The app's own look: deep midnight blue ink with a turquoise accent (taken from the logo dot) and a soft gold.
+ * The posts themselves use the Brand colors, not these.
+ * The names Ink, Surface, Raised, Line, Mint, Gold, Text, Muted and Warn are kept so no other file has to change.
+ * Mint is now the turquoise accent. Ink is also set as the window color in res/values/themes.xml.
+ */
 object PostPalette {
-    val Ink = Color(0xFF0C1410)
-    val Surface = Color(0xFF15211B)
-    val Raised = Color(0xFF1E3027)
-    val Line = Color(0xFF2C4438)
-    val Mint = Color(0xFF5DE0A5)
-    val Gold = Color(0xFFF4C95D)
-    val Text = Color(0xFFE8F2EA)
-    val Muted = Color(0xFF8CA697)
-    val Warn = Color(0xFFFF8F85)
+    val Ink = Color(0xFF0B1220)
+    val Surface = Color(0xFF121B2E)
+    val Raised = Color(0xFF1A263D)
+    val Line = Color(0xFF2A3956)
+    val Mint = Color(0xFF2DE0CF)
+    val Gold = Color(0xFFF2C879)
+    val Text = Color(0xFFE9EEF7)
+    val Muted = Color(0xFF8E9CB8)
+    val Warn = Color(0xFFFF8B8B)
 }
 
 @Composable

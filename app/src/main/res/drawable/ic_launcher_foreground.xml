@@ -1,23 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- A tower with a lit arched window and a spark on the Wisdom Tower green. Drawn inside the 66dp safe zone of the 108dp adaptive icon. -->
+<!-- One-color version of the new logo (two bars and a dot). Only used for the themed (monochrome) icon on Android 13 and newer. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
     <path
-        android:fillColor="#F4F6EF"
-        android:pathData="M36,78 L72,78 L72,84 L36,84 Z" />
-    <path
-        android:fillColor="#F4F6EF"
-        android:pathData="M41,78 L67,78 L63,44 L45,44 Z" />
-    <path
-        android:fillColor="#F4F6EF"
-        android:pathData="M43,44 L43,35 L48,35 L48,39 L52,39 L52,35 L56,35 L56,39 L60,39 L60,35 L65,35 L65,44 Z" />
-    <path
-        android:fillColor="#176B4D"
-        android:pathData="M50,68 L50,58 A4,4 0 0 1 58,58 L58,68 Z" />
-    <path
-        android:fillColor="#C9E7B8"
-        android:pathData="M78,24 L79.6,30.4 L86,32 L79.6,33.6 L78,40 L76.4,33.6 L70,32 L76.4,30.4 Z" />
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M39.7,24 H46.3 A3,3 0 0 1 49.3,27 V79.7 A3,3 0 0 1 46.3,82.7 H39.7 A3,3 0 0 1 36.7,79.7 V27 A3,3 0 0 1 39.7,24 Z M59.8,39.7 H66.4 A3,3 0 0 1 69.4,42.7 V79.7 A3,3 0 0 1 66.4,82.7 H59.8 A3,3 0 0 1 56.8,79.7 V42.7 A3,3 0 0 1 59.8,39.7 Z M56.5,28.1 A6.1,6.1 0 1 0 68.7,28.1 A6.1,6.1 0 1 0 56.5,28.1 Z" />
 </vector>

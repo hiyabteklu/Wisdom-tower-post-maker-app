@@ -21,6 +21,7 @@ import android.text.Spanned
 import android.text.StaticLayout
 import android.text.style.MetricAffectingSpan
 import android.text.TextPaint
+import android.util.LruCache
 import java.io.File
 import java.util.Locale
 import kotlin.math.PI
@@ -56,6 +57,18 @@ object PostFonts {
 
     private val fileCache = HashMap<String, Typeface?>()
 
+    /** The first Amharic font, remembered so a redraw does not list the font folders again. Forgotten when a font is added. */
+    private var amharicDefault: String? = null
+    private var amharicDefaultKnown = false
+
+    private fun defaultAmharic(context: Context): String? = synchronized(fileCache) {
+        if (!amharicDefaultKnown) {
+            amharicDefault = list(context, AMHARIC).firstOrNull()?.path
+            amharicDefaultKnown = true
+        }
+        amharicDefault
+    }
+
     /** Fonts bundled in assets/fonts/english or assets/fonts/amharic plus fonts added from the phone with the Add button. */
     fun list(context: Context, language: String): List<FontChoice> {
         val imported = (File(context.filesDir, "fonts/$language").listFiles() ?: emptyArray<File>())
@@ -80,7 +93,10 @@ object PostFonts {
             context.contentResolver.openInputStream(uri)?.use { input -> target.outputStream().use { out -> input.copyTo(out) } } != null
         }.getOrDefault(false)
         if (!copied) { target.delete(); return null }
-        synchronized(fileCache) { fileCache.remove(target.absolutePath) }
+        synchronized(fileCache) {
+            fileCache.remove(target.absolutePath)
+            amharicDefaultKnown = false
+        }
         val usable = runCatching { Typeface.createFromFile(target) }.isSuccess
         if (!usable) { target.delete(); return null }
         return target.absolutePath
@@ -134,7 +150,7 @@ object PostFonts {
     fun styled(context: Context, text: String, doc: PostDoc, amharicOwn: String? = null): CharSequence {
         if (text.none { isEthiopic(it) }) return text
         val face = load(context, amharicOwn)
-            ?: load(context, doc.fontAmharic ?: list(context, AMHARIC).firstOrNull()?.path)
+            ?: load(context, doc.fontAmharic ?: defaultAmharic(context))
             ?: return text
         val out = SpannableString(text)
         var i = 0
@@ -178,6 +194,10 @@ object PostFonts {
  * CONTRAST GUARD (always on). Before a text box is drawn, the pixels under it are sampled. If the template's text color would
  * be below about 4:1 against them, the text switches to whichever of light text, dark, white or black reads best.
  * A color the user picked on the post (box color or Text color) is never changed.
+ *
+ * SPEED (docs/PERFORMANCE.md). This all runs on the processor, not the graphics chip, so the cost of a render is the cost of its
+ * pixels. Thumbnails and previews are drawn straight at their small size. Decoded photos, cut-outs, icons and the logo are
+ * kept between renders (PostImageCache and the logo cache below) instead of being read from storage again every time.
  */
 object PostRenderer {
     data class Result(val bitmap: Bitmap, val overflow: List<String>)
@@ -201,6 +221,11 @@ object PostRenderer {
     }
 
     private class Bg(val from: Int, val mid: Int?, val to: Int, val angle: Float)
+
+    /** The decoded logo and the box around its visible part, kept so a redraw does not decode and scan it again. */
+    private class LogoArt(val bitmap: Bitmap, val visible: Rect)
+
+    private val logoCache = LruCache<String, LogoArt>(4)
 
     private const val SAFE_TOP = 0.12f
     private const val SAFE_BOTTOM = 0.88f
@@ -311,14 +336,12 @@ object PostRenderer {
         }
     }
 
-    /** Renders at full size, then scales down. Used for the template gallery and the Library. */
-    fun thumbnail(context: Context, doc: PostDoc, brand: PostBrand, targetWidth: Int): Result {
-        val full = render(context, doc, brand)
-        val targetHeight = (full.bitmap.height * (targetWidth.toFloat() / full.bitmap.width)).toInt().coerceAtLeast(1)
-        val thumb = Bitmap.createScaledBitmap(full.bitmap, targetWidth, targetHeight, true)
-        if (thumb !== full.bitmap) full.bitmap.recycle()
-        return Result(thumb, full.overflow)
-    }
+    /**
+     * The template cards and the Library. Drawn straight at targetWidth like a preview, never at full size first and then shrunk,
+     * so a card costs a fraction of an export. Pass cancelled so a card that is out of date can stop early (see render).
+     */
+    fun thumbnail(context: Context, doc: PostDoc, brand: PostBrand, targetWidth: Int, cancelled: () -> Boolean = { false }): Result =
+        preview(context, doc, brand, targetWidth, cancelled)
 
     /**
      * The editor and Brand previews: drawn straight at targetWidth (never above full size), with no full-size bitmap in between.
@@ -747,7 +770,8 @@ object PostRenderer {
 
     /** Full-canvas photo layer, drawn above the chosen color/gradient and below every template element. decodeTo: the longest side to decode at. */
     private fun drawBackgroundPhoto(context: Context, canvas: Canvas, uri: String, opacity: Float, w: Int, h: Int, decodeTo: Int) {
-        val bitmap = runCatching { decodeSampled(context, Uri.parse(uri), decodeTo) }.getOrNull() ?: return
+        val picture = runCatching { decodeSampled(context, Uri.parse(uri), decodeTo) }.getOrNull() ?: return
+        val bitmap = picture.bitmap
         val scale = max(w.toFloat() / bitmap.width, h.toFloat() / bitmap.height)
         val cropW = w / scale
         val cropH = h / scale
@@ -761,7 +785,7 @@ object PostRenderer {
             alpha = (opacity.coerceIn(0f, 1f) * 255).toInt()
         }
         canvas.drawBitmap(bitmap, crop, RectF(0f, 0f, w.toFloat(), h.toFloat()), paint)
-        bitmap.recycle()
+        picture.release()
     }
 
     /**
@@ -775,7 +799,8 @@ object PostRenderer {
         c: Colors, w: Int, h: Int, unit: Float, decodeTo: Int
     ) {
         val dest = RectF(area.x * w, area.y * h, (area.x + area.w) * w, (area.y + area.h) * h)
-        val bmp = runCatching { decodeSampled(context, Uri.parse(uri), decodeTo) }.getOrNull() ?: return
+        val picture = runCatching { decodeSampled(context, Uri.parse(uri), decodeTo) }.getOrNull() ?: return
+        val bmp = picture.bitmap
         val frame = doc.photoFrame?.takeIf { area.w < 0.99f && area.h < 0.99f }
         val framePath = frame?.let { PostEngine.framePath(it, dest, unit) }
         if (frame == PhotoFrame.STACKED) PostEngine.drawStackedBacks(canvas, dest, unit, c.glow, c.secondary)
@@ -822,19 +847,14 @@ object PostRenderer {
             maskPaint.color = Color.BLACK
             canvas.drawPath(outside, maskPaint)
         }
-        bmp.recycle()
+        picture.release()
         canvas.restoreToCount(layerSave)
         if (framePath != null && doc.frameBorder) PostEngine.drawFrameBorder(canvas, framePath, unit, c.light)
     }
 
-    private fun decodeSampled(context: Context, uri: Uri, target: Int): Bitmap? {
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
-        var sample = 1
-        while (bounds.outWidth / (sample * 2) >= target && bounds.outHeight / (sample * 2) >= target) sample *= 2
-        val real = BitmapFactory.Options().apply { inSampleSize = sample }
-        return context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, real) }
-    }
+    /** A photo decoded no smaller than target on its shorter side. Shared through PostImageCache; call release() on the result when done. */
+    private fun decodeSampled(context: Context, uri: Uri, target: Int): PostImageCache.Picture? =
+        PostImageCache.decode(uri.toString(), target) { context.contentResolver.openInputStream(uri) }
 
     /** Logo from the Brand store, or the optional bundled res/drawable-nodpi/wt_logo.png. Null if neither exists. */
     private fun loadLogo(context: Context, brand: PostBrand, targetPx: Int): Bitmap? {
@@ -850,6 +870,23 @@ object PostRenderer {
         val id = context.resources.getIdentifier("wt_logo", "drawable", context.packageName)
         if (id != 0) return BitmapFactory.decodeResource(context.resources, id)
         return null
+    }
+
+    /**
+     * The logo and the box around its visible part, from the cache when the logo file has not changed.
+     * Decoding the logo and scanning it for its visible part used to happen on every single redraw.
+     */
+    private fun logoArt(context: Context, brand: PostBrand, targetPx: Int): LogoArt? {
+        val path = brand.logoPath
+        val file = if (path != null) File(path) else null
+        val source = if (file != null && file.exists()) file.absolutePath + "|" + file.length() + "|" + file.lastModified() else "bundled"
+        val key = source + "|" + targetPx
+        val hit = logoCache.get(key)
+        if (hit != null && !hit.bitmap.isRecycled) return hit
+        val bitmap = loadLogo(context, brand, targetPx) ?: return null
+        val art = LogoArt(bitmap, visibleBounds(bitmap))
+        logoCache.put(key, art)
+        return art
     }
 
     /** The box around the visible part of the logo, so empty transparent margins do not make the header box too big. */
@@ -890,8 +927,9 @@ object PostRenderer {
      * In dark-first the box is a deep tint of the accent over the dark color, never a bright accent, so the white logo always reads.
      */
     private fun drawLogo(context: Context, canvas: Canvas, doc: PostDoc, brand: PostBrand, c: Colors, w: Int, h: Int, unit: Float) {
-        val bmp = loadLogo(context, brand, (unit * 0.12f).toInt()) ?: return
-        val src = visibleBounds(bmp)
+        val art = logoArt(context, brand, (unit * 0.12f).toInt()) ?: return
+        val bmp = art.bitmap
+        val src = art.visible
         val aspect = src.width().toFloat() / max(1, src.height())
         var innerH = unit * 0.056f * brand.logoScale * doc.logoSize
         var innerW = innerH * aspect
@@ -928,7 +966,6 @@ object PostRenderer {
         val left = w - boxW + padX
         val logoTop = top + padY
         canvas.drawBitmap(bmp, src, RectF(left, logoTop, left + innerW, logoTop + innerH), Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG))
-        bmp.recycle()
     }
 
     // ---- icons, footer and social block ----

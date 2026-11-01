@@ -100,7 +100,7 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, onBack: () -> Unit) {
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         scope.launch {
             val stored = withContext(Dispatchers.IO) { uris.mapNotNull { PostStore.importPhoto(context, it) } }
-            importedPhotoPaths.filter { it != doc.photoUri }.forEach { PostStore.deleteImportedPhoto(context, it) }
+            importedPhotoPaths.filter { it != doc.photoUri && it != doc.backgroundPhotoUri }.forEach { PostStore.deleteImportedPhoto(context, it) }
             importedPhotoPaths.clear()
             importedPhotoPaths.addAll(stored)
             batchPhotos = stored

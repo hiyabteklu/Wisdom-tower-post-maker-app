@@ -34,6 +34,7 @@ import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.GridView
+import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Share
@@ -107,7 +108,8 @@ fun PostStudioScreen(
     onBringWords: (() -> Unit)? = null,
     bookmarked: Boolean = false,
     onToggleBookmark: () -> Unit = {},
-    onOpenLibrary: () -> Unit = {}
+    onOpenLibrary: () -> Unit = {},
+    onOpenBatch: () -> Unit = {}
 ) {
     var moveLogoOn by remember { mutableStateOf(false) }
     var moveOn by remember { mutableStateOf(false) }
@@ -119,7 +121,7 @@ fun PostStudioScreen(
     val spec = postTemplate(doc.templateId)
     val layout = remember(doc.templateId, doc.size) { spec.layout(doc.size) }
     val slots = remember(doc.templateId, doc.size) {
-        layout.slots.filter { it.literal == null }.map { it.slot }.distinct()
+        PostBatch.editableSlots(layout)
     }
     val hasMarks = remember(layout) { layout.slots.any { it.literal != null } }
     val photoArea = layout.photo
@@ -129,7 +131,7 @@ fun PostStudioScreen(
             BoxWithConstraints(Modifier.fillMaxSize().padding(padding).imePadding()) {
                 val previewHeight = (maxHeight * 0.39f).coerceAtMost(350.dp)
                 Column(Modifier.fillMaxSize()) {
-                    TitleRow(doc, edited, bookmarked, onToggleBookmark, onOpenLibrary, onOpenBrand)
+                    TitleRow(doc, edited, bookmarked, onToggleBookmark, onOpenLibrary, onOpenBrand, onOpenBatch)
                     SizeRow(doc, onDoc, edited, onReset) { showSave = true }
                     PreviewPane(
                         doc, brand, moveLogoOn, onDoc,
@@ -638,22 +640,22 @@ private fun SaveDialog(doc: PostDoc, brand: PostBrand, onDismiss: () -> Unit) {
                     PostSize.values().forEach { size ->
                         FilterChip(
                             selected = size in chosen,
-                            onClick = { chosen = if (size in chosen) chosen - size else chosen + size },
+                            onClick = { options = options.copy(sizes = if (size in chosen) chosen - size else chosen + size) },
                             label = { Text(size.label) }
                         )
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = !fourK, onClick = { fourK = false }, label = { Text("Standard") })
-                    FilterChip(selected = fourK, onClick = { fourK = true }, label = { Text("4K") })
+                    FilterChip(selected = !fourK, onClick = { options = options.copy(fourK = false) }, label = { Text("Standard") })
+                    FilterChip(selected = fourK, onClick = { options = options.copy(fourK = true) }, label = { Text("4K") })
                 }
                 PostSmallLabel(
                     if (fourK) "4K is twice the pixels: 2160 wide (2880 for 4:3). Bigger files, best for LinkedIn, Telegram files and keeping masters."
                     else "Standard is 1080 wide (1440 for 4:3), the size TikTok and Instagram use."
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = png, onClick = { png = true }, label = { Text("PNG") })
-                    FilterChip(selected = !png, onClick = { png = false }, label = { Text("JPG") })
+                    FilterChip(selected = png, onClick = { options = options.copy(png = true) }, label = { Text("PNG") })
+                    FilterChip(selected = !png, onClick = { options = options.copy(png = false) }, label = { Text("JPG") })
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = { runExport(false) }, enabled = !busy, modifier = Modifier.weight(1f)) {

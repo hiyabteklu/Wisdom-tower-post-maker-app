@@ -45,6 +45,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -99,6 +100,7 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, onBack: () -> Unit) {
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         scope.launch {
             val stored = withContext(Dispatchers.IO) { uris.mapNotNull { PostStore.importPhoto(context, it) } }
+            importedPhotoPaths.filter { it != doc.photoUri }.forEach { PostStore.deleteImportedPhoto(context, it) }
             importedPhotoPaths.clear()
             importedPhotoPaths.addAll(stored)
             batchPhotos = stored
@@ -128,11 +130,15 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, onBack: () -> Unit) {
         previewOverflow = result.overflow
     }
     LaunchedEffect(running) { view.keepScreenOn = running }
+    val latestJob by rememberUpdatedState(runJob)
+    val latestPreview by rememberUpdatedState(previewBitmap)
     DisposableEffect(Unit) {
         onDispose {
             view.keepScreenOn = false
-            runJob?.cancel()
-            previewBitmap?.recycle()
+            latestJob?.cancel()
+            latestPreview?.recycle()
+            importedPhotoPaths.filter { it != doc.photoUri }.forEach { PostStore.deleteImportedPhoto(context, it) }
+            importedPhotoPaths.clear()
         }
     }
 

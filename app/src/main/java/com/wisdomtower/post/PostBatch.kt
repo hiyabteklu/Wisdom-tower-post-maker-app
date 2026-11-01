@@ -51,7 +51,8 @@ object PostBatch {
                 if (oneLineSlot in slots && line.isNotEmpty()) values[oneLineSlot] = line
                 else if (oneLineSlot !in slots) itemNotes.add("Fill box is not in this template")
             } else {
-                val hasKey = lines.any { keyPattern.matches(it) }
+                fun knownKey(line: String): Boolean = keyPattern.matchEntire(line)?.groupValues?.get(1)?.trim()?.lowercase() in keys
+                val hasKey = lines.any { knownKey(it) }
                 if (hasKey) {
                     var currentSlot: String? = null
                     var currentValue = StringBuilder()
@@ -60,9 +61,10 @@ object PostBatch {
                     }
                     lines.forEach { line ->
                         val match = keyPattern.matchEntire(line)
-                        if (match != null) {
+                        val key = match?.groupValues?.get(1)?.trim()?.lowercase()
+                        if (match != null && key in keys) {
                             flush()
-                            val target = keys[match.groupValues[1].trim().lowercase()]
+                            val target = keys[key]
                             currentValue = StringBuilder()
                             currentSlot = target?.takeIf { it in slots }
                             if (target != null && target !in slots) itemNotes.add("Post $number: box " + PostSlots.label(target) + " is not in this template")
@@ -73,7 +75,7 @@ object PostBatch {
                         }
                     }
                     flush()
-                    if (lines.takeWhile { !keyPattern.matches(it) }.any { it.isNotBlank() }) {
+                    if (lines.takeWhile { !knownKey(it) }.any { it.isNotBlank() }) {
                         itemNotes.add("Post $number: lines before the first label were ignored")
                     }
                 } else {

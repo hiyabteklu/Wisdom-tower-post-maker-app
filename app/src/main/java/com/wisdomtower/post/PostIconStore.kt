@@ -78,6 +78,7 @@ object PostIconStore {
     /**
      * Draws one placed icon. The longest side is size * unit. A shape uses its tint, else defaultColor.
      * A picture keeps its own colors unless it has a tint.
+     * A picture is decoded through PostImageCache, so dragging or pinching an icon does not read the file again for every redraw.
      */
     fun draw(canvas: Canvas, item: PostIconItem, w: Int, h: Int, unit: Float, defaultColor: Int) {
         val d = item.size * unit
@@ -92,14 +93,18 @@ object PostIconStore {
         val path = item.source.removePrefix(FILE)
         val file = File(path)
         if (!file.exists()) return
-        val bmp = preview(path, d.toInt().coerceAtLeast(32) * 2) ?: return
+        val target = d.toInt().coerceAtLeast(32) * 2
+        val picture = runCatching {
+            PostImageCache.decode("icon:" + path + "|" + file.lastModified(), target) { file.inputStream() }
+        }.getOrNull() ?: return
+        val bmp = picture.bitmap
         val scale = d / max(bmp.width, bmp.height)
         val bw = bmp.width * scale
         val bh = bmp.height * scale
         val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
         if (tint != null) paint.colorFilter = PorterDuffColorFilter(tint, PorterDuff.Mode.SRC_IN)
         canvas.drawBitmap(bmp, null, RectF(cx - bw / 2f, cy - bh / 2f, cx + bw / 2f, cy + bh / 2f), paint)
-        bmp.recycle()
+        picture.release()
     }
 
     private fun drawShape(canvas: Canvas, name: String, cx: Float, cy: Float, d: Float, color: Int) {

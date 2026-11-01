@@ -159,7 +159,7 @@ object PostFonts {
  * The single drawing path. The screen preview, the template thumbnails and the exported file all come from
  * render(). Layout, text fitting and every position are worked out at the real export size; a smaller
  * bitmap (the editor preview) only scales the canvas, so what you see is what you save.
- * Order: background gradient, mesh blend and grain, shapes, photo, shapes marked overPhoto, icons placed "behind",
+ * Order: background gradient, backdrop look glow and pattern, mesh blend and grain, shapes, photo, shapes marked overPhoto, icons placed "behind",
  * text set "behind the subject", the cut-out subject, the rest of the text, header box with the logo, then the social block or the footer,
  * then icons placed "in front".
  * Colors come from the Brand kit unless the post overrides them. Derived tones (DEEP, GLOW, TINT, SOFT, PAGE)
@@ -171,7 +171,10 @@ object PostFonts {
  * - pale (PostBase.LIGHT) templates are drawn on a deep dark surface with light text instead of a pale page;
  * - gradients that run from the accent (ACCENT to DEEP) become dark gradients tinted with the accent, so a bright cyan
  *   Main never sits behind white text;
- * - big accent shapes get a soft glow, and the logo box stays dark.
+ * - big accent shapes get a soft glow, big rounded cards get a thin light border, light headlines get a soft glow of the accent,
+ *   and the logo box stays dark.
+ * BACKDROP LOOKS (docs/BACKDROPS.md). In dark-first, when the brand has a look (PostBrand.bgLook, see PostBackdrops) and the post uses
+ * the template background, the look's gradient, glow and pattern replace the template's own backdrop on every template.
  * CONTRAST GUARD (always on). Before a text box is drawn, the pixels under it are sampled. If the template's text color would
  * be below about 4:1 against them, the text switches to whichever of light text, dark, white or black reads best.
  * A color the user picked on the post (box color or Text color) is never changed.
@@ -222,7 +225,9 @@ object PostRenderer {
         }
         val layout = postTemplate(doc.templateId).layout(doc.size)
         val colors = colorsFor(doc, brand, layout.base)
-        val bg = backgroundFor(doc, colors, layout)
+        // a backdrop look only applies to dark-first brands and to posts that use the template background
+        val look = PostBackdrops.byId(brand.bgLook)?.takeIf { colors.darkFirst && doc.bgMode == BgMode.TEMPLATE }
+        val bg = backgroundFor(doc, colors, layout, look)
         colors.page = bg.to
         val bitmap = Bitmap.createBitmap(max(1, (w * s).toInt()), max(1, (h * s).toInt()), Bitmap.Config.ARGB_8888)
         colors.canvasBitmap = bitmap
@@ -231,6 +236,7 @@ object PostRenderer {
             val canvas = Canvas(bitmap)
             canvas.scale(bitmap.width / w.toFloat(), bitmap.height / h.toFloat())
             drawBackground(canvas, bg, w, h)
+            if (look != null) PostBackdrops.draw(canvas, look, w, h, colors.accent, colors.secondary)
             PostEngine.drawMesh(canvas, doc.meshStyle, w, h, colors.accent, colors.glow, colors.deep, colors.secondary)
             if (doc.grain) PostEngine.drawGrain(canvas, w, h)
             stop()
@@ -402,7 +408,8 @@ object PostRenderer {
         }
     }
 
-    private fun backgroundFor(doc: PostDoc, c: Colors, layout: TemplateLayout): Bg = when (doc.bgMode) {
+    /** look: the brand's backdrop look when it applies (dark-first, template background), else null. */
+    private fun backgroundFor(doc: PostDoc, c: Colors, layout: TemplateLayout, look: BackdropLook?): Bg = when (doc.bgMode) {
         BgMode.SOLID -> {
             val solid = parseHex(doc.bgStartHex, c.light)
             Bg(solid, null, solid, 90f)
@@ -410,7 +417,14 @@ object PostRenderer {
         BgMode.GRADIENT -> Bg(parseHex(doc.bgStartHex, c.accent), null, parseHex(doc.bgEndHex, c.dark), doc.bgAngle.toFloat())
         BgMode.TEMPLATE -> {
             val backdrop = layout.backdrop
-            if (backdrop != null) {
+            if (look != null) {
+                Bg(
+                    parseHex(look.from, c.dark),
+                    look.mid?.let { parseHex(it, c.dark) },
+                    parseHex(look.to, c.dark),
+                    look.angle.toFloat()
+                )
+            } else if (backdrop != null) {
                 Bg(
                     bgTone(c, backdrop.from),
                     backdrop.mid?.let { bgTone(c, it) },
@@ -512,7 +526,17 @@ object PostRenderer {
 
         when (d.shape) {
             DecorShape.RECT -> canvas.drawRect(r, paint)
-            DecorShape.ROUND -> canvas.drawRoundRect(r, d.radius * unit, d.radius * unit, paint)
+            DecorShape.ROUND -> {
+                canvas.drawRoundRect(r, d.radius * unit, d.radius * unit, paint)
+                if (c.darkFirst && r.width() > unit * 0.2f && r.height() > unit * 0.1f && d.alpha >= 60) {
+                    // glassy cards of the app: a thin light border around big rounded cards
+                    val edge = Paint(Paint.ANTI_ALIAS_FLAG)
+                    edge.style = Paint.Style.STROKE
+                    edge.strokeWidth = max(1.5f, unit * 0.0025f)
+                    edge.color = withAlpha(Color.WHITE, 46)
+                    canvas.drawRoundRect(r, d.radius * unit, d.radius * unit, edge)
+                }
+            }
             DecorShape.OVAL -> canvas.drawOval(r, paint)
             DecorShape.RING -> {
                 val sw = max(1f, d.stroke * unit)
@@ -572,6 +596,7 @@ object PostRenderer {
      * A word box takes its color, fonts and size from its style on the post (doc.slotStyles[slot]) when it has one.
      * A fixed mark (box.literal) only takes the color of the "marks" style: its font and size stay as the template placed them,
      * because the template centers it with the font's metrics.
+     * In dark-first a light headline gets a soft glow of the accent color.
      */
     private fun drawSlot(
         context: Context, canvas: Canvas, box: SlotBox, rawText: String,
@@ -594,6 +619,9 @@ object PostRenderer {
         // contrast guard: only for colors the template chose, never for a color the user picked
         val userSet = picked != null || (doc.textHex != null && box.tone == PostTone.TEXT)
         if (!userSet) paint.color = readable(colors, paint.color, left, top, boxW.toFloat(), boxH)
+        if (colors.darkFirst && own && box.slot == PostSlots.HEADLINE && relLum(paint.color) > 0.5f) {
+            paint.setShadowLayer(unit * 0.022f, 0f, 0f, withAlpha(colors.accent, 100))
+        }
         if (box.caps) paint.letterSpacing = 0.12f
         val alignment = if (box.centered) Layout.Alignment.ALIGN_CENTER else Layout.Alignment.ALIGN_NORMAL
         var size = box.size * unit * doc.textScale * (if (own) (style?.scale ?: 1f) else 1f)

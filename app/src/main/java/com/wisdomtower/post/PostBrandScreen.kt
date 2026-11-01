@@ -38,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -52,62 +53,95 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 
 /**
- * A ready-made set of the four brand colors. One tap sets Main, Second, Light and Dark together.
- * Every set uses only the Wisdom Tower palette: black, white, cyan and gold.
+ * A ready-made brand set: the four brand colors plus a backdrop look (PostBackdrops, docs/BACKDROPS.md). One tap sets Main, Second, Light, Dark
+ * and the poster background together, so every theme changes the whole look of the posters, not only a tint.
  *
- * How the renderer uses the four colors (PostRenderer.colorsFor), and why the values below are what they are:
- * - Main is the poster color behind light text (gradients run Main to a darker Deep tone) and also an accent on dark posters.
- *   So Main must be a DEEP cyan or gold: white text on it is 4.3:1 or better, and it still reads on black at 3.9:1 or better.
- *   A bright cyan like #22E0FF as Main puts white text on cyan (about 1.5:1), which is the low-contrast look to avoid.
- * - Second is used as bright text, glows, badges and the logo-box edge on dark. It is bright (cyan, gold or white): 12:1 or better on Dark.
- * - Dark is near-black for text and dark posters. Light is white or a very pale tint. Dark on Light is 16:1 or better.
- * The true brand cyan #22E0FF is used as Second where cyan should glow.
+ * Colors follow the Wisdom Tower app: near-black or blue-black Dark, bright neon cyan #22E0FF / #00C4E6, gold #FFD54A / #FFC83D,
+ * bronze #B8893A, white text. Main is the bright accent (bands, rings, buttons, glows); the renderer keeps the posters dark-first,
+ * so white text never sits on a bright accent. Second is the other bright accent (badges, glows, logo-box edge).
+ * look is the id of a BackdropLook (1 to 10).
  */
-data class BrandTheme(val name: String, val primary: String, val secondary: String, val light: String, val dark: String)
+data class BrandTheme(val name: String, val primary: String, val secondary: String, val light: String, val dark: String, val look: Int = 0)
 
 object BrandThemes {
     val all = listOf(
-        BrandTheme("Black Cyan Gold", "#007F99", "#FFC83D", "#FFFFFF", "#05070D"),
-        BrandTheme("Black Gold Cyan", "#966700", "#22E0FF", "#FFFFFF", "#07080A"),
-        BrandTheme("Cyan Ice", "#007F99", "#22E0FF", "#F2FCFF", "#04101A"),
-        BrandTheme("Royal Gold", "#946500", "#FFD05A", "#FFFAEB", "#0B0905"),
-        BrandTheme("Cyan White", "#00758F", "#FFFFFF", "#FFFFFF", "#0A0F18"),
-        BrandTheme("Gold White", "#8F6200", "#FFFFFF", "#FFFBF0", "#0D0B07"),
-        BrandTheme("Midnight Duo", "#0A7C9B", "#FFCB45", "#F6FAFF", "#070B1A"),
-        BrandTheme("Charcoal Duo", "#9C6B00", "#4FE8FF", "#F3F5F7", "#14171C"),
-        BrandTheme("Sky Gold", "#0A7FB0", "#FFC83D", "#FFFFFF", "#06101F"),
-        BrandTheme("Aqua Noir", "#007F96", "#7DF0FF", "#FFFFFF", "#000000")
+        BrandTheme("Wisdom Signature", "#22E0FF", "#FFD54A", "#FFFFFF", "#060B14", 1),
+        BrandTheme("Gold Lead", "#FFD54A", "#22E0FF", "#FFFFFF", "#0A0805", 2),
+        BrandTheme("Cyan Mono", "#22E0FF", "#7DF0FF", "#F2FCFF", "#04101A", 3),
+        BrandTheme("Gold Mono", "#FFC83D", "#FFE08A", "#FFFAEB", "#0B0905", 4),
+        BrandTheme("Cyan and White", "#22E0FF", "#FFFFFF", "#FFFFFF", "#070B12", 5),
+        BrandTheme("Gold and White", "#FFD54A", "#FFFFFF", "#FFFBF0", "#0B0905", 6),
+        BrandTheme("Midnight Cyan Gold", "#00C4E6", "#FFD54A", "#F6FAFF", "#070B1A", 7),
+        BrandTheme("Charcoal Gold", "#FFD54A", "#22E0FF", "#F3F5F7", "#14171C", 8),
+        BrandTheme("Bronze Ribbon", "#B8893A", "#FFD54A", "#FFF8E6", "#0E0B07", 9),
+        BrandTheme("Neon Pink Touch", "#22E0FF", "#FFD54A", "#FFFFFF", "#0B0F1C", 10)
     )
 
     fun matches(t: BrandTheme, b: PostBrand): Boolean =
         t.primary.equals(b.primaryHex, ignoreCase = true) &&
             t.secondary.equals(b.secondaryHex, ignoreCase = true) &&
             t.light.equals(b.lightHex, ignoreCase = true) &&
-            t.dark.equals(b.darkHex, ignoreCase = true)
+            t.dark.equals(b.darkHex, ignoreCase = true) &&
+            t.look == b.bgLook
 
     fun apply(t: BrandTheme, b: PostBrand): PostBrand =
-        b.copy(primaryHex = t.primary, secondaryHex = t.secondary, lightHex = t.light, darkHex = t.dark)
+        b.copy(primaryHex = t.primary, secondaryHex = t.secondary, lightHex = t.light, darkHex = t.dark, bgLook = t.look)
 }
 
 private fun themeColor(hex: String): Color =
     runCatching { Color(android.graphics.Color.parseColor(hex)) }.getOrDefault(Color.Gray)
 
-/** A card showing the four colors of a theme as four bands, with its name under it. */
+/** The gradient of a look as a Compose brush, for the little cards. look null (Auto) shows the plain Dark color. */
+private fun backdropBrush(look: BackdropLook?, fallbackDark: String): Brush {
+    if (look == null) {
+        val c = themeColor(fallbackDark)
+        return Brush.linearGradient(listOf(c, c))
+    }
+    val colors = listOfNotNull(themeColor(look.from), look.mid?.let { themeColor(it) }, themeColor(look.to))
+    return Brush.linearGradient(colors)
+}
+
+/** A card showing the background of a theme on top and its four colors as four bands under it, with its name below. */
 @Composable
 private fun ThemeCard(theme: BrandTheme, selected: Boolean, onClick: () -> Unit) {
     val shape = RoundedCornerShape(12.dp)
     Column(Modifier.width(92.dp).clickable(onClick = onClick), horizontalAlignment = Alignment.CenterHorizontally) {
-        Row(
+        Column(
             Modifier.fillMaxWidth().height(52.dp).clip(shape)
                 .border(if (selected) 3.dp else 1.dp, if (selected) PostPalette.Mint else PostPalette.Line, shape)
         ) {
-            Box(Modifier.weight(1f).fillMaxSize().background(themeColor(theme.dark)))
-            Box(Modifier.weight(1f).fillMaxSize().background(themeColor(theme.primary)))
-            Box(Modifier.weight(1f).fillMaxSize().background(themeColor(theme.secondary)))
-            Box(Modifier.weight(1f).fillMaxSize().background(themeColor(theme.light)))
+            Box(Modifier.fillMaxWidth().weight(1f).background(backdropBrush(PostBackdrops.byId(theme.look), theme.dark)))
+            Row(Modifier.fillMaxWidth().height(14.dp)) {
+                Box(Modifier.weight(1f).fillMaxSize().background(themeColor(theme.dark)))
+                Box(Modifier.weight(1f).fillMaxSize().background(themeColor(theme.primary)))
+                Box(Modifier.weight(1f).fillMaxSize().background(themeColor(theme.secondary)))
+                Box(Modifier.weight(1f).fillMaxSize().background(themeColor(theme.light)))
+            }
         }
         Text(
             theme.name,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            color = if (selected) PostPalette.Mint else PostPalette.Text,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+    }
+}
+
+/** A card showing one background look (look null = Auto). Tapping it changes only the poster background. */
+@Composable
+private fun BackdropCard(name: String, look: BackdropLook?, darkHex: String, selected: Boolean, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(12.dp)
+    Column(Modifier.width(92.dp).clickable(onClick = onClick), horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            Modifier.fillMaxWidth().height(52.dp).clip(shape)
+                .background(backdropBrush(look, darkHex))
+                .border(if (selected) 3.dp else 1.dp, if (selected) PostPalette.Mint else PostPalette.Line, shape)
+        )
+        Text(
+            name,
             fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
             maxLines = 1,
@@ -123,7 +157,8 @@ private fun ThemeCard(theme: BrandTheme, selected: Boolean, onClick: () -> Unit)
  * Same layout rule as the editor: the preview stays fixed at the top, categories are one sideways row of tabs,
  * and the options for the chosen category sit in an area of fixed height at the bottom, so nothing jumps.
  * The preview is the Follow us poster, so you see the icons big. Colors are picked from circles, never typed.
- * The Colors tab starts with Themes: ready-made sets that change all four colors with one tap.
+ * The Colors tab starts with Themes: ready-made sets that change all four colors and the poster background with one tap.
+ * The Background chip changes only the poster background (10 looks, or Auto).
  * The logo always sits in the header box at the top-right corner, so there is no corner choice.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -238,6 +273,7 @@ fun PostBrandScreen(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 FilterChip(selected = colorSlot == "themes", onClick = { colorSlot = "themes" }, label = { Text("Themes", fontWeight = FontWeight.Bold) })
+                                FilterChip(selected = colorSlot == "background", onClick = { colorSlot = "background" }, label = { Text("Background", fontWeight = FontWeight.Bold) })
                                 FilterChip(selected = colorSlot == "primary", onClick = { colorSlot = "primary" }, label = { Text("Main", fontWeight = FontWeight.Bold) })
                                 FilterChip(selected = colorSlot == "secondary", onClick = { colorSlot = "secondary" }, label = { Text("Second", fontWeight = FontWeight.Bold) })
                                 FilterChip(selected = colorSlot == "light", onClick = { colorSlot = "light" }, label = { Text("Light", fontWeight = FontWeight.Bold) })
@@ -245,11 +281,12 @@ fun PostBrandScreen(
                             }
                             Text(
                                 when (colorSlot) {
-                                    "themes" -> "Tap one to set all four colors at once"
-                                    "primary" -> "Main color: accents and footer"
-                                    "secondary" -> "Second color: glows and highlights"
-                                    "light" -> "Light: backgrounds"
-                                    else -> "Dark: text, dark posters and the logo box"
+                                    "themes" -> "Tap one to set all four colors and the background at once"
+                                    "background" -> "Tap one to change only the poster background"
+                                    "primary" -> "Main color: accents, glows and footer"
+                                    "secondary" -> "Second color: badges, highlights and the logo box edge"
+                                    "light" -> "Light: text on dark posters"
+                                    else -> "Dark: base of the posters, button text and the logo box"
                                 },
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.SemiBold,
@@ -264,14 +301,26 @@ fun PostBrandScreen(
                                         ThemeCard(theme, BrandThemes.matches(theme, brand)) { onBrand(BrandThemes.apply(theme, brand)) }
                                     }
                                 }
+                                "background" -> Row(
+                                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    BackdropCard("Auto", null, brand.darkHex, brand.bgLook == 0) { onBrand(brand.copy(bgLook = 0)) }
+                                    PostBackdrops.all.forEach { look ->
+                                        BackdropCard(look.name, look, brand.darkHex, brand.bgLook == look.id) { onBrand(brand.copy(bgLook = look.id)) }
+                                    }
+                                }
                                 "primary" -> PaletteStrip(brand.primaryHex, null, false) { hex -> if (hex != null) onBrand(brand.copy(primaryHex = hex)) }
                                 "secondary" -> PaletteStrip(brand.secondaryHex, null, false) { hex -> if (hex != null) onBrand(brand.copy(secondaryHex = hex)) }
                                 "light" -> PaletteStrip(brand.lightHex, null, false) { hex -> if (hex != null) onBrand(brand.copy(lightHex = hex)) }
                                 else -> PaletteStrip(brand.darkHex, null, false) { hex -> if (hex != null) onBrand(brand.copy(darkHex = hex)) }
                             }
                             Text(
-                                if (colorSlot == "themes") "Each card shows Dark, Main, Second, Light. Fine-tune any of them in the other chips."
-                                else "Every gradient and glow is built from these four, so changing one restyles all templates.",
+                                when (colorSlot) {
+                                    "themes" -> "Each card shows the background, then Dark, Main, Second, Light. Fine-tune any of them in the other chips."
+                                    "background" -> "Glows follow your Main and Second colors. Auto uses a plain tint of Dark."
+                                    else -> "Glows and accents are built from these colors, so changing one restyles all templates."
+                                },
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = PostPalette.Muted

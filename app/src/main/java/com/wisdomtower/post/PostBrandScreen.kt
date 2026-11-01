@@ -53,24 +53,30 @@ import kotlinx.coroutines.withContext
 
 /**
  * A ready-made set of the four brand colors. One tap sets Main, Second, Light and Dark together.
- * All ten sets stay inside the Wisdom Tower app palette: deep navy-charcoal, brand cyan, gold or bronze, and a neon pink glow.
- * Contrast of every set: Dark on Light is above 15:1, Second on Dark is above 7:1, and Main (cyan, gold or blue)
- * is about 3.5:1 or more on Light and 4:1 or more on Dark, which suits headings, bands, buttons and footers.
+ * Every set uses only the Wisdom Tower palette: black, white, cyan and gold.
+ *
+ * How the renderer uses the four colors (PostRenderer.colorsFor), and why the values below are what they are:
+ * - Main is the poster color behind light text (gradients run Main to a darker Deep tone) and also an accent on dark posters.
+ *   So Main must be a DEEP cyan or gold: white text on it is 4.3:1 or better, and it still reads on black at 3.9:1 or better.
+ *   A bright cyan like #22E0FF as Main puts white text on cyan (about 1.5:1), which is the low-contrast look to avoid.
+ * - Second is used as bright text, glows, badges and the logo-box edge on dark. It is bright (cyan, gold or white): 12:1 or better on Dark.
+ * - Dark is near-black for text and dark posters. Light is white or a very pale tint. Dark on Light is 16:1 or better.
+ * The true brand cyan #22E0FF is used as Second where cyan should glow.
  */
 data class BrandTheme(val name: String, val primary: String, val secondary: String, val light: String, val dark: String)
 
 object BrandThemes {
     val all = listOf(
-        BrandTheme("Wisdom Cyan", "#0A8DAD", "#FFD54A", "#F1FAFC", "#0A1220"),
-        BrandTheme("Aqua Glow", "#0A8FAF", "#67E8F9", "#ECFEFF", "#07151F"),
-        BrandTheme("Gold Standard", "#9A6A0A", "#FFD54A", "#FFF9E8", "#0D1117"),
-        BrandTheme("Cyan Neon Pink", "#0A8DAD", "#FF5CD6", "#F4F9FB", "#0B0F1C"),
-        BrandTheme("Bronze Ribbon", "#9C6A1C", "#E9B866", "#FAF5EC", "#14110D"),
-        BrandTheme("Ice Midnight", "#0E8FB5", "#A5F3FC", "#F0F9FF", "#0B1626"),
-        BrandTheme("Charcoal Cyan", "#0A8DAD", "#FFE066", "#F3F5F7", "#161A23"),
-        BrandTheme("Gold Magenta", "#9A6A0A", "#FF5CCB", "#FFFBEF", "#120C1A"),
-        BrandTheme("Deep Teal", "#0B8A8F", "#7CF2E1", "#EFFAF8", "#07191D"),
-        BrandTheme("Cyan Blue", "#1C74D6", "#22D3EE", "#F2F8FF", "#0A1328")
+        BrandTheme("Black Cyan Gold", "#007F99", "#FFC83D", "#FFFFFF", "#05070D"),
+        BrandTheme("Black Gold Cyan", "#966700", "#22E0FF", "#FFFFFF", "#07080A"),
+        BrandTheme("Cyan Ice", "#007F99", "#22E0FF", "#F2FCFF", "#04101A"),
+        BrandTheme("Royal Gold", "#946500", "#FFD05A", "#FFFAEB", "#0B0905"),
+        BrandTheme("Cyan White", "#00758F", "#FFFFFF", "#FFFFFF", "#0A0F18"),
+        BrandTheme("Gold White", "#8F6200", "#FFFFFF", "#FFFBF0", "#0D0B07"),
+        BrandTheme("Midnight Duo", "#0A7C9B", "#FFCB45", "#F6FAFF", "#070B1A"),
+        BrandTheme("Charcoal Duo", "#9C6B00", "#4FE8FF", "#F3F5F7", "#14171C"),
+        BrandTheme("Sky Gold", "#0A7FB0", "#FFC83D", "#FFFFFF", "#06101F"),
+        BrandTheme("Aqua Noir", "#007F96", "#7DF0FF", "#FFFFFF", "#000000")
     )
 
     fun matches(t: BrandTheme, b: PostBrand): Boolean =

@@ -53,19 +53,24 @@ import kotlinx.coroutines.withContext
 
 /**
  * A ready-made set of the four brand colors. One tap sets Main, Second, Light and Dark together.
- * Every set is checked for contrast: Dark on Light is above 15:1, Main on Light is about 4.4:1 or more,
- * and Second on Dark is above 10:1, so text, accents and glows stay readable on both light and dark posters.
+ * All ten sets stay inside the Wisdom Tower app palette: deep navy-charcoal, brand cyan, gold or bronze, and a neon pink glow.
+ * Contrast of every set: Dark on Light is above 15:1, Second on Dark is above 7:1, and Main (cyan, gold or blue)
+ * is about 3.5:1 or more on Light and 4:1 or more on Dark, which suits headings, bands, buttons and footers.
  */
 data class BrandTheme(val name: String, val primary: String, val secondary: String, val light: String, val dark: String)
 
 object BrandThemes {
     val all = listOf(
-        BrandTheme("Wisdom Green", "#0E7A4F", "#B6F26B", "#F3F7EE", "#08201A"),
-        BrandTheme("Navy & Gold", "#2F5BDB", "#FFC83D", "#F7F4EA", "#0A1530"),
-        BrandTheme("Ethiopian Sunrise", "#0A7D40", "#FFD60A", "#FFFAEB", "#0C1F14"),
-        BrandTheme("Midnight Coral", "#D42F3B", "#FFB347", "#FFF9F5", "#16101F"),
-        BrandTheme("Violet Ink", "#6C47FF", "#C9B8FF", "#F6F4FF", "#110A2B"),
-        BrandTheme("Charcoal Orange", "#D1480A", "#FFD23F", "#FFFBF4", "#171310")
+        BrandTheme("Wisdom Cyan", "#0A8DAD", "#FFD54A", "#F1FAFC", "#0A1220"),
+        BrandTheme("Aqua Glow", "#0A8FAF", "#67E8F9", "#ECFEFF", "#07151F"),
+        BrandTheme("Gold Standard", "#9A6A0A", "#FFD54A", "#FFF9E8", "#0D1117"),
+        BrandTheme("Cyan Neon Pink", "#0A8DAD", "#FF5CD6", "#F4F9FB", "#0B0F1C"),
+        BrandTheme("Bronze Ribbon", "#9C6A1C", "#E9B866", "#FAF5EC", "#14110D"),
+        BrandTheme("Ice Midnight", "#0E8FB5", "#A5F3FC", "#F0F9FF", "#0B1626"),
+        BrandTheme("Charcoal Cyan", "#0A8DAD", "#FFE066", "#F3F5F7", "#161A23"),
+        BrandTheme("Gold Magenta", "#9A6A0A", "#FF5CCB", "#FFFBEF", "#120C1A"),
+        BrandTheme("Deep Teal", "#0B8A8F", "#7CF2E1", "#EFFAF8", "#07191D"),
+        BrandTheme("Cyan Blue", "#1C74D6", "#22D3EE", "#F2F8FF", "#0A1328")
     )
 
     fun matches(t: BrandTheme, b: PostBrand): Boolean =

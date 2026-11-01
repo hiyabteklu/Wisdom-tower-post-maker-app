@@ -4,6 +4,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -30,6 +31,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.ExpandLess
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Refresh
@@ -52,6 +55,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -83,7 +87,9 @@ private const val RAPID_CHANGE_NS = 350_000_000L
 
 /**
  * One-screen studio: title and size controls, pinned preview, pinned template strip,
- * then a single vertically scrolling stack of all editing sections.
+ * then a single vertically scrolling stack of editing sections. Only Words is open when the studio starts;
+ * every other section opens with a tap on its header and stays open until it is tapped again.
+ * Words holds one box per text slot with its own Color, Font and Size (docs/TEXT_STYLE.md).
  */
 @Composable
 fun PostStudioScreen(
@@ -115,6 +121,7 @@ fun PostStudioScreen(
     val slots = remember(doc.templateId, doc.size) {
         layout.slots.filter { it.literal == null }.map { it.slot }.distinct()
     }
+    val hasMarks = remember(layout) { layout.slots.any { it.literal != null } }
     val photoArea = layout.photo
 
     PostTheme {
@@ -139,15 +146,12 @@ fun PostStudioScreen(
                         Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        SettingsSection("Words", "Edit every text field directly.") {
+                        SettingsSection("Words", "Type your words. Under each box, tap Color, Font or Size to style just that box.", defaultOpen = true) {
                             slots.forEach { slot ->
                                 ControlHeading(PostSlots.label(slot))
-                                EditorOptions(
-                                    EditorTab.WORDS, slot, doc, onDoc, brand, onBrand,
-                                    photoArea != null, onPickPhoto, onPickBackgroundPhoto, onPickLogo,
-                                    moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it }
-                                )
+                                WordBox(slot, doc, onDoc, brand)
                             }
+                            OtherTextStyles(doc, onDoc, brand, hasMarks)
                             if (onBringWords != null) {
                                 OutlinedButton(onClick = onBringWords, modifier = Modifier.fillMaxWidth()) {
                                     Text("Bring my words from the previous template")
@@ -155,18 +159,8 @@ fun PostStudioScreen(
                             }
                         }
 
-                        SettingsSection("Layers and style", "Photo frames, gradient blends, a cut-out subject and moving words.") {
-                            EngineControls(
-                                doc, onDoc, slots, photoArea != null, moveOn,
-                                { on ->
-                                    moveOn = on
-                                    if (!on) moveTarget = null
-                                }
-                            )
-                        }
-
-                        SettingsSection("Colors", "Color pairs, accent and text colors.") {
-                            listOf("pairs" to "Color pairs", "main" to "Accent color", "text" to "Text color").forEach { (group, label) ->
+                        SettingsSection("Colors", "Color pairs, the accent color and the default dark text color. A box can have its own color in Words.") {
+                            listOf("pairs" to "Color pairs", "main" to "Accent color", "text" to "Default dark text color").forEach { (group, label) ->
                                 ControlHeading(label)
                                 EditorOptions(EditorTab.LOOK, group, doc, onDoc, brand, onBrand,
                                     photoArea != null, onPickPhoto, onPickBackgroundPhoto, onPickLogo,
@@ -199,7 +193,7 @@ fun PostStudioScreen(
                             }
                         }
 
-                        SettingsSection("Fonts", "English and Amharic font libraries.") {
+                        SettingsSection("Fonts", "The fonts for the whole post. To change one box only, use Font under that box in Words. Add your own .ttf or .otf files here.") {
                             ControlHeading("English")
                             EditorOptions(EditorTab.FONT, "en", doc, onDoc, brand, onBrand,
                                 photoArea != null, onPickPhoto, onPickBackgroundPhoto, onPickLogo,
@@ -208,6 +202,21 @@ fun PostStudioScreen(
                             EditorOptions(EditorTab.FONT, "am", doc, onDoc, brand, onBrand,
                                 photoArea != null, onPickPhoto, onPickBackgroundPhoto, onPickLogo,
                                 moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it })
+                        }
+
+                        SettingsSection("Text size", "Make all the words on this post bigger or smaller. A single box has its own Size in Words.") {
+                            InlineEditorSlider(EditorSlider("Text size", doc.textScale, 0.7f..1.5f,
+                                "${(doc.textScale * 100).toInt()}%") { onDoc(doc.copy(textScale = it)) })
+                        }
+
+                        SettingsSection("Layers and style", "Photo frames, gradient blends, a cut-out subject and moving words.") {
+                            EngineControls(
+                                doc, onDoc, slots, photoArea != null, moveOn,
+                                { on ->
+                                    moveOn = on
+                                    if (!on) moveTarget = null
+                                }
+                            )
                         }
 
                         SettingsSection("Logo", "Control the logo on this post.") {
@@ -233,7 +242,7 @@ fun PostStudioScreen(
                             }
                         }
 
-                        SettingsSection("Footer", "Social icons shown on the post.") {
+                        SettingsSection("Footer", "Social icons shown on the post. The footer text color is under Words, Other text.") {
                             editorGroups(EditorTab.FOOTER, doc, slots, photoArea != null, false).forEach { group ->
                                 ControlHeading(group.label)
                                 if (group.key == "size") {
@@ -244,11 +253,6 @@ fun PostStudioScreen(
                                     moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it })
                             }
                         }
-
-                        SettingsSection("Text size", "Make all the words on this post bigger or smaller.") {
-                            InlineEditorSlider(EditorSlider("Text size", doc.textScale, 0.7f..1.5f,
-                                "${(doc.textScale * 100).toInt()}%") { onDoc(doc.copy(textScale = it)) })
-                        }
                     }
                 }
             }
@@ -257,31 +261,58 @@ fun PostStudioScreen(
     }
 }
 
+/**
+ * A card with a tappable header. Collapsed it is one 48 dp row, so the whole editor fits in a few screens instead of one long scroll.
+ * Its open or closed state is kept per title, also across a screen turn. defaultOpen is only the state the first time.
+ */
 @Composable
-private fun SettingsSection(title: String, subtitle: String? = null, content: @Composable ColumnScope.() -> Unit) {
+private fun SettingsSection(
+    title: String,
+    subtitle: String? = null,
+    defaultOpen: Boolean = false,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    var open by rememberSaveable(title) { mutableStateOf(defaultOpen) }
     Card(
         colors = CardDefaults.cardColors(containerColor = PostPalette.Surface),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-            Text(title, color = PostPalette.Text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-            if (subtitle != null) Text(subtitle, color = PostPalette.Muted, fontSize = 11.sp)
-            content()
+        Column(Modifier.fillMaxWidth()) {
+            Row(
+                Modifier.fillMaxWidth().clickable { open = !open }.padding(horizontal = 14.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(title, color = PostPalette.Text, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                Icon(
+                    if (open) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                    contentDescription = if (open) "Close $title" else "Open $title",
+                    tint = PostPalette.Muted
+                )
+            }
+            if (open) {
+                Column(
+                    Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 14.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    if (subtitle != null) Text(subtitle, color = PostPalette.Muted, fontSize = 12.sp)
+                    content()
+                }
+            }
         }
     }
 }
 
 @Composable
 private fun ControlHeading(label: String) {
-    Text(label, color = PostPalette.Muted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+    Text(label, color = PostPalette.Text, fontSize = 13.sp, fontWeight = FontWeight.Bold)
 }
 
 @Composable
 private fun InlineEditorSlider(slider: EditorSlider) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(slider.label, color = PostPalette.Text, fontSize = 12.sp, modifier = Modifier.weight(1f))
-            Text(slider.display, color = PostPalette.Muted, fontSize = 12.sp)
+            Text(slider.label, color = PostPalette.Text, fontSize = 13.sp, modifier = Modifier.weight(1f))
+            Text(slider.display, color = PostPalette.Muted, fontSize = 13.sp)
         }
         androidx.compose.material3.Slider(
             value = slider.value.coerceIn(slider.range.start, slider.range.endInclusive),

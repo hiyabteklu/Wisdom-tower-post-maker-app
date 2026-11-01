@@ -166,19 +166,35 @@ object PostFonts {
  * are built from the brand here, so every gradient follows a color change.
  * Text: each word box takes its color from the template's tone unless the post has a style for that box (PostDoc.slotStyles),
  * which can set its color, its English and Amharic fonts and its size. See docs/TEXT_STYLE.md.
+ *
+ * DARK-FIRST LOOK (docs/BRAND_COLOR_PLAN.md, phase 1). When the brand's Dark color is near-black (darkFirst):
+ * - pale (PostBase.LIGHT) templates are drawn on a deep dark surface with light text instead of a pale page;
+ * - gradients that run from the accent (ACCENT to DEEP) become dark gradients tinted with the accent, so a bright cyan
+ *   Main never sits behind white text;
+ * - big accent shapes get a soft glow, and the logo box stays dark.
+ * CONTRAST GUARD (always on). Before a text box is drawn, the pixels under it are sampled. If the template's text color would
+ * be below about 4:1 against them, the text switches to whichever of light text, dark, white or black reads best.
+ * A color the user picked on the post (box color or Text color) is never changed.
  */
 object PostRenderer {
     data class Result(val bitmap: Bitmap, val overflow: List<String>)
 
     private class Colors(
         val accent: Int, val text: Int, val light: Int, val secondary: Int, val dark: Int,
-        val deep: Int, val glow: Int, val tint: Int, val soft: Int
+        val deep: Int, val glow: Int, val tint: Int, val soft: Int,
+        /** The brand's real light color, always usable as text on dark (light itself becomes a dark surface on pale templates in dark-first). */
+        val lightText: Int,
+        val darkFirst: Boolean
     ) {
         /** The color at the bottom of the background. Set once the background is known. */
         var page: Int = Color.WHITE
 
         /** The color picked for the footer and social text on this post, or null for the automatic one. */
         var footerText: Int? = null
+
+        /** The bitmap being drawn, and its scale from base post pixels, so the contrast guard can read what is under a text box. */
+        var canvasBitmap: Bitmap? = null
+        var canvasScale: Float = 1f
     }
 
     private class Bg(val from: Int, val mid: Int?, val to: Int, val angle: Float)
@@ -205,10 +221,12 @@ object PostRenderer {
             if (cancelled()) throw java.util.concurrent.CancellationException("stale render")
         }
         val layout = postTemplate(doc.templateId).layout(doc.size)
-        val colors = colorsFor(doc, brand)
+        val colors = colorsFor(doc, brand, layout.base)
         val bg = backgroundFor(doc, colors, layout)
         colors.page = bg.to
         val bitmap = Bitmap.createBitmap(max(1, (w * s).toInt()), max(1, (h * s).toInt()), Bitmap.Config.ARGB_8888)
+        colors.canvasBitmap = bitmap
+        colors.canvasScale = bitmap.width / w.toFloat()
         try {
             val canvas = Canvas(bitmap)
             canvas.scale(bitmap.width / w.toFloat(), bitmap.height / h.toFloat())
@@ -279,6 +297,7 @@ object PostRenderer {
 
             // icons the user placed in front
             doc.icons.filter { it.front }.forEach { PostIconStore.draw(canvas, it, w, h, unit, colors.accent) }
+            colors.canvasBitmap = null
             return Result(bitmap, overflow)
         } catch (e: java.util.concurrent.CancellationException) {
             bitmap.recycle()
@@ -310,24 +329,77 @@ object PostRenderer {
 
     // ---- colors and background ----
 
-    private fun colorsFor(doc: PostDoc, brand: PostBrand): Colors {
+    /** WCAG relative luminance of a color, 0 (black) to 1 (white). */
+    private fun relLum(c: Int): Float {
+        fun ch(v: Int): Float {
+            val x = v / 255f
+            return if (x <= 0.03928f) x / 12.92f else Math.pow(((x + 0.055f) / 1.055f).toDouble(), 2.4).toFloat()
+        }
+        return 0.2126f * ch(Color.red(c)) + 0.7152f * ch(Color.green(c)) + 0.0722f * ch(Color.blue(c))
+    }
+
+    private fun contrastOf(l1: Float, l2: Float): Float = (max(l1, l2) + 0.05f) / (min(l1, l2) + 0.05f)
+
+    /**
+     * The contrast guard. Looks at the pixels under the box (left, top, width, height in base post pixels) and returns the wanted color
+     * when it reads at about 4:1 or better, else the best of light text, dark, white and black. The alpha of the wanted color is kept.
+     */
+    private fun readable(c: Colors, want: Int, left: Float, top: Float, width: Float, height: Float): Int {
+        val bmp = c.canvasBitmap ?: return want
+        val k = c.canvasScale
+        var sum = 0f
+        var n = 0
+        for (iy in 0 until 3) {
+            for (ix in 0 until 6) {
+                val px = ((left + width * (ix + 0.5f) / 6f) * k).toInt().coerceIn(0, bmp.width - 1)
+                val py = ((top + height * (iy + 0.5f) / 3f) * k).toInt().coerceIn(0, bmp.height - 1)
+                sum += relLum(bmp.getPixel(px, py))
+                n++
+            }
+        }
+        val bgLum = sum / n
+        val opaque = Color.rgb(Color.red(want), Color.green(want), Color.blue(want))
+        if (contrastOf(relLum(opaque), bgLum) >= 4f) return want
+        val best = listOf(c.lightText, c.dark, Color.WHITE, Color.BLACK).maxByOrNull { contrastOf(relLum(it), bgLum) } ?: return want
+        return Color.argb(Color.alpha(want), Color.red(best), Color.green(best), Color.blue(best))
+    }
+
+    private fun colorsFor(doc: PostDoc, brand: PostBrand, base: PostBase): Colors {
         val accent = parseHex(doc.accentHex ?: brand.primaryHex, Color.BLACK)
         val dark = parseHex(brand.darkHex, Color.BLACK)
-        val light = parseHex(brand.lightHex, Color.WHITE)
+        val lightBrand = parseHex(brand.lightHex, Color.WHITE)
         val secondary = parseHex(brand.secondaryHex, Color.WHITE)
+        // dark-first: a near-black Dark color means the brand lives on dark screens, so pale templates are drawn dark
+        val darkFirst = relLum(dark) < 0.12f
+        val paleToDark = darkFirst && base == PostBase.LIGHT
+        val surface = mix(dark, accent, 0.10f)
+        val light = if (paleToDark) surface else lightBrand
         val colors = Colors(
             accent = accent,
-            text = parseHex(doc.textHex ?: brand.darkHex, Color.BLACK),
+            text = parseHex(doc.textHex ?: (if (paleToDark) brand.lightHex else brand.darkHex), Color.BLACK),
             light = light,
             secondary = secondary,
             dark = dark,
             deep = mix(accent, dark, 0.45f),
             glow = mix(accent, secondary, 0.40f),
-            tint = mix(light, accent, 0.10f),
-            soft = mix(light, secondary, 0.45f)
+            tint = if (paleToDark) mix(surface, accent, 0.16f) else mix(lightBrand, accent, 0.10f),
+            soft = if (paleToDark) mix(surface, secondary, 0.20f) else mix(lightBrand, secondary, 0.45f),
+            lightText = lightBrand,
+            darkFirst = darkFirst
         )
         colors.footerText = parseHexOrNull(doc.slotStyles[PostSlots.FOOTER]?.colorHex)
         return colors
+    }
+
+    /** Tones used for backgrounds. In dark-first the accent-based tones become dark tinted tones, so light text always has a dark page under it. */
+    private fun bgTone(c: Colors, tone: PostTone): Int {
+        if (!c.darkFirst) return toneColor(c, tone)
+        return when (tone) {
+            PostTone.ACCENT -> mix(c.dark, c.accent, 0.32f)
+            PostTone.DEEP -> mix(c.dark, c.accent, 0.14f)
+            PostTone.GLOW -> mix(c.dark, c.glow, 0.30f)
+            else -> toneColor(c, tone)
+        }
     }
 
     private fun backgroundFor(doc: PostDoc, c: Colors, layout: TemplateLayout): Bg = when (doc.bgMode) {
@@ -340,11 +412,15 @@ object PostRenderer {
             val backdrop = layout.backdrop
             if (backdrop != null) {
                 Bg(
-                    toneColor(c, backdrop.from),
-                    backdrop.mid?.let { toneColor(c, it) },
-                    toneColor(c, backdrop.to),
+                    bgTone(c, backdrop.from),
+                    backdrop.mid?.let { bgTone(c, it) },
+                    bgTone(c, backdrop.to),
                     backdrop.angle
                 )
+            } else if (c.darkFirst && layout.base == PostBase.LIGHT) {
+                Bg(mix(c.dark, c.accent, 0.18f), null, c.dark, 135f)
+            } else if (c.darkFirst && layout.base == PostBase.PRIMARY) {
+                Bg(mix(c.dark, c.accent, 0.32f), null, mix(c.dark, c.accent, 0.12f), 135f)
             } else {
                 val flat = when (layout.base) {
                     PostBase.LIGHT -> c.light
@@ -420,7 +496,14 @@ object PostRenderer {
         } else {
             paint.color = startColor
         }
-        if (d.shadow) paint.setShadowLayer(unit * 0.022f, 0f, unit * 0.010f, Color.argb(75, 0, 0, 0))
+        if (d.shadow) {
+            paint.setShadowLayer(unit * 0.022f, 0f, unit * 0.010f, Color.argb(75, 0, 0, 0))
+        } else if (c.darkFirst && d.tone == PostTone.ACCENT && d.alpha >= 120 &&
+            (d.shape == DecorShape.ROUND || d.shape == DecorShape.RECT || d.shape == DecorShape.OVAL || d.shape == DecorShape.RING)
+        ) {
+            // the neon glow of the app: a soft halo of the accent around solid accent shapes
+            paint.setShadowLayer(unit * 0.03f, 0f, 0f, withAlpha(c.accent, 120))
+        }
 
         if (d.frameBack == 1 && frame != null) {
             canvas.drawPath(PostEngine.framePath(frame, r, unit), paint)
@@ -506,7 +589,11 @@ object PostRenderer {
         val boxH = box.h * h
         val paint = TextPaint(Paint.ANTI_ALIAS_FLAG)
         paint.typeface = PostFonts.resolve(context, box.font, doc, if (own) style?.fontEn else null)
-        paint.color = parseHexOrNull(style?.colorHex) ?: toneColor(colors, box.tone)
+        val picked = parseHexOrNull(style?.colorHex)
+        paint.color = picked ?: toneColor(colors, box.tone)
+        // contrast guard: only for colors the template chose, never for a color the user picked
+        val userSet = picked != null || (doc.textHex != null && box.tone == PostTone.TEXT)
+        if (!userSet) paint.color = readable(colors, paint.color, left, top, boxW.toFloat(), boxH)
         if (box.caps) paint.letterSpacing = 0.12f
         val alignment = if (box.centered) Layout.Alignment.ALIGN_CENTER else Layout.Alignment.ALIGN_NORMAL
         var size = box.size * unit * doc.textScale * (if (own) (style?.scale ?: 1f) else 1f)
@@ -555,10 +642,15 @@ object PostRenderer {
         val top = box.y * h
         val boxW = box.w * w
         val boxH = box.h * h
-        val markColor = ownColor ?: (if (isLightTone(box.tone)) colors.secondary else colors.accent)
+        var markColor = ownColor ?: (if (isLightTone(box.tone)) colors.secondary else colors.accent)
+        var textColor = ownColor ?: toneColor(colors, box.tone)
+        if (ownColor == null) {
+            markColor = readable(colors, markColor, left, top, boxW, boxH)
+            if (!(doc.textHex != null && box.tone == PostTone.TEXT)) textColor = readable(colors, textColor, left, top, boxW, boxH)
+        }
         val paint = TextPaint(Paint.ANTI_ALIAS_FLAG)
         paint.typeface = PostFonts.resolve(context, box.font, doc, style?.fontEn)
-        paint.color = ownColor ?: toneColor(colors, box.tone)
+        paint.color = textColor
         val markPaint = TextPaint(Paint.ANTI_ALIAS_FLAG)
         markPaint.typeface = PostFonts.get(context, PostFont.BOLD)
         markPaint.color = markColor
@@ -767,6 +859,7 @@ object PostRenderer {
      * Always on the right edge, on every template and size, so the logo reads on light and dark posters alike.
      * On tall posts (9:16) the box is lowered to about 8.5% of the height so Instagram and TikTok top buttons do not cover it.
      * 1:1, 4:5 and 4:3 keep it flush to the top.
+     * In dark-first the box is a deep tint of the accent over the dark color, never a bright accent, so the white logo always reads.
      */
     private fun drawLogo(context: Context, canvas: Canvas, doc: PostDoc, brand: PostBrand, c: Colors, w: Int, h: Int, unit: Float) {
         val bmp = loadLogo(context, brand, (unit * 0.12f).toInt()) ?: return
@@ -793,7 +886,8 @@ object PostRenderer {
         val shape = Path().apply { addRoundRect(rect, radii, Path.Direction.CW) }
 
         val fill = Paint(Paint.ANTI_ALIAS_FLAG)
-        fill.shader = gradientShader(rect, 135f, intArrayOf(c.deep, c.dark))
+        val boxTop = if (c.darkFirst) mix(c.dark, c.accent, 0.22f) else c.deep
+        fill.shader = gradientShader(rect, 135f, intArrayOf(boxTop, c.dark))
         fill.setShadowLayer(unit * 0.02f, 0f, unit * 0.008f, Color.argb(90, 0, 0, 0))
         canvas.drawPath(shape, fill)
 
@@ -836,7 +930,7 @@ object PostRenderer {
     /**
      * One centered row at the bottom: icon, then label, for each footer item. PILL puts each item in its own chip,
      * LINE draws a thin rule above the row. The row shrinks as a whole to fit the width. fg is the footer color.
-     * The label text takes the color picked for the footer text on this post (c.footerText), else fg.
+     * The label text takes the color picked for the footer text on this post (c.footerText), else fg (checked by the contrast guard).
      */
     private fun drawFooter(
         context: Context, canvas: Canvas, brand: PostBrand, fg: Int, c: Colors, onDark: Boolean,
@@ -858,7 +952,7 @@ object PostRenderer {
 
         val paint = TextPaint(Paint.ANTI_ALIAS_FLAG)
         paint.typeface = PostFonts.get(context, PostFont.BOLD)
-        paint.color = c.footerText ?: fg
+        paint.color = c.footerText ?: readable(c, fg, margin, centerY - unit * 0.04f, maxWidth, unit * 0.08f)
 
         fun rowWidth(ts: Float): Float {
             paint.textSize = ts
@@ -958,7 +1052,8 @@ object PostRenderer {
         edge.color = if (onDark) withAlpha(Color.WHITE, 80) else withAlpha(c.accent, 60)
         canvas.drawRoundRect(cell, radius, radius, edge)
 
-        val textColor = c.footerText ?: (if (onDark) c.light else c.text)
+        val wanted = c.footerText ?: (if (onDark) c.light else c.text)
+        val textColor = c.footerText ?: readable(c, wanted, cell.left, cell.top, cell.width(), cell.height())
         val d = min(cell.height() * 0.60f * brand.iconScale, cell.height() * 0.84f)
         val pad = (cell.height() - d) / 2f
         drawIconFor(canvas, brand, item, cell.left + pad + d / 2f, cell.centerY(), d, if (onDark) c.light else c.accent, c, onDark)

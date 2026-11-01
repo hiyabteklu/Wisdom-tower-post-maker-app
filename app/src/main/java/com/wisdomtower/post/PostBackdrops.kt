@@ -1,7 +1,9 @@
 package com.wisdomtower.post
 
+import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.RadialGradient
 import android.graphics.Shader
@@ -80,29 +82,48 @@ object PostBackdrops {
         canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
     }
 
+    /**
+     * MUTED PATTERNS. Every pattern is now drawn faint, slightly blurred and fading across the poster instead of as crisp hairlines:
+     * about half the old opacity, a soft edge (blur), and a fade (linear across the poster, or outward from the corner for rings and arcs).
+     */
+    private fun softPaint(
+        unit: Float, style: Paint.Style, strokeWidth: Float, color: Int, alpha: Int, w: Int, h: Int,
+        cx: Float? = null, cy: Float? = null, reach: Float = 0f, blur: Float = 0.004f
+    ): Paint {
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        paint.style = style
+        paint.strokeWidth = strokeWidth
+        val near = withAlpha(color, alpha)
+        val far = withAlpha(color, alpha / 4)
+        paint.shader = if (cx != null && cy != null) {
+            RadialGradient(cx, cy, max(1f, reach), intArrayOf(near, far), floatArrayOf(0f, 1f), Shader.TileMode.CLAMP)
+        } else {
+            LinearGradient(0f, 0f, w.toFloat(), h.toFloat(), near, far, Shader.TileMode.CLAMP)
+        }
+        paint.maskFilter = BlurMaskFilter(max(1f, unit * blur), BlurMaskFilter.Blur.NORMAL)
+        return paint
+    }
+
     private fun drawPattern(canvas: Canvas, pattern: Int, w: Int, h: Int, accent: Int) {
         if (pattern == 0) return
         val unit = min(w, h).toFloat()
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         when (pattern) {
             1 -> {
-                paint.color = withAlpha(Color.WHITE, 30)
-                val step = unit * 0.05f
+                val paint = softPaint(unit, Paint.Style.FILL, 0f, Color.WHITE, 14, w, h, blur = 0.003f)
+                val step = unit * 0.055f
                 var y = step / 2f
                 while (y < h) {
                     var x = step / 2f
                     while (x < w) {
-                        canvas.drawCircle(x, y, unit * 0.0032f, paint)
+                        canvas.drawCircle(x, y, unit * 0.003f, paint)
                         x += step
                     }
                     y += step
                 }
             }
             2 -> {
-                paint.style = Paint.Style.STROKE
-                paint.strokeWidth = max(1f, unit * 0.002f)
-                paint.color = withAlpha(accent, 26)
-                val step = unit * 0.065f
+                val paint = softPaint(unit, Paint.Style.STROKE, max(2f, unit * 0.003f), accent, 11, w, h)
+                val step = unit * 0.085f
                 var x = -h.toFloat()
                 while (x < w) {
                     canvas.drawLine(x, h.toFloat(), x + h, 0f, paint)
@@ -110,18 +131,14 @@ object PostBackdrops {
                 }
             }
             3, 5 -> {
-                paint.style = Paint.Style.STROKE
-                paint.strokeWidth = max(1f, unit * 0.003f)
-                paint.color = withAlpha(accent, 36)
                 val cx = if (pattern == 3) w.toFloat() else 0f
                 val cy = if (pattern == 3) 0f else h.toFloat()
+                val paint = softPaint(unit, Paint.Style.STROKE, max(2f, unit * 0.004f), accent, 15, w, h, cx, cy, unit * 1.44f)
                 for (i in 1..9) canvas.drawCircle(cx, cy, i * unit * 0.16f, paint)
             }
             4 -> {
-                paint.style = Paint.Style.STROKE
-                paint.strokeWidth = max(1f, unit * 0.0015f)
-                paint.color = withAlpha(Color.WHITE, 17)
-                val step = unit * 0.09f
+                val paint = softPaint(unit, Paint.Style.STROKE, max(1.5f, unit * 0.002f), Color.WHITE, 8, w, h, blur = 0.003f)
+                val step = unit * 0.10f
                 var x = step
                 while (x < w) {
                     canvas.drawLine(x, 0f, x, h.toFloat(), paint)

@@ -35,6 +35,7 @@ import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Layers
+import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Share
@@ -331,7 +332,8 @@ private fun TitleRow(
     bookmarked: Boolean,
     onToggleBookmark: () -> Unit,
     onOpenLibrary: () -> Unit,
-    onOpenBrand: () -> Unit
+    onOpenBrand: () -> Unit,
+    onOpenBatch: () -> Unit
 ) {
     Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(
@@ -355,6 +357,9 @@ private fun TitleRow(
         }
         IconButton(onClick = onOpenBrand) {
             Icon(Icons.Outlined.Palette, contentDescription = "Brand and social icons", tint = PostPalette.Mint)
+        }
+        IconButton(onClick = onOpenBatch) {
+            Icon(Icons.Outlined.Layers, contentDescription = "Batch", tint = PostPalette.Mint)
         }
     }
 }
@@ -599,14 +604,16 @@ private fun PreviewPane(
 private fun SaveDialog(doc: PostDoc, brand: PostBrand, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var chosen by remember { mutableStateOf(setOf(doc.size)) }
-    var png by remember { mutableStateOf(true) }
-    var fourK by remember { mutableStateOf(false) }
+    var options by remember(doc.size) { mutableStateOf(PostStore.loadSaveOptions(context, doc.size)) }
+    val chosen = options.sizes
+    val png = options.png
+    val fourK = options.fourK
     var busy by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf<String?>(null) }
 
     fun runExport(share: Boolean) {
         val sizes = PostSize.values().filter { it in chosen }.ifEmpty { listOf(doc.size) }
+        PostStore.saveSaveOptions(context, options)
         busy = true
         status = null
         scope.launch {

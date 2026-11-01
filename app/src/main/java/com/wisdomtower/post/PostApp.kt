@@ -169,6 +169,10 @@ fun PostApp() {
                     onBack = { screen = "studio" }
                 )
             }
+            "batch" -> {
+                BackHandler { screen = "studio" }
+                PostBatchScreen(doc = doc, brand = brand, onBack = { screen = "studio" })
+            }
             "brand" -> {
                 BackHandler { screen = "studio" }
                 PostBrandScreen(
@@ -197,7 +201,8 @@ fun PostApp() {
                     saveOpenDraft()
                     libSize = doc.size
                     screen = "library"
-                }
+                },
+                onOpenBatch = { screen = "batch" }
             )
         }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 12.dp))

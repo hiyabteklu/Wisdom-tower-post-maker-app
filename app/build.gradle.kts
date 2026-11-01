@@ -6,6 +6,7 @@ import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
+import java.util.Base64
 
 plugins {
     id("com.android.application")
@@ -37,7 +38,7 @@ abstract class PrepareLauncherLogo : DefaultTask() {
 val wtpKeystoreFile = rootProject.file("signing/wtp.keystore")
 val wtpKeystoreText = rootProject.file("signing/wtp.keystore.b64")
 if (!wtpKeystoreFile.exists() && wtpKeystoreText.exists()) {
-    wtpKeystoreFile.writeBytes(java.util.Base64.getDecoder().decode(wtpKeystoreText.readText().trim()))
+    wtpKeystoreFile.writeBytes(Base64.getDecoder().decode(wtpKeystoreText.readText().trim()))
 }
 
 android {

@@ -23,6 +23,10 @@ object PostSlots {
     const val LIST = "list"
     const val BUTTON = "button"
 
+    /** Style keys for text that is not a word box (see PostDoc.slotStyles). They never appear in PostDoc.texts. */
+    const val MARKS = "@marks"
+    const val FOOTER = "@footer"
+
     fun label(slot: String): String = when (slot) {
         EYEBROW -> "Small label"
         HEADLINE -> "Headline"
@@ -30,6 +34,8 @@ object PostSlots {
         NUMBER -> "Big number or code"
         LIST -> "List (one item per line)"
         BUTTON -> "Button text"
+        MARKS -> "Marks and badges"
+        FOOTER -> "Footer text"
         else -> slot
     }
 }
@@ -65,6 +71,21 @@ data class PostIconItem(
 )
 
 const val MAX_POST_ICONS = 6
+
+/**
+ * The look of one text box on one post (docs/TEXT_STYLE.md). Every field is optional: null (or 1 for scale) means
+ * "keep what the template does". colorHex is a color for the whole box. fontEn is the font of its Latin letters and
+ * fontAm the font of its Ethiopic letters (a bundled asset path, or a file added from the phone).
+ * scale multiplies the box's text size on top of the post's overall Text size.
+ */
+data class SlotStyle(
+    val colorHex: String? = null,
+    val fontEn: String? = null,
+    val fontAm: String? = null,
+    val scale: Float = 1f
+) {
+    val isDefault: Boolean get() = colorHex == null && fontEn == null && fontAm == null && scale == 1f
+}
 
 data class PostBrand(
     val primaryHex: String = "#176B4D",
@@ -138,7 +159,9 @@ data class PostDoc(
     /** Text slots drawn behind the cut-out subject. */
     val textBehind: Set<String> = emptySet(),
     /** Dragged text positions, keyed "templateId:SIZE:slot" (see PostEngine.offsetFor). */
-    val slotOffsets: Map<String, SlotOffset> = emptyMap()
+    val slotOffsets: Map<String, SlotOffset> = emptyMap(),
+    /** Color, font and size of single text boxes, keyed by slot name (or PostSlots.MARKS / PostSlots.FOOTER). Empty = every template look is untouched. */
+    val slotStyles: Map<String, SlotStyle> = emptyMap()
 ) {
     fun withText(slot: String, value: String): PostDoc = copy(texts = texts + (slot to value))
 }
@@ -146,6 +169,7 @@ data class PostDoc(
 object PostCodec {
     /**
      * Drafts saved before the Clean/Rich switch was removed still carry a "richness" number. It is not read any more and not written.
+     * Drafts saved before per-box styles have no "slotStyles" object; they read as no styles.
      */
     fun encodeDoc(d: PostDoc): String = JSONObject().apply {
         put("version", 4)
@@ -198,6 +222,18 @@ object PostCodec {
         put("slotOffsets", JSONObject().also { o ->
             d.slotOffsets.forEach { (k, v) -> o.put(k, JSONObject().put("dx", v.dx.toDouble()).put("dy", v.dy.toDouble())) }
         })
+        put("slotStyles", JSONObject().also { o ->
+            d.slotStyles.filterValues { !it.isDefault }.forEach { (k, v) ->
+                o.put(
+                    k,
+                    JSONObject()
+                        .put("color", v.colorHex ?: "")
+                        .put("fontEn", v.fontEn ?: "")
+                        .put("fontAm", v.fontAm ?: "")
+                        .put("scale", v.scale.toDouble())
+                )
+            }
+        })
     }.toString()
 
     /** The first test build stored the default colors as if they were choices. Treat those as "use the brand color". */
@@ -235,6 +271,22 @@ object PostCodec {
                 dx = v.optDouble("dx", 0.0).toFloat().coerceIn(-1f, 1f),
                 dy = v.optDouble("dy", 0.0).toFloat().coerceIn(-1f, 1f)
             )
+        }
+        return out
+    }
+
+    private fun decodeSlotStyles(j: JSONObject): Map<String, SlotStyle> {
+        val o = j.optJSONObject("slotStyles") ?: return emptyMap()
+        val out = LinkedHashMap<String, SlotStyle>()
+        o.keys().forEach { key ->
+            val v = o.optJSONObject(key) ?: return@forEach
+            val style = SlotStyle(
+                colorHex = v.optString("color").takeIf { it.isNotBlank() && it != "null" },
+                fontEn = v.optString("fontEn").takeIf { it.isNotBlank() && it != "null" },
+                fontAm = v.optString("fontAm").takeIf { it.isNotBlank() && it != "null" },
+                scale = v.optDouble("scale", 1.0).toFloat().coerceIn(0.5f, 2f)
+            )
+            if (!style.isDefault) out[key] = style
         }
         return out
     }
@@ -279,7 +331,8 @@ object PostCodec {
             cutoutX = j.optDouble("cutoutX", 0.5).toFloat().coerceIn(0f, 1f),
             cutoutY = j.optDouble("cutoutY", 0.94).toFloat().coerceIn(0.2f, 1.2f),
             textBehind = decodeTextBehind(j),
-            slotOffsets = decodeOffsets(j)
+            slotOffsets = decodeOffsets(j),
+            slotStyles = decodeSlotStyles(j)
         )
     }
 

@@ -35,23 +35,27 @@ Rules: write the posts with the brand kit repo `wisdom-tower-brand-kit` (read `A
 
 Seen on the phone preview:
 
-1. **Logo clipped.** The Wisdom Tower badge touches the right edge of the poster and looks cut off. Needs a proper right margin (match the left margin used by the big number).
-2. **Message text too small and low contrast.** Dark grey on cyan, small, and a large empty gap between the headline and the message inside the card. Make the message larger, near-black (or white on a darker card), and bring it closer to the headline.
-3. **Card taller than its text.** The cyan card has a lot of empty space. Either size the card to its content (with a minimum), or let the headline use more of it.
-4. **Small label too small.** "GRADE 12 STUDY TIP" is tiny next to the giant "01". Raise size or weight a little. Keep it in caps.
+1. **Logo at the right edge.** The Wisdom Tower badge touches the right edge of the poster. It may be an intended tab (rounded on the left, flush on the right, "lowered logo box" in the template notes) or a clipping bug. Not decided. Ask Hiyab which he wants before changing it (slice D3).
+2. **Message text too small and low contrast.** Dark grey on cyan, small, and a large empty gap between the headline and the message inside the card.
+3. **Card taller than its text.**
+4. **Small label too small.** "GRADE 12 STUDY TIP" is tiny next to the giant "01".
 5. Footer chips (website and Telegram) look good. Leave them.
 
 ## 4. Slices (push in this order, one slice per push, tick in section 6)
 
 Rules for every slice: work on `main`, read the file before editing, change one template at a time, do not change `PostCodec` (version 4), do not touch the other templates in the same push, and say "not compiled, please build".
 
-**D1. Numbered tip fixes (`info-tip`).** Find the template in `PostTemplates*.kt` (`postTemplate("info-tip")`, `layout(size)` per size). Fix findings 1 to 4 for all four sizes (1:1, 4:5, 4:3, 9:16). Check: open the Library, switch through the sizes, no card marked "text too long", logo fully inside the margin, message readable at phone size. Use the test batch (id `ae397d3d-4345-428a-abfc-56c7e1c0e12d`) or send a new one.
+**D1. Numbered tip fixes (`info-tip`).** PUSHED 2 Nov 2026 in `PostTemplatesInfo.kt` (`tipLayout`), not yet built or checked on the phone. Findings 2 to 4 only:
+- Message now uses `PostTone.LIGHT` (same as the headline) instead of `LIGHT_MUTED`, and is larger (9:16: .034 to .040 of the width; 1:1: .030 to .034). 4:3 only changed the message tone.
+- Message sits closer to the headline (9:16: y .67 to .63; 1:1: y .70 to .66). Card is shorter (9:16: .46 to .38 high, starts at .42; 1:1: .39 to .37).
+- Small label larger (9:16: .024 to .030; 1:1: .024 to .028), moved left and widened so 24 characters fit; the accent rule under it moved with it. Number box narrowed so it does not overlap the label.
+- Check on the phone: Library, switch through the sizes, no "text too long", 24 character label fits on one line, a 3 line headline (40 characters) does not touch the message, a 120 character message fits inside the card. If any of those fail, tighten the numbers in `tipLayout` and write the change in section 5.
 
-**D2. Same review for the other text templates.** Open each template with a long and a short text and note the same kind of problems (clipped logo, small message, dead space). Do the families in this order: Information, Marketing, Type, then the photo and split templates. One push per family. Keep a short findings list in section 5.
+**D2. Same review for the other text templates.** Open each template with a long and a short text and note the same kind of problems (small or low contrast message, dead space, small label). Do the families in this order: Information, Marketing, Type, then the photo and split templates. One push per family. Keep a short findings list in section 5. Other info templates that still use `PostTone.MUTED` for the message: `info-quote`, `info-stat`.
 
-**D3. Brand safe areas.** If the logo clipping is shared by many templates, fix it once in the brand header component (logo is a brand component, not a layer) instead of per template.
+**D3. Brand logo margin.** Decide with Hiyab whether the logo tab at the right edge is intended. If not, fix it once in the brand header component (logo is a brand component, not a layer) instead of per template.
 
-**D4. Workflow extras (only after D1).**
+**D4. Workflow extras (only after D1 is checked).**
 - Share to Telegram: after Save to gallery, a button that opens the share sheet limited to Telegram (the existing Share saved files button already works for any app).
 - Published marker: in the inbox list, show a tick on batches with status `published`, and sort drafts first.
 - Direct save from chat: register `wt-mcp` as a custom connector so any chat can call `save_batch`. Unverified: the chat app may not accept the `x-wt-key` header. If it does not, keep using the Supabase connector. Only after this works add one rule to the brand kit `AGENT_START.md`: when the chat link is on, save every batch and say the batch title.
@@ -59,15 +63,15 @@ Rules for every slice: work on `main`, read the file before editing, change one 
 
 ## 5. Findings log (add to it)
 
-- 2 Nov 2026, `info-tip` 9:16: findings 1 to 4 in section 3.
+- 2 Nov 2026, `info-tip` 9:16: findings 1 to 4 in section 3. D1 pushed for 2 to 4.
 
 ## 6. Status
 
 - [x] Chat to inbox to review loop works on the phone
 - [ ] Save to gallery tested after an inbox batch
-- [ ] D1 Numbered tip fixes
+- [x] D1 Numbered tip fixes (pushed, not yet built or checked)
 - [ ] D2 Other text templates reviewed and fixed
-- [ ] D3 Shared brand header margin
+- [ ] D3 Brand logo margin (decide first)
 - [ ] D4 Workflow extras
 
 ## 7. Safety

@@ -52,7 +52,7 @@ fun PostChatInboxScreen(onBack: () -> Unit, onOpenBatch: (PostChatBatch) -> Unit
             try {
                 batches = PostChatApi.listBatches(context)
                 message = if (batches.isEmpty()) "No batches yet. Ask your AI chat to save a poster batch." else ""
-            } catch (e: Exception) { message = e.message ?: "Could not load batches" }
+            } catch (e: Exception) {\n                batches = PostChatStore.loadCachedBatches(context)\n                message = if (batches.isNotEmpty()) "Offline · showing the last saved inbox" else (e.message ?: "Could not load batches")\n            }
             finally { busy = false }
         }
     }

@@ -356,6 +356,14 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
                             Icon(Icons.Outlined.ArrowForward, contentDescription = "Next post", tint = PostPalette.Text)
                         }
                     }
+                    if (initialBatch != null) {
+                        val caption = initialBatch.captions.optString(pagerState.currentPage).takeIf { it.isNotBlank() }
+                        if (caption != null) {
+                            Text("Caption", color = PostPalette.Text, fontWeight = FontWeight.Bold)
+                            Text(caption, color = PostPalette.Muted, fontSize = 13.sp)
+                            OutlinedButton(onClick = { clipboard.setText(AnnotatedString(caption)) }, modifier = Modifier.fillMaxWidth()) { Text("Copy caption") }
+                        }
+                    }
                     OutlinedButton(onClick = {
                         checking = true
                         fitResults = emptyList()
@@ -414,6 +422,42 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
                         }
                     }
                     status?.takeIf { it != "All posts fit" }?.let { Text(it, color = PostPalette.Text, fontSize = 13.sp) }
+                    if (resultUris.isNotEmpty() && !running && initialBatch != null) {
+                        Text("Backend status: $backendStatus", color = PostPalette.Muted, fontSize = 12.sp)
+                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            listOf("Telegram", "Instagram", "Facebook", "TikTok").forEach { item ->
+                                FilterChip(selected = platform == item, onClick = { platform = item }, label = { Text(item) })
+                            }
+                        }
+                        OutlinedButton(onClick = {
+                            scope.launch {
+                                try {
+                                    PostChatApi.setBatchStatus(context, initialBatch.id, "approved")
+                                    backendStatus = "approved"
+                                    backendMessage = "Batch marked approved"
+                                } catch (e: Exception) { backendMessage = e.message ?: "Status update failed" }
+                            }
+                        }, modifier = Modifier.fillMaxWidth(), enabled = backendStatus != "approved" && backendStatus != "published") { Text("Mark approved") }
+                        Button(onClick = {
+                            scope.launch {
+                                try {
+                                    PostChatApi.setBatchStatus(context, initialBatch.id, "published")
+                                    backendStatus = "published"
+                                    val postedOn = LocalDate.now().toString()
+                                    for (index in 0 until initialBatch.posts.length()) {
+                                        val post = initialBatch.posts.optJSONObject(index) ?: continue
+                                        PostChatApi.logPost(context, org.json.JSONObject()
+                                            .put("posted_on", postedOn).put("platform", platform)
+                                            .put("pillar", initialBatch.pillar).put("topic", initialBatch.title)
+                                            .put("headline", post.optString("headline", initialBatch.title))
+                                            .put("format", initialBatch.template).put("batch_id", initialBatch.id))
+                                    }
+                                    backendMessage = "Marked published and logged posts"
+                                } catch (e: Exception) { backendMessage = e.message ?: "Publishing status update failed" }
+                            }
+                        }, modifier = Modifier.fillMaxWidth(), enabled = backendStatus != "published") { Text("Mark posted and log") }
+                        backendMessage?.let { Text(it, color = PostPalette.Mint, fontSize = 12.sp) }
+                    }
                     if (resultUris.isNotEmpty() && !running) {
                         if (resultUris.size <= 30) OutlinedButton(onClick = { shareResults() }, modifier = Modifier.fillMaxWidth()) {
                             Icon(Icons.Outlined.Share, contentDescription = null)

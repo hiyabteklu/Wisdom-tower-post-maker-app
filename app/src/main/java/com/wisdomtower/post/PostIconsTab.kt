@@ -192,11 +192,35 @@ internal fun IconOptions(
                 val item = doc.icons[sel]
                 FilterChip(selected = item.front, onClick = { change { it.copy(front = true) } }, label = { Text("In front of words") })
                 FilterChip(selected = !item.front, onClick = { change { it.copy(front = false) } }, label = { Text("Behind words") })
+                OutlinedButton(
+                    onClick = {
+                        if (sel > 0) {
+                            val reordered = doc.icons.toMutableList()
+                            val moved = reordered.removeAt(sel)
+                            reordered.add(sel - 1, moved)
+                            onDoc(doc.copy(icons = reordered))
+                            onSelect(sel - 1)
+                        }
+                    },
+                    enabled = sel > 0
+                ) { Text("Earlier") }
+                OutlinedButton(
+                    onClick = {
+                        if (sel < doc.icons.lastIndex) {
+                            val reordered = doc.icons.toMutableList()
+                            val moved = reordered.removeAt(sel)
+                            reordered.add(sel + 1, moved)
+                            onDoc(doc.copy(icons = reordered))
+                            onSelect(sel + 1)
+                        }
+                    },
+                    enabled = sel < doc.icons.lastIndex
+                ) { Text("Later") }
                 FilterChip(
                     selected = false,
                     onClick = {
                         onDoc(doc.copy(icons = doc.icons.filterIndexed { i, _ -> i != sel }))
-                        onSelect(0)
+                        onSelect((sel - 1).coerceAtLeast(0))
                     },
                     label = { Text("Remove") }
                 )

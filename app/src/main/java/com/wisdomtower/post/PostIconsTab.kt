@@ -216,6 +216,22 @@ internal fun IconOptions(
                     },
                     enabled = sel < doc.icons.lastIndex
                 ) { Text("Later") }
+                OutlinedButton(
+                    onClick = {
+                        if (doc.icons.size < MAX_POST_ICONS) {
+                            val original = doc.icons[sel]
+                            val duplicate = original.copy(
+                                cx = (original.cx + 0.06f).coerceIn(0.04f, 0.96f),
+                                cy = (original.cy + 0.06f).coerceIn(0.04f, 0.96f)
+                            )
+                            onDoc(doc.copy(icons = doc.icons + duplicate))
+                            onSelect(doc.icons.size)
+                        } else {
+                            Toast.makeText(context, "Up to $MAX_POST_ICONS icons on a post", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    enabled = doc.icons.size < MAX_POST_ICONS
+                ) { Text("Duplicate") }
                 FilterChip(
                     selected = false,
                     onClick = {

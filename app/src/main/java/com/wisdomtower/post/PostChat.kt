@@ -18,6 +18,26 @@ object PostChatStore {
     fun save(context: Context, url: String, key: String) {
         prefs(context).edit().putString("url", url.trim()).putString("key", key).apply()
     }
+
+    fun saveCachedBatches(context: Context, batches: List<PostChatBatch>) {
+        val rows = JSONArray()
+        batches.forEach { batch ->
+            rows.put(JSONObject().put("id", batch.id).put("title", batch.title).put("template", batch.template)
+                .put("level", batch.level).put("pillar", batch.pillar).put("status", batch.status)
+                .put("post_count", batch.postCount).put("created_at", batch.createdAt))
+        }
+        prefs(context).edit().putString("batches_cache", rows.toString()).apply()
+    }
+
+    fun loadCachedBatches(context: Context): List<PostChatBatch> = runCatching {
+        val rows = JSONArray(prefs(context).getString("batches_cache", "[]"))
+        (0 until rows.length()).mapNotNull { index ->
+            val row = rows.optJSONObject(index) ?: return@mapNotNull null
+            PostChatBatch(row.optString("id"), row.optString("title"), row.optString("template"), row.optString("level"),
+                row.optString("pillar"), row.optString("status"), row.optInt("post_count"), row.optString("created_at"),
+                JSONArray(), JSONArray())
+        }
+    }.getOrDefault(emptyList())
 }
 
 data class PostChatBatch(
@@ -118,7 +138,7 @@ object PostChatApi {
         val payload = result.optJSONArray("content")?.optJSONObject(0)?.optString("text")
             ?: throw IllegalStateException("Unexpected list response")
         val rows = JSONArray(payload)
-        return (0 until rows.length()).mapNotNull { i ->
+        val batches = (0 until rows.length()).mapNotNull { i ->
             val row = rows.optJSONObject(i) ?: return@mapNotNull null
             PostChatBatch(
                 id = row.optString("id"), title = row.optString("title").ifBlank { "Untitled batch" },
@@ -127,6 +147,8 @@ object PostChatApi {
                 createdAt = row.optString("created_at"), posts = JSONArray(), captions = JSONArray()
             )
         }
+        PostChatStore.saveCachedBatches(context, batches)
+        batches
     }
 
     suspend fun setBatchStatus(context: Context, id: String, status: String) {

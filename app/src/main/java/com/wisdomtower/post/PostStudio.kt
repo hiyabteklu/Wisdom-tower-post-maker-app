@@ -137,7 +137,7 @@ fun PostStudioScreen(
                     SizeRow(doc, onDoc, edited, onReset) { showSave = true }
                     PreviewPane(
                         doc, brand, moveLogoOn, onDoc,
-                        iconEdit = doc.icons.isNotEmpty(),
+                        iconEdit = doc.icons.isNotEmpty() && !moveOn && !moveLogoOn,
                         selectedIcon = selectedIcon,
                         layout = layout,
                         moveOn = moveOn,

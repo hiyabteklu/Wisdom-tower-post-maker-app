@@ -278,7 +278,7 @@ object PostRenderer {
             layout.decor.filter { it.overPhoto }.forEach { drawDecor(canvas, it, colors, w, h, unit) }
 
             // icons the user placed behind the words
-            doc.icons.filter { !it.front }.forEach { PostIconStore.draw(canvas, it, w, h, unit, colors.accent) }
+            doc.icons.filter { it.visible && !it.front }.forEach { PostIconStore.draw(canvas, it, w, h, unit, colors.accent) }
             stop()
 
             val overflow = mutableListOf<String>()
@@ -290,6 +290,7 @@ object PostRenderer {
                 layout.slots.forEach { box ->
                     stop()
                     val isBehind = box.literal == null && box.slot in doc.textBehind
+                    if (box.slot in doc.hiddenTextSlots) return@forEach
                     if (isBehind != behind) return@forEach
                     if (box.literal == null && doc.offsetFor(box.slot) != null) return@forEach
                     val text = (box.literal ?: doc.texts[box.slot].orEmpty()).trim()
@@ -300,7 +301,7 @@ object PostRenderer {
                 canvas.restore()
                 layout.slots.forEach { box ->
                     stop()
-                    if (box.literal != null) return@forEach
+                    if (box.literal != null || box.slot in doc.hiddenTextSlots) return@forEach
                     val off = doc.offsetFor(box.slot) ?: return@forEach
                     if ((box.slot in doc.textBehind) != behind) return@forEach
                     val text = doc.texts[box.slot].orEmpty().trim()
@@ -327,7 +328,7 @@ object PostRenderer {
             stop()
 
             // icons the user placed in front
-            doc.icons.filter { it.front }.forEach { PostIconStore.draw(canvas, it, w, h, unit, colors.accent) }
+            doc.icons.filter { it.visible && it.front }.forEach { PostIconStore.draw(canvas, it, w, h, unit, colors.accent) }
             colors.canvasBitmap = null
             return Result(bitmap, overflow)
         } catch (e: java.util.concurrent.CancellationException) {

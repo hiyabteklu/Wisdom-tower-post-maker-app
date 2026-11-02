@@ -36,6 +36,7 @@ import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.Inbox
+import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Refresh
@@ -111,7 +112,8 @@ fun PostStudioScreen(
     bookmarked: Boolean = false,
     onToggleBookmark: () -> Unit = {},
     onOpenLibrary: () -> Unit = {},
-    onOpenBatch: () -> Unit = {}
+    onOpenBatch: () -> Unit = {},
+    onOpenInbox: () -> Unit = {}
 ) {
     var moveLogoOn by remember { mutableStateOf(false) }
     var moveOn by remember { mutableStateOf(false) }
@@ -334,7 +336,8 @@ private fun TitleRow(
     onToggleBookmark: () -> Unit,
     onOpenLibrary: () -> Unit,
     onOpenBrand: () -> Unit,
-    onOpenBatch: () -> Unit
+    onOpenBatch: () -> Unit,
+    onOpenInbox: () -> Unit
 ) {
     Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(
@@ -361,6 +364,9 @@ private fun TitleRow(
         }
         IconButton(onClick = onOpenBatch) {
             Icon(Icons.Outlined.Layers, contentDescription = "Batch", tint = PostPalette.Mint)
+        }
+        IconButton(onClick = onOpenInbox) {
+            Icon(Icons.Outlined.Inbox, contentDescription = "Poster inbox", tint = PostPalette.Mint)
         }
     }
 }

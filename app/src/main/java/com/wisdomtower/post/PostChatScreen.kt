@@ -31,7 +31,7 @@ import androidx.compose.ui.platform.LocalContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PostChatScreen(onBack: () -> Unit) {
+fun PostChatScreen(onBack: () -> Unit, onOpenInbox: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var endpoint by remember { mutableStateOf(PostChatStore.loadUrl(context)) }
@@ -90,7 +90,7 @@ fun PostChatScreen(onBack: () -> Unit) {
                     modifier = Modifier.fillMaxWidth()
                 ) { Text(if (busy) "Testing…" else "Test connection") }
                 Text(message, color = if (success) PostPalette.Mint else PostPalette.Text, fontWeight = FontWeight.SemiBold)
-                TextButton(onClick = { endpoint = PostChatStore.DEFAULT_URL }) { Text("Restore default URL") }
+                TextButton(onClick = { endpoint = PostChatStore.DEFAULT_URL }) { Text("Restore default URL") }\n                Button(onClick = onOpenInbox, enabled = success || PostChatStore.loadKey(context).length >= 24, modifier = Modifier.fillMaxWidth()) { Text("Open poster inbox") }
             }
         }
     }

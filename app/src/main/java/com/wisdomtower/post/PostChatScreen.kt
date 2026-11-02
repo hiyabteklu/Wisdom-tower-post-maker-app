@@ -57,14 +57,14 @@ fun PostChatScreen(onBack: () -> Unit, onOpenInbox: () -> Unit) {
                 Text("Connect Wisdom Tower Post to the private wt_post backend. Only poster text and captions are transferred.", color = PostPalette.Muted)
                 OutlinedTextField(
                     value = endpoint,
-                    onValueChange = { endpoint = it },
+                    onValueChange = { endpoint = it; success = false },
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("Backend URL") },
                     singleLine = true
                 )
                 OutlinedTextField(
                     value = secret,
-                    onValueChange = { secret = it },
+                    onValueChange = { secret = it; success = false },
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("Secret key") },
                     singleLine = true,

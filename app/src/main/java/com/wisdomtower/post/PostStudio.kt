@@ -187,6 +187,7 @@ fun PostStudioScreen(
 
                         SettingsSection("Photo", "Template photo and full-canvas background image.") {
                             val groups = editorGroups(EditorTab.PHOTO, doc, slots, photoArea != null, false)
+                                .filterNot { it.key == "bgimg" || it.key == "bgop" }
                             groups.forEach { group ->
                                 ControlHeading(group.label)
                                 val slider = editorSlider(EditorTab.PHOTO, group.key, doc, photoArea?.dim, onDoc)
@@ -194,6 +195,33 @@ fun PostStudioScreen(
                                 EditorOptions(EditorTab.PHOTO, group.key, doc, onDoc, brand, onBrand,
                                     photoArea != null, onPickPhoto, onPickBackgroundPhoto, onPickLogo,
                                     moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it })
+                            }
+
+                            Divider(color = PostPalette.Line)
+                            ControlHeading("Full-canvas background image")
+                            Text(
+                                "This image sits behind the entire design. Lower opacity to blend it with the template colors.",
+                                color = PostPalette.Muted,
+                                fontSize = 12.sp
+                            )
+                            OutlinedButton(onClick = onPickBackgroundPhoto, modifier = Modifier.fillMaxWidth()) {
+                                Text(if (doc.backgroundPhotoUri == null) "Add background image" else "Replace background image")
+                            }
+                            if (doc.backgroundPhotoUri != null) {
+                                InlineEditorSlider(
+                                    EditorSlider(
+                                        "Background image opacity",
+                                        doc.backgroundPhotoOpacity,
+                                        0f..1f,
+                                        "\${(doc.backgroundPhotoOpacity * 100).toInt()}%"
+                                    ) { onDoc(doc.copy(backgroundPhotoOpacity = it)) }
+                                )
+                                OutlinedButton(
+                                    onClick = { onDoc(doc.copy(backgroundPhotoUri = null, backgroundPhotoOpacity = 1f)) },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("Remove background image")
+                                }
                             }
                         }
 

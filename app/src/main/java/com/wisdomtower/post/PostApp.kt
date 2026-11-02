@@ -226,7 +226,8 @@ fun PostApp() {
                     libSize = doc.size
                     screen = "library"
                 },
-                onOpenBatch = { screen = "batch" }
+                onOpenBatch = { screen = "batch" },
+                onOpenInbox = { screen = "chat" }
             )
         }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 12.dp))

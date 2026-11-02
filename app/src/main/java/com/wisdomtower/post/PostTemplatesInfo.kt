@@ -218,39 +218,45 @@ private fun quoteLayout(size: PostSize): TemplateLayout {
     return TemplateLayout(PostBase.LIGHT, decor, slots, backdrop = IN_BACKDROP)
 }
 
+/**
+ * Numbered tip. Design fix D1 (2 Nov 2026, DESIGN_PLAN.md): the message was small and low contrast (LIGHT_MUTED) with a big gap
+ * under the headline, the card was taller than its text, and the small label was tiny beside the giant number.
+ * Now the message uses the same tone as the headline and a larger size, sits closer to the headline, the card is shorter,
+ * and the small label is larger. 4:3 only changes the message tone (its layout was already tight).
+ */
 private fun tipLayout(size: PostSize): TemplateLayout {
     val decor = size.pick(
         listOf(
-            inBlock(.07f, .47f, .86f, .39f, .04f, PostTone.ACCENT, to = PostTone.DEEP, shadow = true),
-            inRule(size, .52f, .285f, .10f, PostTone.ACCENT, 8f)
+            inBlock(.07f, .47f, .86f, .37f, .04f, PostTone.ACCENT, to = PostTone.DEEP, shadow = true),
+            inRule(size, .50f, .285f, .10f, PostTone.ACCENT, 8f)
         ),
         listOf(
             inBlock(.40f, .16f, .54f, .70f, .04f, PostTone.ACCENT, to = PostTone.DEEP, shadow = true),
             inRule(size, .06f, .195f, .08f, PostTone.ACCENT, 8f)
         ),
         listOf(
-            inBlock(.07f, .40f, .86f, .46f, .04f, PostTone.ACCENT, to = PostTone.DEEP, shadow = true),
-            inRule(size, .58f, .272f, .12f, PostTone.ACCENT, 8f)
+            inBlock(.07f, .42f, .86f, .38f, .04f, PostTone.ACCENT, to = PostTone.DEEP, shadow = true),
+            inRule(size, .46f, .272f, .12f, PostTone.ACCENT, 8f)
         )
     )
     val slots = size.pick(
         listOf(
-            inText(PostSlots.EYEBROW, .52f, .23f, .40f, .04f, .024f, PostFont.BOLD, PostTone.ACCENT, caps = true),
-            inText(PostSlots.NUMBER, .06f, .13f, .44f, .33f, .22f, PostFont.DISPLAY, PostTone.ACCENT),
+            inText(PostSlots.EYEBROW, .50f, .225f, .43f, .04f, .028f, PostFont.BOLD, PostTone.ACCENT, caps = true),
+            inText(PostSlots.NUMBER, .06f, .13f, .40f, .33f, .22f, PostFont.DISPLAY, PostTone.ACCENT),
             inText(PostSlots.HEADLINE, .12f, .51f, .76f, .17f, .056f, PostFont.DISPLAY, PostTone.LIGHT),
-            inText(PostSlots.BODY, .12f, .70f, .76f, .14f, .030f, PostFont.REGULAR, PostTone.LIGHT_MUTED)
+            inText(PostSlots.BODY, .12f, .66f, .76f, .15f, .034f, PostFont.REGULAR, PostTone.LIGHT)
         ),
         listOf(
             inText(PostSlots.EYEBROW, .06f, .14f, .30f, .04f, .024f, PostFont.BOLD, PostTone.ACCENT, caps = true),
             inText(PostSlots.NUMBER, .06f, .21f, .31f, .50f, .30f, PostFont.DISPLAY, PostTone.ACCENT),
             inText(PostSlots.HEADLINE, .46f, .22f, .42f, .30f, .060f, PostFont.DISPLAY, PostTone.LIGHT),
-            inText(PostSlots.BODY, .46f, .56f, .42f, .24f, .032f, PostFont.REGULAR, PostTone.LIGHT_MUTED)
+            inText(PostSlots.BODY, .46f, .56f, .42f, .24f, .032f, PostFont.REGULAR, PostTone.LIGHT)
         ),
         listOf(
-            inText(PostSlots.EYEBROW, .58f, .23f, .34f, .03f, .024f, PostFont.BOLD, PostTone.ACCENT, caps = true),
-            inText(PostSlots.NUMBER, .07f, .17f, .50f, .19f, .21f, PostFont.DISPLAY, PostTone.ACCENT),
-            inText(PostSlots.HEADLINE, .12f, .44f, .76f, .21f, .066f, PostFont.DISPLAY, PostTone.LIGHT),
-            inText(PostSlots.BODY, .12f, .67f, .76f, .16f, .034f, PostFont.REGULAR, PostTone.LIGHT_MUTED)
+            inText(PostSlots.EYEBROW, .46f, .225f, .47f, .035f, .030f, PostFont.BOLD, PostTone.ACCENT, caps = true),
+            inText(PostSlots.NUMBER, .07f, .17f, .38f, .19f, .21f, PostFont.DISPLAY, PostTone.ACCENT),
+            inText(PostSlots.HEADLINE, .12f, .46f, .76f, .19f, .066f, PostFont.DISPLAY, PostTone.LIGHT),
+            inText(PostSlots.BODY, .12f, .63f, .76f, .15f, .040f, PostFont.REGULAR, PostTone.LIGHT)
         )
     )
     return TemplateLayout(PostBase.LIGHT, decor, slots, backdrop = IN_BACKDROP)

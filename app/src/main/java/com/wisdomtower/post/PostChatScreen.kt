@@ -90,7 +90,8 @@ fun PostChatScreen(onBack: () -> Unit, onOpenInbox: () -> Unit) {
                     modifier = Modifier.fillMaxWidth()
                 ) { Text(if (busy) "Testing…" else "Test connection") }
                 Text(message, color = if (success) PostPalette.Mint else PostPalette.Text, fontWeight = FontWeight.SemiBold)
-                TextButton(onClick = { endpoint = PostChatStore.DEFAULT_URL }) { Text("Restore default URL") }\n                Button(onClick = onOpenInbox, enabled = success || PostChatStore.loadKey(context).length >= 24, modifier = Modifier.fillMaxWidth()) { Text("Open poster inbox") }
+                TextButton(onClick = { endpoint = PostChatStore.DEFAULT_URL }) { Text("Restore default URL") }
+                Button(onClick = onOpenInbox, enabled = success || PostChatStore.loadKey(context).length >= 24, modifier = Modifier.fillMaxWidth()) { Text("Open poster inbox") }
             }
         }
     }

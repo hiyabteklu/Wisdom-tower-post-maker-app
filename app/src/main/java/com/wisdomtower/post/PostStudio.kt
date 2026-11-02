@@ -259,7 +259,7 @@ fun PostStudioScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(PostSlots.label(slot), color = PostPalette.Text, fontSize = 13.sp)
+                                    Text(PostSlots.label(slot) + if (slot in doc.hiddenTextSlots) " · Hidden" else "", color = PostPalette.Text, fontSize = 13.sp, modifier = Modifier.weight(1f))
                                     OutlinedButton(
                                         onClick = {
                                             moveLogoOn = false
@@ -267,6 +267,12 @@ fun PostStudioScreen(
                                             moveTarget = slot
                                         }
                                     ) { Text(if (moveOn && moveTarget == slot) "Selected" else "Select") }
+                                    OutlinedButton(onClick = {
+                                        val hidden = doc.hiddenTextSlots.toMutableSet()
+                                        if (slot in hidden) hidden.remove(slot) else hidden.add(slot)
+                                        onDoc(doc.copy(hiddenTextSlots = hidden))
+                                        if (slot in hidden && moveTarget == slot) { moveOn = false; moveTarget = null }
+                                    }) { Text(if (slot in doc.hiddenTextSlots) "Show" else "Hide") }
                                 }
                             }
 
@@ -279,7 +285,7 @@ fun PostStudioScreen(
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Text(
-                                            "${index + 1}. ${PostIconStore.titleOf(item)}",
+                                            "${index + 1}. ${PostIconStore.titleOf(item)}" + if (item.visible) "" else " · Hidden",
                                             color = PostPalette.Text,
                                             fontSize = 13.sp,
                                             modifier = Modifier.weight(1f)
@@ -292,6 +298,9 @@ fun PostStudioScreen(
                                                 moveLogoOn = false
                                             }
                                         ) { Text(if (selectedIcon == index) "Selected" else "Select") }
+                                        OutlinedButton(onClick = {
+                                            onDoc(doc.copy(icons = doc.icons.mapIndexed { i, old -> if (i == index) old.copy(visible = !old.visible) else old }))
+                                        }) { Text(if (item.visible) "Hide" else "Show") }
                                     }
                                 }
                             }

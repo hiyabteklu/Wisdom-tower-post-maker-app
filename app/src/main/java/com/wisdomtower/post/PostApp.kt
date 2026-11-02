@@ -44,7 +44,8 @@ fun PostApp() {
     var doc by remember { mutableStateOf(startup.first) }
     var library by remember { mutableStateOf(startup.second) }
     var brand by remember { mutableStateOf(PostStore.loadBrand(context)) }
-    var screen by rememberSaveable { mutableStateOf("studio") }\n    var remoteBatch by remember { mutableStateOf<PostChatBatch?>(null) }
+    var screen by rememberSaveable { mutableStateOf("studio") }
+    var remoteBatch by remember { mutableStateOf<PostChatBatch?>(null) }
     var libSize by remember { mutableStateOf(startup.first.size) }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -171,9 +172,31 @@ fun PostApp() {
             }
             "batch" -> {
                 BackHandler { screen = "studio" }
-                val imported = remoteBatch\n                val batchDoc = imported?.let { batch ->\n                    doc.copy(templateId = batch.template, texts = postTemplate(batch.template).samples)\n                } ?: doc\n                PostBatchScreen(doc = batchDoc, brand = brand, initialBatch = imported, onBack = {\n                    remoteBatch = null\n                    screen = if (imported != null) "inbox" else "studio"\n                })
+                val imported = remoteBatch
+                val batchDoc = imported?.let { batch ->
+                    doc.copy(templateId = batch.template, texts = postTemplate(batch.template).samples)
+                } ?: doc
+                PostBatchScreen(doc = batchDoc, brand = brand, initialBatch = imported, onBack = {
+                    remoteBatch = null
+                    screen = if (imported != null) "inbox" else "studio"
+                })
             }
-            "chat" -> {\n                BackHandler { screen = "brand" }\n                PostChatScreen(onBack = { screen = "brand" }, onOpenInbox = { screen = "inbox" })\n            }\n            "inbox" -> {\n                BackHandler { screen = "chat" }\n                PostChatInboxScreen(onBack = { screen = "chat" }, onOpenBatch = { batch ->\n                    if (postTemplate(batch.template).id != batch.template) {\n                        Toast.makeText(context, "This app does not know template ${batch.template}", Toast.LENGTH_LONG).show()\n                    } else {\n                        remoteBatch = batch\n                        screen = "batch"\n                    }\n                })\n            }\n            "brand" -> {
+            "chat" -> {
+                BackHandler { screen = "brand" }
+                PostChatScreen(onBack = { screen = "brand" }, onOpenInbox = { screen = "inbox" })
+            }
+            "inbox" -> {
+                BackHandler { screen = "chat" }
+                PostChatInboxScreen(onBack = { screen = "chat" }, onOpenBatch = { batch ->
+                    if (postTemplate(batch.template).id != batch.template) {
+                        Toast.makeText(context, "This app does not know template ${batch.template}", Toast.LENGTH_LONG).show()
+                    } else {
+                        remoteBatch = batch
+                        screen = "batch"
+                    }
+                })
+            }
+            "brand" -> {
                 BackHandler { screen = "studio" }
                 PostBrandScreen(
                     brand = brand,

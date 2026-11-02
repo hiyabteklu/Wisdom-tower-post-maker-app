@@ -47,12 +47,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Template QA (docs/APP_QUALITY_ROADMAP.md, slice Q1).
+ * Template QA (docs/APP_QUALITY_ROADMAP.md, slices Q1 and Q2).
  * Draws every template at every size with test words and lists the boxes whose text had to shrink.
  *   Sample:  the template's own sample words (should never shrink).
  *   Stress:  every box 1.5 times longer than its sample (finds layouts with no room to spare).
  *   Amharic: fixed Amharic words in every box (finds layouts that break with wider letters; needs an Amharic font to be exact).
  * The check uses the same renderer as export, so what it reports is what a saved poster would do.
+ * Small text check (Q2): no drawing, reads each template's layout and lists boxes whose own size is under PostDesignRules.
  * Reached from the Poster inbox ("Template QA").
  */
 private enum class QaText(val label: String) { SAMPLE("Sample"), STRESS("Stress 1.5x"), AMHARIC("Amharic") }
@@ -111,6 +112,7 @@ fun PostQaScreen(brand: PostBrand, onBack: () -> Unit) {
     var progress by remember { mutableStateOf("") }
     var report by remember { mutableStateOf<List<String>?>(null) }
     var checks by remember { mutableStateOf(0) }
+    var smallReport by remember { mutableStateOf<List<String>?>(null) }
 
     fun runAll() {
         if (running) return
@@ -137,6 +139,18 @@ fun PostQaScreen(brand: PostBrand, onBack: () -> Unit) {
             report = found
             running = false
         }
+    }
+
+    /** Q2: reads every layout, draws nothing, so it answers at once. */
+    fun runSmall() {
+        val found = mutableListOf<String>()
+        for (spec in PostTemplates) {
+            for (sz in PostSize.values()) {
+                val small = PostDesignRules.smallText(spec, sz)
+                if (small.isNotEmpty()) found.add(spec.name + " (" + spec.id + "), " + sz.label + ": " + small.joinToString())
+            }
+        }
+        smallReport = found
     }
 
     PostTheme {
@@ -190,6 +204,26 @@ fun PostQaScreen(brand: PostBrand, onBack: () -> Unit) {
                                 ) { Text("Copy report") }
                             }
                         }
+                        OutlinedButton(onClick = { runSmall() }, modifier = Modifier.fillMaxWidth()) {
+                            Text("Check small text (instant, all templates)")
+                        }
+                        Text(
+                            "Small text: a box whose own size is under ${PostDesignRules.MIN_BODY_PX.toInt()} px for message and list, " +
+                                "${PostDesignRules.MIN_LABEL_PX.toInt()} px for label and button, ${PostDesignRules.MIN_HEADLINE_PX.toInt()} px for headline (at 1080 wide).",
+                            color = PostPalette.Muted, fontSize = 12.sp
+                        )
+                        smallReport?.let { lines ->
+                            if (lines.isEmpty()) {
+                                Text("No small text in any template.", color = PostPalette.Mint, fontSize = 13.sp)
+                            } else {
+                                Text("Small text in ${lines.size} of ${PostTemplates.size * PostSize.values().size} checks:", color = PostPalette.Gold, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Text(lines.joinToString("\n"), color = PostPalette.Gold, fontSize = 12.sp)
+                                OutlinedButton(
+                                    onClick = { clipboard.setText(AnnotatedString("Template QA, small text\n" + lines.joinToString("\n"))) },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) { Text("Copy small text report") }
+                            }
+                        }
                     }
                 }
                 items(PostTemplates, key = { it.id }) { spec ->
@@ -205,6 +239,7 @@ private fun QaCard(spec: PostTemplateSpec, size: PostSize, mode: QaText, brand: 
     val context = LocalContext.current
     var bitmap by remember(spec.id, size, mode) { mutableStateOf<android.graphics.Bitmap?>(null) }
     var overflow by remember(spec.id, size, mode) { mutableStateOf<List<String>>(emptyList()) }
+    val small = remember(spec.id, size) { PostDesignRules.smallText(spec, size) }
     LaunchedEffect(spec.id, size, mode, brand) {
         val result = withContext(Dispatchers.Default) {
             PostRenderer.preview(context, qaDoc(spec, size, mode), brand, 360) { !isActive }
@@ -229,6 +264,9 @@ private fun QaCard(spec: PostTemplateSpec, size: PostSize, mode: QaText, brand: 
             Text("Text shrinks: " + overflow.joinToString { PostSlots.label(it) }, color = PostPalette.Gold, fontSize = 12.sp)
         } else if (bitmap != null) {
             Text("Fits", color = PostPalette.Mint, fontSize = 12.sp)
+        }
+        if (small.isNotEmpty()) {
+            Text("Small text: " + small.joinToString(), color = PostPalette.Gold, fontSize = 12.sp)
         }
     }
 }

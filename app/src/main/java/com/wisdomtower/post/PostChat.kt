@@ -129,7 +129,7 @@ object PostChatApi {
         }
     }
 
-    suspend fun getBatch(context: Context, id: String): PostChatBatch {
+    suspend fun setBatchStatus(context: Context, id: String, status: String) {\n        val result = rpc(context, "tools/call", JSONObject().put("name", "set_batch_status").put("arguments", JSONObject().put("id", id).put("status", status)))\n        if (result.optBoolean("isError")) throw IllegalStateException(result.optJSONArray("content")?.optJSONObject(0)?.optString("text") ?: "Could not update status")\n    }\n\n    suspend fun logPost(context: Context, values: JSONObject) {\n        val result = rpc(context, "tools/call", JSONObject().put("name", "log_post").put("arguments", values))\n        if (result.optBoolean("isError")) throw IllegalStateException(result.optJSONArray("content")?.optJSONObject(0)?.optString("text") ?: "Could not log post")\n    }\n\n    suspend fun getBatch(context: Context, id: String): PostChatBatch {
         val result = rpc(context, "tools/call", JSONObject().put("name", "get_batch").put("arguments", JSONObject().put("id", id)))
         if (result.optBoolean("isError")) throw IllegalStateException(result.optJSONArray("content")?.optJSONObject(0)?.optString("text") ?: "Could not load batch")
         val payload = result.optJSONArray("content")?.optJSONObject(0)?.optString("text")

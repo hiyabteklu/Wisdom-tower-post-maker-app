@@ -251,6 +251,101 @@ fun PostStudioScreen(
                             )
                         }
 
+                        SettingsSection("Layer manager", "Select an element here, then move or resize it directly on the poster preview.") {
+                            ControlHeading("Text layers")
+                            slots.forEach { slot ->
+                                Row(
+                                    Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(PostSlots.label(slot), color = PostPalette.Text, fontSize = 13.sp)
+                                    OutlinedButton(
+                                        onClick = {
+                                            moveLogoOn = false
+                                            moveOn = true
+                                            moveTarget = slot
+                                        }
+                                    ) { Text(if (moveOn && moveTarget == slot) "Selected" else "Select") }
+                                }
+                            }
+
+                            if (doc.icons.isNotEmpty()) {
+                                ControlHeading("Graphic layers")
+                                doc.icons.forEachIndexed { index, item ->
+                                    Row(
+                                        Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            "${index + 1}. ${PostIconStore.titleOf(item)}",
+                                            color = PostPalette.Text,
+                                            fontSize = 13.sp,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        OutlinedButton(
+                                            onClick = {
+                                                selectedIcon = index
+                                                moveOn = false
+                                                moveTarget = null
+                                                moveLogoOn = false
+                                            }
+                                        ) { Text(if (selectedIcon == index) "Selected" else "Select") }
+                                    }
+                                }
+                            }
+
+                            if (doc.cutoutUri != null) {
+                                Row(
+                                    Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Cut-out subject", color = PostPalette.Text, fontSize = 13.sp)
+                                    OutlinedButton(
+                                        onClick = {
+                                            moveLogoOn = false
+                                            moveOn = true
+                                            moveTarget = PostEngine.CUTOUT_TARGET
+                                        }
+                                    ) { Text(if (moveOn && moveTarget == PostEngine.CUTOUT_TARGET) "Selected" else "Select") }
+                                }
+                            }
+
+                            if (doc.showLogo && brand.logoPath != null) {
+                                Row(
+                                    Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Brand logo", color = PostPalette.Text, fontSize = 13.sp)
+                                    OutlinedButton(
+                                        onClick = {
+                                            moveOn = false
+                                            moveTarget = null
+                                            moveLogoOn = true
+                                        }
+                                    ) { Text(if (moveLogoOn) "Selected" else "Select") }
+                                }
+                            }
+
+                            if (doc.photoUri != null) {
+                                Text("Template photo · adjust it in Photo", color = PostPalette.Muted, fontSize = 12.sp)
+                            }
+                            if (doc.backgroundPhotoUri != null) {
+                                Text("Full-canvas background · adjust it in Photo", color = PostPalette.Muted, fontSize = 12.sp)
+                            }
+                            OutlinedButton(
+                                onClick = {
+                                    moveOn = false
+                                    moveTarget = null
+                                    moveLogoOn = false
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text("Finish layer selection") }
+                        }
+
                         SettingsSection("Logo", "Control the logo on this post.") {
                             editorGroups(EditorTab.LOGO, doc, slots, photoArea != null, false).forEach { group ->
                                 ControlHeading(group.label)

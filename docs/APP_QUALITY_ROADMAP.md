@@ -50,7 +50,7 @@ The loop works end to end (2 Nov 2026). What is missing is information flowing b
 ## 5. Status
 
 - [x] Q1 Template QA gallery (first version pushed 2 Nov 2026, NOT yet compiled or run, see notes below)
-- [ ] Q2 Shared design rules
+- [ ] Q2 Shared design rules: part 1 pushed (`PostDesignRules.kt`, small-text check in Template QA, not compiled); part 2 (templates read the shared values, fix the flagged ones) waits for the QA report
 - [ ] Q3 Feedback loop
 - [ ] Q4 Check at save
 - [x] Q5 Brand kit aligned with the inbox workflow (2 Nov 2026, kit repo commit 4fe88e6; `AGENT_START.md` rewritten, see notes below)
@@ -61,10 +61,18 @@ The loop works end to end (2 Nov 2026). What is missing is information flowing b
 
 - File: `PostQaScreen.kt`. Open it from Poster inbox, button "Template QA (check every template)". Back returns to the inbox. Route name in `PostApp.kt`: `qa`.
 - Done: every template at every size (36 templates, 4 sizes) with three text modes: Sample (the template's own words), Stress (every box 1.5 times longer than its sample) and Amharic (fixed Amharic words). The "Check all" button lists every box that had to shrink, with a Copy report button. Cards below show each template at the chosen size with its shrink result.
-- Not done: the contrast check and the minimum text size check named above. They need the shared values from Q2 first, so they move to Q2.
+- Not done: the contrast check and the minimum text size check named above. The minimum text size check moved to Q2 and now exists (see Q2 notes). Contrast: the renderer's contrast guard already moves text below about 4:1 to a readable color, so a separate check only matters if we want to know which templates rely on the guard. Not planned yet.
 - Not done: "every box at its kit limit". Stress (1.5 times the sample) stands in until the limits are generated from one table (Q4). Do not retype limits.
 - Amharic mode is only exact once an Amharic font is installed (Q7).
 - First thing to do after a build: open the screen, run Check all in Stress mode, copy the report, and use it to fix templates (Q2) and to correct kit `TEMPLATES.md` limits (Q3 and Q5).
+
+### Q2 notes (shared design rules)
+
+- File: `PostDesignRules.kt`. Holds the minimum text sizes in pixels at 1080: message and list 34, small label and button 26, headline 56, plus the renderer's shrink floor (0.6). `smallText(spec, size)` reads a template's layout and lists boxes whose own size (`box.size` times the shorter side) is under the rule. These numbers are starting estimates. Change them in this one file after looking at the report.
+- Template QA has a new button "Check small text (instant, all templates)" with a Copy report button, and each template card shows its own small-text line.
+- Not done: templates do not read the shared values yet (they keep their own numbers). Part 2: use the small-text report to raise the flagged sizes, one family per push in the order Information, Marketing, Type, photo and split. Closes `DESIGN_PLAN.md` D2.
+- Not done: shared safe margins and logo margin (`DESIGN_PLAN.md` D3 needs Hiyab's decision first).
+- Test: build, Template QA, "Check small text", copy the report, send it to the assistant.
 
 ### Q5 notes (what changed in the kit)
 

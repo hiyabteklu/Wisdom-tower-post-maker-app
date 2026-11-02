@@ -197,7 +197,7 @@ fun PostStudioScreen(
                                     moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it })
                             }
 
-                            Divider(color = PostPalette.Line)
+                            Spacer(Modifier.height(4.dp))
                             ControlHeading("Full-canvas background image")
                             Text(
                                 "This image sits behind the entire design. Lower opacity to blend it with the template colors.",

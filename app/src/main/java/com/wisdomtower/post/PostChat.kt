@@ -149,7 +149,7 @@ object PostChatApi {
             )
         }
         PostChatStore.saveCachedBatches(context, batches)
-        batches
+        return batches
     }
 
     suspend fun setBatchStatus(context: Context, id: String, status: String) {

@@ -173,7 +173,7 @@ fun PostApp() {
                 BackHandler { screen = "studio" }
                 PostBatchScreen(doc = doc, brand = brand, onBack = { screen = "studio" })
             }
-            "chat" -> {\n                BackHandler { screen = "brand" }\n                PostChatScreen(onBack = { screen = "brand" })\n            }\n            "brand" -> {
+            "chat" -> {\n                BackHandler { screen = "brand" }\n                PostChatScreen(onBack = { screen = "brand" }, onOpenInbox = { screen = "inbox" })\n            }\n            "inbox" -> {\n                BackHandler { screen = "chat" }\n                PostChatInboxScreen(onBack = { screen = "chat" }, onOpenBatch = { batch ->\n                    if (postTemplate(batch.template).id != batch.template) {\n                        Toast.makeText(context, "This app does not know template ${batch.template}", Toast.LENGTH_LONG).show()\n                    } else {\n                        screen = "batch"\n                    }\n                })\n            }\n            "brand" -> {
                 BackHandler { screen = "studio" }
                 PostBrandScreen(
                     brand = brand,

@@ -173,7 +173,7 @@ fun PostApp() {
                 BackHandler { screen = "studio" }
                 PostBatchScreen(doc = doc, brand = brand, onBack = { screen = "studio" })
             }
-            "brand" -> {
+            "chat" -> {\n                BackHandler { screen = "brand" }\n                PostChatScreen(onBack = { screen = "brand" })\n            }\n            "brand" -> {
                 BackHandler { screen = "studio" }
                 PostBrandScreen(
                     brand = brand,

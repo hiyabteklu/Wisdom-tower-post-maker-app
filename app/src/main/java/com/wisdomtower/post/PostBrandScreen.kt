@@ -187,7 +187,8 @@ fun PostBrandScreen(
             topBar = {
                 TopAppBar(
                     title = { Text("Brand and social icons", fontWeight = FontWeight.Bold) },
-                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, contentDescription = "Back") } },\n                    actions = { TextButton(onClick = onOpenChat) { Text("Chat link", fontWeight = FontWeight.Bold) } }
+                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, contentDescription = "Back") } },
+                    actions = { TextButton(onClick = onOpenChat) { Text("Chat link", fontWeight = FontWeight.Bold) } }
                 )
             },
             containerColor = PostPalette.Ink

@@ -11,10 +11,13 @@ import kotlinx.coroutines.withContext
 object PostChatStore {
     private const val PREFS = "wisdom_tower_post_chat"
     const val DEFAULT_URL = "https://zfgrgbrrqclugszsotfo.supabase.co/functions/v1/wt-mcp"
+    // Owner decision (2 Nov 2026): personal app on one phone, repo is private, so the key is built in.
+    // A key typed on the Brand screen still wins. If the Supabase secret changes, update this value.
+    private const val BUILT_IN_KEY = "8f3c2a7d9b1e6f40c5a8d2e7b3f9164c"
 
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     fun loadUrl(context: Context): String = prefs(context).getString("url", DEFAULT_URL).orEmpty().ifBlank { DEFAULT_URL }
-    fun loadKey(context: Context): String = prefs(context).getString("key", "").orEmpty()
+    fun loadKey(context: Context): String = prefs(context).getString("key", "").orEmpty().ifBlank { BUILT_IN_KEY }
     fun save(context: Context, url: String, key: String) {
         prefs(context).edit().putString("url", url.trim()).putString("key", key).apply()
     }

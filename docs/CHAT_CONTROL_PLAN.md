@@ -96,7 +96,7 @@ Tick each slice in the Status list below in the same push.
 - [ ] Backend test with the real key (first `save_batch` and `list_batches`)
 - [x] C0 Link and test (source pushed; build and phone verification pending)
 - [x] C1 Inbox list (source pushed; build and phone verification pending)
-- [ ] C2 Open a batch
+- [x] C2 Open a batch (source pushed; build and phone verification pending)
 - [ ] C3 Captions and status
 - [ ] C4 Photos in order
 

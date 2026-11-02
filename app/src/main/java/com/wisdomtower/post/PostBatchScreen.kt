@@ -86,7 +86,7 @@ import java.util.Locale
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun PostBatchScreen(doc: PostDoc, brand: PostBrand, onBack: () -> Unit) {
+fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch? = null, onBack: () -> Unit) {
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
     val view = LocalView.current

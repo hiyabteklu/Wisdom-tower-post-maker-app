@@ -96,8 +96,13 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
     val slots = remember(doc.templateId, doc.size) {
         PostBatch.editableSlots(postTemplate(doc.templateId).layout(doc.size))
     }
-    var mode by remember { mutableStateOf(PostBatchStore.loadMode(context)) }
-    var text by remember(doc.templateId) { mutableStateOf(PostBatchStore.loadText(context, doc.templateId)) }
+    // A batch opened from the Poster inbox fills the list itself (full blocks) and goes straight to the review step.
+    var mode by remember(initialBatch?.id) {
+        mutableStateOf(if (initialBatch != null) BatchMode.BLOCKS else PostBatchStore.loadMode(context))
+    }
+    var text by remember(doc.templateId, initialBatch?.id) {
+        mutableStateOf(initialBatch?.batchInput() ?: PostBatchStore.loadText(context, doc.templateId))
+    }
     var fill by remember(doc.templateId, slots) { mutableStateOf(PostBatchStore.loadFill(context, doc.templateId, slots)) }
     var options by remember(doc.size) { mutableStateOf(PostStore.loadSaveOptions(context, doc.size)) }
     var backendStatus by remember(initialBatch?.id) { mutableStateOf(initialBatch?.status.orEmpty()) }
@@ -139,11 +144,13 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
     fun pageDoc(item: BatchItem): PostDoc =
         PostBatch.apply(doc, item).copy(photoUri = batchPhotos.getOrNull(item.number - 1) ?: doc.photoUri)
 
+    // Words that came from the inbox are not stored as the template's own batch draft.
     LaunchedEffect(text, doc.templateId) {
+        if (initialBatch != null) return@LaunchedEffect
         delay(500)
         PostBatchStore.saveText(context, doc.templateId, text)
     }
-    LaunchedEffect(mode) { PostBatchStore.saveMode(context, mode) }
+    LaunchedEffect(mode) { if (initialBatch == null) PostBatchStore.saveMode(context, mode) }
     LaunchedEffect(fill, doc.templateId) { PostBatchStore.saveFill(context, doc.templateId, fill) }
     LaunchedEffect(running) { view.keepScreenOn = running }
     val latestJob by rememberUpdatedState(runJob)
@@ -169,6 +176,11 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
         resultUris = emptyList()
         reviewing = true
         scope.launch { pagerState.scrollToPage(0) }
+    }
+
+    // Opened from the inbox: show the previews straight away.
+    LaunchedEffect(initialBatch?.id) {
+        if (initialBatch != null && items.isNotEmpty() && !reviewing) startReview()
     }
 
     fun startBatch() {

@@ -135,6 +135,7 @@ object PostChatApi {
 
     suspend fun listBatches(context: Context): List<PostChatBatch> {
         val result = rpc(context, "tools/call", JSONObject().put("name", "list_batches").put("arguments", JSONObject().put("limit", 50)))
+        if (result.optBoolean("isError")) throw IllegalStateException(result.optJSONArray("content")?.optJSONObject(0)?.optString("text") ?: "Could not load batches")
         val payload = result.optJSONArray("content")?.optJSONObject(0)?.optString("text")
             ?: throw IllegalStateException("Unexpected list response")
         val rows = JSONArray(payload)

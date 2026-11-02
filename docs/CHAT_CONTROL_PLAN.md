@@ -94,7 +94,7 @@ Tick each slice in the Status list below in the same push.
 
 - [x] Backend: schema, tables, `wt-mcp` function deployed, secret set (2 Nov 2026)
 - [ ] Backend test with the real key (first `save_batch` and `list_batches`)
-- [ ] C0 Link and test
+- [x] C0 Link and test (source pushed; build and phone verification pending)
 - [ ] C1 Inbox list
 - [ ] C2 Open a batch
 - [ ] C3 Captions and status

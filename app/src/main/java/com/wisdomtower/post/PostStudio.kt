@@ -213,7 +213,7 @@ fun PostStudioScreen(
                                         "Background image opacity",
                                         doc.backgroundPhotoOpacity,
                                         0f..1f,
-                                        "\${(doc.backgroundPhotoOpacity * 100).toInt()}%"
+                                        "${(doc.backgroundPhotoOpacity * 100).toInt()}%"
                                     ) { onDoc(doc.copy(backgroundPhotoOpacity = it)) }
                                 )
                                 OutlinedButton(

@@ -36,6 +36,7 @@ import kotlinx.coroutines.withTimeoutOrNull
  * one you leave and opens the other exactly as it was last edited, or in its factory look the first time.
  * The app opens on the template you edited last; the Library is one tap away (grid button in the editor).
  * The old layer studio has been removed.
+ * The "qa" screen (Template QA, docs/APP_QUALITY_ROADMAP.md slice Q1) is opened from the Poster inbox and goes back to it.
  */
 @Composable
 fun PostApp() {
@@ -188,14 +189,22 @@ fun PostApp() {
             }
             "inbox" -> {
                 BackHandler { screen = inboxBackTo }
-                PostChatInboxScreen(onBack = { screen = inboxBackTo }, onOpenBatch = { batch ->
-                    if (postTemplate(batch.template).id != batch.template) {
-                        Toast.makeText(context, "This app does not know template ${batch.template}", Toast.LENGTH_LONG).show()
-                    } else {
-                        remoteBatch = batch
-                        screen = "batch"
-                    }
-                })
+                PostChatInboxScreen(
+                    onBack = { screen = inboxBackTo },
+                    onOpenBatch = { batch ->
+                        if (postTemplate(batch.template).id != batch.template) {
+                            Toast.makeText(context, "This app does not know template ${batch.template}", Toast.LENGTH_LONG).show()
+                        } else {
+                            remoteBatch = batch
+                            screen = "batch"
+                        }
+                    },
+                    onOpenQa = { screen = "qa" }
+                )
+            }
+            "qa" -> {
+                BackHandler { screen = "inbox" }
+                PostQaScreen(brand = brand, onBack = { screen = "inbox" })
             }
             "brand" -> {
                 BackHandler { screen = "studio" }

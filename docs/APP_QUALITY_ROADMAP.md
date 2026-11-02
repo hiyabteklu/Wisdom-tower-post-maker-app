@@ -49,10 +49,19 @@ The loop works end to end (2 Nov 2026). What is missing is information flowing b
 
 ## 5. Status
 
-- [ ] Q1 Template QA gallery
+- [x] Q1 Template QA gallery (first version pushed 2 Nov 2026, NOT yet compiled or run, see notes below)
 - [ ] Q2 Shared design rules
 - [ ] Q3 Feedback loop
 - [ ] Q4 Check at save
 - [ ] Q5 Brand kit aligned with the inbox workflow
 - [ ] Q6 Reliability and untested buttons
 - [ ] Q7 Amharic (decision needed)
+
+### Q1 notes (what exists, what does not)
+
+- File: `PostQaScreen.kt`. Open it from Poster inbox, button "Template QA (check every template)". Back returns to the inbox. Route name in `PostApp.kt`: `qa`.
+- Done: every template at every size (36 templates, 4 sizes) with three text modes: Sample (the template's own words), Stress (every box 1.5 times longer than its sample) and Amharic (fixed Amharic words). The "Check all" button lists every box that had to shrink, with a Copy report button. Cards below show each template at the chosen size with its shrink result.
+- Not done: the contrast check and the minimum text size check named above. They need the shared values from Q2 first, so they move to Q2.
+- Not done: "every box at its kit limit". Stress (1.5 times the sample) stands in until the limits are generated from one table (Q4). Do not retype limits.
+- Amharic mode is only exact once an Amharic font is installed (Q7).
+- First thing to do after a build: open the screen, run Check all in Stress mode, copy the report, and use it to fix templates (Q2) and to correct kit `TEMPLATES.md` limits (Q3 and Q5).

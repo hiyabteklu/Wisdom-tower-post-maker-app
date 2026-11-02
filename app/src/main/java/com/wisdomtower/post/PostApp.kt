@@ -171,7 +171,7 @@ fun PostApp() {
                 )
             }
             "batch" -> {
-                BackHandler { screen = "studio" }
+                BackHandler { screen = if (remoteBatch != null) "inbox" else "studio"; remoteBatch = null }
                 val imported = remoteBatch
                 val batchDoc = imported?.let { batch ->
                     doc.copy(templateId = batch.template, texts = postTemplate(batch.template).samples)
@@ -202,7 +202,8 @@ fun PostApp() {
                     brand = brand,
                     onBrand = { brand = it },
                     onPickLogo = { logoPicker.launch(arrayOf("image/*")) },
-                    onBack = { screen = "studio" }
+                    onBack = { screen = "studio" },
+                    onOpenChat = { screen = "chat" }
                 )
             }
             else -> PostStudioScreen(

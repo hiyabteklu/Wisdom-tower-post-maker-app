@@ -45,7 +45,7 @@ fun PostApp() {
     var library by remember { mutableStateOf(startup.second) }
     var brand by remember { mutableStateOf(PostStore.loadBrand(context)) }
     var screen by rememberSaveable { mutableStateOf("studio") }
-    var remoteBatch by remember { mutableStateOf<PostChatBatch?>(null) }
+    var remoteBatch by remember { mutableStateOf<PostChatBatch?>(null) }\n    var inboxBackTo by rememberSaveable { mutableStateOf("chat") }
     var libSize by remember { mutableStateOf(startup.first.size) }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -183,7 +183,7 @@ fun PostApp() {
             }
             "chat" -> {
                 BackHandler { screen = "brand" }
-                PostChatScreen(onBack = { screen = "brand" }, onOpenInbox = { screen = "inbox" })
+                PostChatScreen(onBack = { screen = "brand" }, onOpenInbox = { inboxBackTo = "chat"; screen = "inbox" })
             }
             "inbox" -> {
                 BackHandler { screen = "chat" }
@@ -227,7 +227,7 @@ fun PostApp() {
                     screen = "library"
                 },
                 onOpenBatch = { screen = "batch" },
-                onOpenInbox = { screen = "chat" }
+                onOpenInbox = { inboxBackTo = "studio"; screen = "inbox" }
             )
         }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 12.dp))

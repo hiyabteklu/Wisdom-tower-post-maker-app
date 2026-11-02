@@ -67,7 +67,9 @@ data class PostIconItem(
     val cy: Float = 0.5f,
     val size: Float = 0.18f,
     val tintHex: String? = null,
-    val front: Boolean = true
+    val front: Boolean = true,
+    /** Hidden graphic layers remain in the document and can be shown again. */
+    val visible: Boolean = true
 )
 
 const val MAX_POST_ICONS = 6
@@ -147,6 +149,8 @@ data class PostDoc(
     val fontAmharic: String? = null,
     /** Small graphics the user placed on this post (at most MAX_POST_ICONS). */
     val icons: List<PostIconItem> = emptyList(),
+    /** Editable text slots hidden in the layer manager. */
+    val hiddenTextSlots: Set<String> = emptySet(),
     /** Engine (document version 4). A photo frame picked on this post; null keeps the template's own photo shape. */
     val photoFrame: PhotoFrame? = null,
     /** A light outline around a framed photo. */
@@ -211,6 +215,7 @@ object PostCodec {
                         .put("size", it.size.toDouble())
                         .put("tintHex", it.tintHex ?: "")
                         .put("front", it.front)
+                        .put("visible", it.visible)
                 )
             }
         })
@@ -223,6 +228,7 @@ object PostCodec {
         put("cutoutX", d.cutoutX.toDouble())
         put("cutoutY", d.cutoutY.toDouble())
         put("textBehind", JSONArray().also { arr -> d.textBehind.forEach { arr.put(it) } })
+        put("hiddenTextSlots", JSONArray().also { arr -> d.hiddenTextSlots.forEach { arr.put(it) } })
         put("slotOffsets", JSONObject().also { o ->
             d.slotOffsets.forEach { (k, v) -> o.put(k, JSONObject().put("dx", v.dx.toDouble()).put("dy", v.dy.toDouble())) }
         })
@@ -256,13 +262,19 @@ object PostCodec {
                 cy = o.optDouble("cy", 0.5).toFloat().coerceIn(0f, 1f),
                 size = o.optDouble("size", 0.18).toFloat().coerceIn(0.04f, 0.9f),
                 tintHex = o.optString("tintHex").takeIf { it.isNotBlank() && it != "null" },
-                front = o.optBoolean("front", true)
+                front = o.optBoolean("front", true),
+                visible = o.optBoolean("visible", true)
             )
         }.take(MAX_POST_ICONS)
     }
 
     private fun decodeTextBehind(j: JSONObject): Set<String> {
         val arr = j.optJSONArray("textBehind") ?: return emptySet()
+        return (0 until arr.length()).map { arr.optString(it) }.filter { it.isNotBlank() }.toSet()
+    }
+
+    private fun decodeHiddenTextSlots(j: JSONObject): Set<String> {
+        val arr = j.optJSONArray("hiddenTextSlots") ?: return emptySet()
         return (0 until arr.length()).map { arr.optString(it) }.filter { it.isNotBlank() }.toSet()
     }
 
@@ -335,6 +347,7 @@ object PostCodec {
             cutoutX = j.optDouble("cutoutX", 0.5).toFloat().coerceIn(0f, 1f),
             cutoutY = j.optDouble("cutoutY", 0.94).toFloat().coerceIn(0.2f, 1.2f),
             textBehind = decodeTextBehind(j),
+            hiddenTextSlots = decodeHiddenTextSlots(j),
             slotOffsets = decodeOffsets(j),
             slotStyles = decodeSlotStyles(j)
         )

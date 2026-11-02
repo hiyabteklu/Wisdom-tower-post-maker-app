@@ -167,7 +167,8 @@ fun PostBrandScreen(
     brand: PostBrand,
     onBrand: (PostBrand) -> Unit,
     onPickLogo: () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onOpenChat: () -> Unit
 ) {
     val context = LocalContext.current
     var tab by rememberSaveable { mutableStateOf("icons") }

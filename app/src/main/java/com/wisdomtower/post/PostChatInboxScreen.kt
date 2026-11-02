@@ -18,6 +18,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -38,7 +39,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PostChatInboxScreen(onBack: () -> Unit, onOpenBatch: (PostChatBatch) -> Unit) {
+fun PostChatInboxScreen(onBack: () -> Unit, onOpenBatch: (PostChatBatch) -> Unit, onOpenQa: (() -> Unit)? = null) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var batches by remember { mutableStateOf<List<PostChatBatch>>(emptyList()) }
@@ -75,6 +76,9 @@ fun PostChatInboxScreen(onBack: () -> Unit, onOpenBatch: (PostChatBatch) -> Unit
             Column(Modifier.fillMaxSize().padding(padding).padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (busy) CircularProgressIndicator()
                 if (message.isNotBlank()) Text(message, color = PostPalette.Muted)
+                if (onOpenQa != null) {
+                    OutlinedButton(onClick = onOpenQa, modifier = Modifier.fillMaxWidth()) { Text("Template QA (check every template)") }
+                }
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(batches, key = { it.id }) { batch ->
                         Card(colors = CardDefaults.cardColors(containerColor = PostPalette.Surface), modifier = Modifier.fillMaxWidth()) {

@@ -97,7 +97,7 @@ Tick each slice in the Status list below in the same push.
 - [x] C0 Link and test (source pushed; build and phone verification pending)
 - [x] C1 Inbox list (source pushed; build and phone verification pending)
 - [x] C2 Open a batch (source pushed; build and phone verification pending)
-- [ ] C3 Captions and status
+- [x] C3 Captions and status (source pushed; build and phone verification pending)
 - [ ] C4 Photos in order
 
 ## 8. Safety

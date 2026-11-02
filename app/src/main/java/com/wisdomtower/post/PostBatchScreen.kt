@@ -60,7 +60,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalContext\nimport androidx.compose.ui.text.AnnotatedString\nimport java.time.LocalDate
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -97,7 +97,7 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
     var mode by remember { mutableStateOf(PostBatchStore.loadMode(context)) }
     var text by remember(doc.templateId) { mutableStateOf(PostBatchStore.loadText(context, doc.templateId)) }
     var fill by remember(doc.templateId, slots) { mutableStateOf(PostBatchStore.loadFill(context, doc.templateId, slots)) }
-    var options by remember(doc.size) { mutableStateOf(PostStore.loadSaveOptions(context, doc.size)) }
+    var options by remember(doc.size) { mutableStateOf(PostStore.loadSaveOptions(context, doc.size)) }\n    var backendStatus by remember(initialBatch?.id) { mutableStateOf(initialBatch?.status.orEmpty()) }\n    var backendMessage by remember(initialBatch?.id) { mutableStateOf<String?>(null) }\n    var platform by remember(initialBatch?.id) { mutableStateOf("Telegram") }
 
     // Review step
     var reviewing by remember { mutableStateOf(false) }

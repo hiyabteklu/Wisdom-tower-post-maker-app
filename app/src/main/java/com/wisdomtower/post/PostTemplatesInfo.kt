@@ -23,7 +23,7 @@ private val IN_BACKDROP = Backdrop(PostTone.TINT, PostTone.SOFT, 135f)
 /** Picks the value for the current size. Any size that is not 4:3 or 9:16 gets the 1:1 value. */
 private fun <T> PostSize.pick(square: T, wide: T, story: T): T = when (this) {
     PostSize.STORY -> story
-    PostSize.LANDSCAPE -> wide
+    PostSize.LANDSCAPE, PostSize.WIDE -> wide
     else -> square
 }
 

@@ -507,7 +507,7 @@ private fun TitleRow(
     onOpenBatch: () -> Unit,
     onOpenInbox: () -> Unit
 ) {
-    Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().padding(start = 10.dp, end = 2.dp, vertical = 1.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(
             (if (edited) "● " else "") + postTemplate(doc.templateId).name,
             fontWeight = FontWeight.Bold,
@@ -517,23 +517,23 @@ private fun TitleRow(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
         )
-        IconButton(onClick = onToggleBookmark) {
+        IconButton(onClick = onToggleBookmark, modifier = Modifier.size(36.dp)) {
             Icon(
                 if (bookmarked) Icons.Outlined.Bookmark else Icons.Outlined.BookmarkBorder,
                 contentDescription = if (bookmarked) "Remove from Saved" else "Save this template",
                 tint = if (bookmarked) PostPalette.Gold else PostPalette.Muted
             )
         }
-        IconButton(onClick = onOpenLibrary) {
+        IconButton(onClick = onOpenLibrary, modifier = Modifier.size(36.dp)) {
             Icon(Icons.Outlined.GridView, contentDescription = "Library", tint = PostPalette.Mint)
         }
-        IconButton(onClick = onOpenBrand) {
+        IconButton(onClick = onOpenBrand, modifier = Modifier.size(36.dp)) {
             Icon(Icons.Outlined.Palette, contentDescription = "Brand and social icons", tint = PostPalette.Mint)
         }
-        IconButton(onClick = onOpenBatch) {
+        IconButton(onClick = onOpenBatch, modifier = Modifier.size(36.dp)) {
             Icon(Icons.Outlined.Layers, contentDescription = "Batch", tint = PostPalette.Mint)
         }
-        IconButton(onClick = onOpenInbox) {
+        IconButton(onClick = onOpenInbox, modifier = Modifier.size(36.dp)) {
             Box {
                 Icon(Icons.Outlined.Inbox, contentDescription = "Poster inbox", tint = PostPalette.Mint)
                 if (PostInboxState.drafts > 0) {

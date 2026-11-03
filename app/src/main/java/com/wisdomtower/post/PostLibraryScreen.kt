@@ -19,14 +19,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,6 +37,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -91,9 +90,11 @@ object PostThumbs {
 }
 
 /**
- * The Library home (UI_UX_PLAN.md section 4.1): a page of horizontal rows. Only the page scrolls up and down.
+ * The Templates tab (the Library home, UI_UX_PLAN.md section 4.1): a page of horizontal rows. Only the page scrolls up and down.
+ * The page is a LazyColumn, so only the rows on screen are built; the rest are built as you scroll (this is what makes the tab open fast).
  * Rows: Continue (templates you edited, newest first), Saved (bookmarked), then one row per family.
  * A bookmarked template moves into Saved. An edited template shows your edited version with a small dot.
+ * onBack is kept for the caller; the bottom bar and the system back button do the going back.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -106,19 +107,14 @@ fun PostLibraryScreen(
     onToggleBookmark: (String) -> Unit,
     onBack: () -> Unit
 ) {
-    val byId = PostTemplates.associateBy { it.id }
+    val byId = remember { PostTemplates.associateBy { it.id } }
     val continueList = library.edited.entries.sortedByDescending { it.value }.mapNotNull { byId[it.key] }
     val savedList = library.bookmarks.mapNotNull { byId[it] }
-    val families = PostTemplates.filter { it.id !in library.bookmarks }.groupBy { it.family }
+    val families = remember(library.bookmarks) { PostTemplates.filter { it.id !in library.bookmarks }.groupBy { it.family }.entries.toList() }
 
     PostTheme {
         Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = { Text("Library", fontWeight = FontWeight.Bold) },
-                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, contentDescription = "Back to editor") } }
-                )
-            },
+            topBar = { TopAppBar(title = { Text("Templates", fontWeight = FontWeight.Bold) }) },
             containerColor = PostPalette.Ink
         ) { padding ->
             Column(Modifier.fillMaxSize().padding(padding)) {
@@ -131,18 +127,23 @@ fun PostLibraryScreen(
                         FilterChip(selected = size == s, onClick = { onSize(s) }, label = { Text(s.label, fontSize = 12.sp) })
                     }
                 }
-                Column(
-                    Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(vertical = 8.dp),
+                LazyColumn(
+                    Modifier.weight(1f).fillMaxWidth(),
+                    contentPadding = PaddingValues(vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     if (continueList.isNotEmpty()) {
-                        LibraryRow("Continue", continueList, brand, library, size, onOpen, onToggleBookmark)
+                        item(key = "row-continue") {
+                            LibraryRow("Continue", continueList, brand, library, size, onOpen, onToggleBookmark)
+                        }
                     }
                     if (savedList.isNotEmpty()) {
-                        LibraryRow("Saved", savedList, brand, library, size, onOpen, onToggleBookmark)
+                        item(key = "row-saved") {
+                            LibraryRow("Saved", savedList, brand, library, size, onOpen, onToggleBookmark)
+                        }
                     }
-                    families.forEach { (family, list) ->
-                        LibraryRow(family, list, brand, library, size, onOpen, onToggleBookmark)
+                    items(families, key = { "family-" + it.key }) { entry ->
+                        LibraryRow(entry.key, entry.value, brand, library, size, onOpen, onToggleBookmark)
                     }
                 }
             }

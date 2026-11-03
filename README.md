@@ -2,15 +2,20 @@
 
 **Wisdom Tower Post is a private, offline-first post maker for Wisdom Tower Academy.** It is for personal use, not public release. The goal is a branded social post in under a minute, with the same logo and footer every time.
 
-The direction is set in **[docs/IMPROVEMENT_PLAN.md](docs/IMPROVEMENT_PLAN.md)**: template first, brand locked, several sizes. Current status of the templates and the engine is in **[docs/REDESIGN_PLAN.md](docs/REDESIGN_PLAN.md)**. The next feature, making many posts from a pasted list, is planned in **[docs/BATCH_PLAN.md](docs/BATCH_PLAN.md)**.
+The direction is set in **[docs/IMPROVEMENT_PLAN.md](docs/IMPROVEMENT_PLAN.md)**: template first, brand locked, several sizes. Current status of the templates and the engine is in **[docs/REDESIGN_PLAN.md](docs/REDESIGN_PLAN.md)**. The next feature, making many posts from a pasted list, is planned in **[docs/BATCH_PLAN.md](docs/BATCH_PLAN.md)**. Posters written by an AI chat arrive in the Inbox: **[docs/CHAT_CONTROL_PLAN.md](docs/CHAT_CONTROL_PLAN.md)**. The whole-app plan is **[docs/APP_QUALITY_ROADMAP.md](docs/APP_QUALITY_ROADMAP.md)**.
+
+## How it is used
+
+Ask your AI chat for posters (one or a batch). The chat reads the brand kit, writes the posts and captions, and saves them to the backend. In the app: **Inbox**, tap the batch, **Make posts**. The five bottom tabs are Inbox, Templates, Editor, Batch and Brand.
 
 ## Status by phase
 
 - [x] **Phase 1, foundation.** Post document v2, one renderer for preview, thumbnails and export, three sizes, brand store, logo copied into app storage.
-- [x] **Phase 2, brand.** Brand screen, locked header and footer, bundled footer icon set. The app now starts in `PostApp` (an earlier build still started the old screen).
-- [x] **Phase 3, templates (code done, needs your check).** 25 templates in the Library, each laid out per size. Shapes, photo area, lists (dot, check, letter, number, schedule rows), template gallery with live previews. *Check:* open the Library, switch through the sizes, and look for any card marked 'text too long'.
-- [ ] **Phase 4, editor and navigation.** Templates home, Editor with collapsed groups, My posts tab, photo picker.
-- [ ] **Phase 5, export sheet and cleanup.** Multi-size export sheet, overflow warning before saving.
+- [x] **Phase 2, brand.** Brand screen, locked header and footer, bundled footer icon set.
+- [x] **Phase 3, templates.** 36 templates in the Library, each laid out per size. Template gallery with live previews.
+- [x] **Chat Inbox.** Batches saved by the AI chat appear in the Inbox (checked on the phone 3 Nov 2026).
+- [ ] **Bottom navigation and faster screens (pushed 3 Nov 2026, NOT compiled).** Five-tab bottom bar, Inbox redesign, Library built lazily, thumbnails warmed in the background. *Check after building:* all five tabs switch at once; the bar hides when the keyboard opens; no gap between the bar and the screen above it; Inbox opens instantly the second time; Templates opens fast.
+- [ ] **Next UI slice:** remove the four navigation icons from the Editor title row (the bar replaces them), once the bar is verified.
 - [ ] **Batch posts.** Paste a list of words, get a folder of finished posts. Plan and status: docs/BATCH_PLAN.md.
 
 ## Product principles
@@ -18,7 +23,7 @@ The direction is set in **[docs/IMPROVEMENT_PLAN.md](docs/IMPROVEMENT_PLAN.md)**
 - Templates are data: slots, shapes and a photo area per size. Content belongs to the slot, so switching template or size keeps what you typed.
 - The logo and footer are brand components, not layers. Change them once on the Brand screen.
 - One renderer draws everything, at export size, so what you see is what you save.
-- Local-first: no sign-in, backend, analytics or internet requirement for editing or export.
+- Local-first: editing and export need no sign-in and no internet. The chat link (Inbox) is optional and needs internet only to fetch batches; the last list is kept for offline use.
 - Personal project only; no Play Store release is planned.
 
 ## Build

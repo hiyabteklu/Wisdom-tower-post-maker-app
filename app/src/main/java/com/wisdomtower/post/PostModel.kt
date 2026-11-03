@@ -312,7 +312,10 @@ object PostCodec {
         val texts = if (t == null) base.texts else t.keys().asSequence().associateWith { t.optString(it) }
         return PostDoc(
             templateId = j.optString("templateId", base.templateId),
-            size = when (j.optString("size", "LANDSCAPE")) { "SQUARE", "PORTRAIT" -> PostSize.LANDSCAPE; else -> runCatching { PostSize.valueOf(j.optString("size")) }.getOrDefault(PostSize.LANDSCAPE) },
+            size = when (j.optString("size", "LANDSCAPE")) {
+                "SQUARE", "PORTRAIT" -> PostSize.LANDSCAPE
+                else -> runCatching { PostSize.valueOf(j.optString("size")) }.getOrDefault(PostSize.LANDSCAPE)
+            },
             texts = texts,
             bgMode = runCatching { BgMode.valueOf(j.optString("bgMode", "TEMPLATE")) }.getOrDefault(BgMode.TEMPLATE),
             bgStartHex = j.optString("bgStartHex", base.bgStartHex).ifBlank { base.bgStartHex },

@@ -23,9 +23,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bookmark
@@ -53,6 +55,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -88,10 +91,11 @@ private const val PREVIEW_SETTLE_MS = 150L
 private const val RAPID_CHANGE_NS = 350_000_000L
 
 /**
- * One-screen studio: title and size controls, pinned preview, pinned template strip,
- * then a single vertically scrolling stack of editing sections. Only Words is open when the studio starts;
- * every other section opens with a tap on its header and stays open until it is tapped again.
- * Words holds one box per text slot with its own Color, Font and Size (docs/TEXT_STYLE.md).
+ * One-screen studio: title and size controls, pinned preview, pinned template strip, then ONE panel of controls, then the tool bar.
+ * The tool bar (PostBottomBar.kt, EditorTool) picks the panel: Text (the message boxes, on start), Color, Font, Photo, Background, More.
+ * Text holds one box per text slot with its own Color, Font and Size (docs/TEXT_STYLE.md) and the overall text size.
+ * More holds the layer tools, logo, icons and footer as collapsed cards. Nothing was removed; each control moved to the panel that names it.
+ * The tool bar hides while the keyboard is open, so typing keeps the whole height.
  */
 @Composable
 fun PostStudioScreen(
@@ -119,6 +123,9 @@ fun PostStudioScreen(
     var footerItem by remember { mutableStateOf(0) }
     var selectedIcon by remember { mutableStateOf(0) }
     var showSave by remember { mutableStateOf(false) }
+    var tool by rememberSaveable { mutableStateOf(EditorTool.TEXT) }
+    // Widest window and its tallest height seen so far: a much shorter window means the keyboard is open.
+    val seen = remember { floatArrayOf(0f, 0f) }
 
     val spec = postTemplate(doc.templateId)
     val layout = remember(doc.templateId, doc.size) { spec.layout(doc.size) }
@@ -132,6 +139,19 @@ fun PostStudioScreen(
         Scaffold(containerColor = PostPalette.Ink) { padding ->
             BoxWithConstraints(Modifier.fillMaxSize().padding(padding).imePadding()) {
                 val previewHeight = (maxHeight * 0.39f).coerceAtMost(350.dp)
+                val w = maxWidth.value
+                val h = maxHeight.value
+                if (w != seen[0]) { seen[0] = w; seen[1] = h }
+                if (h > seen[1]) seen[1] = h
+                val keyboardOpen = h < seen[1] * 0.8f
+
+                // The same options call every panel used before, written once.
+                val options: @Composable (EditorTab, String) -> Unit = { tab, group ->
+                    EditorOptions(tab, group, doc, onDoc, brand, onBrand,
+                        photoArea != null, onPickPhoto, onPickBackgroundPhoto, onPickLogo,
+                        moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it })
+                }
+
                 Column(Modifier.fillMaxSize()) {
                     TitleRow(doc, edited, bookmarked, onToggleBookmark, onOpenLibrary, onOpenBrand, onOpenBatch, onOpenInbox)
                     SizeRow(doc, onDoc, edited, onReset) { showSave = true }
@@ -146,250 +166,254 @@ fun PostStudioScreen(
                         modifier = Modifier.fillMaxWidth().height(previewHeight)
                     )
                     TemplateStrip(doc, brand, library, onDoc)
-                    Column(
-                        Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        SettingsSection("Words", "Type your words. Under each box, tap Color, Font or Size to style just that box.", defaultOpen = true) {
-                            slots.forEach { slot ->
-                                ControlHeading(PostSlots.label(slot))
-                                WordBox(slot, doc, onDoc, brand)
-                            }
-                            OtherTextStyles(doc, onDoc, brand, hasMarks)
-                            if (onBringWords != null) {
-                                OutlinedButton(onClick = onBringWords, modifier = Modifier.fillMaxWidth()) {
-                                    Text("Bring my words from the previous template")
-                                }
-                            }
-                        }
-
-                        SettingsSection("Colors", "Color pairs, the accent color and the default dark text color. A box can have its own color in Words.") {
-                            listOf("pairs" to "Color pairs", "main" to "Accent color", "text" to "Default dark text color").forEach { (group, label) ->
-                                ControlHeading(label)
-                                EditorOptions(EditorTab.LOOK, group, doc, onDoc, brand, onBrand,
-                                    photoArea != null, onPickPhoto, onPickBackgroundPhoto, onPickLogo,
-                                    moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it })
-                            }
-                        }
-
-                        SettingsSection("Background", "Choose the template background, a solid color or a gradient.") {
-                            listOf("bg" to "Background type", "bgfrom" to "Solid color / gradient start", "bgto" to "Gradient end", "bgdir" to "Gradient direction").forEach { (group, label) ->
-                                if (group != "bgfrom" || doc.bgMode == BgMode.SOLID || doc.bgMode == BgMode.GRADIENT) {
-                                    if (group != "bgto" && group != "bgdir" || doc.bgMode == BgMode.GRADIENT) {
-                                        ControlHeading(label)
-                                        EditorOptions(EditorTab.LOOK, group, doc, onDoc, brand, onBrand,
-                                            photoArea != null, onPickPhoto, onPickBackgroundPhoto, onPickLogo,
-                                            moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it })
+                    // A new scroll position for each panel, so a panel always opens at its top.
+                    key(tool) {
+                        Column(
+                            Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            when (tool) {
+                                EditorTool.TEXT -> {
+                                    ToolCard("Type your words. Under each box, tap Color, Font or Size to style just that box.") {
+                                        slots.forEach { slot ->
+                                            ControlHeading(PostSlots.label(slot))
+                                            WordBox(slot, doc, onDoc, brand)
+                                        }
+                                        OtherTextStyles(doc, onDoc, brand, hasMarks)
+                                        if (onBringWords != null) {
+                                            OutlinedButton(onClick = onBringWords, modifier = Modifier.fillMaxWidth()) {
+                                                Text("Bring my words from the previous template")
+                                            }
+                                        }
+                                        InlineEditorSlider(EditorSlider("Text size, all words", doc.textScale, 0.7f..1.5f,
+                                            "${(doc.textScale * 100).toInt()}%") { onDoc(doc.copy(textScale = it)) })
                                     }
                                 }
-                            }
-                        }
 
-                        SettingsSection("Photo", "Template photo and full-canvas background image.") {
-                            val groups = editorGroups(EditorTab.PHOTO, doc, slots, photoArea != null, false)
-                                .filterNot { it.key == "bgimg" || it.key == "bgop" }
-                            groups.forEach { group ->
-                                ControlHeading(group.label)
-                                val slider = editorSlider(EditorTab.PHOTO, group.key, doc, photoArea?.dim, onDoc)
-                                if (slider != null) InlineEditorSlider(slider)
-                                EditorOptions(EditorTab.PHOTO, group.key, doc, onDoc, brand, onBrand,
-                                    photoArea != null, onPickPhoto, onPickBackgroundPhoto, onPickLogo,
-                                    moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it })
-                            }
-
-                            Spacer(Modifier.height(4.dp))
-                            ControlHeading("Full-canvas background image")
-                            Text(
-                                "This image sits behind the entire design. Lower opacity to blend it with the template colors.",
-                                color = PostPalette.Muted,
-                                fontSize = 12.sp
-                            )
-                            OutlinedButton(onClick = onPickBackgroundPhoto, modifier = Modifier.fillMaxWidth()) {
-                                Text(if (doc.backgroundPhotoUri == null) "Add background image" else "Replace background image")
-                            }
-                            if (doc.backgroundPhotoUri != null) {
-                                InlineEditorSlider(
-                                    EditorSlider(
-                                        "Background image opacity",
-                                        doc.backgroundPhotoOpacity,
-                                        0f..1f,
-                                        "${(doc.backgroundPhotoOpacity * 100).toInt()}%"
-                                    ) { onDoc(doc.copy(backgroundPhotoOpacity = it)) }
-                                )
-                                OutlinedButton(
-                                    onClick = { onDoc(doc.copy(backgroundPhotoUri = null, backgroundPhotoOpacity = 1f)) },
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text("Remove background image")
-                                }
-                            }
-                        }
-
-                        SettingsSection("Fonts", "The fonts for the whole post. To change one box only, use Font under that box in Words. Add your own .ttf or .otf files here.") {
-                            ControlHeading("English")
-                            EditorOptions(EditorTab.FONT, "en", doc, onDoc, brand, onBrand,
-                                photoArea != null, onPickPhoto, onPickBackgroundPhoto, onPickLogo,
-                                moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it })
-                            ControlHeading("Amharic")
-                            EditorOptions(EditorTab.FONT, "am", doc, onDoc, brand, onBrand,
-                                photoArea != null, onPickPhoto, onPickBackgroundPhoto, onPickLogo,
-                                moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it })
-                        }
-
-                        SettingsSection("Text size", "Make all the words on this post bigger or smaller. A single box has its own Size in Words.") {
-                            InlineEditorSlider(EditorSlider("Text size", doc.textScale, 0.7f..1.5f,
-                                "${(doc.textScale * 100).toInt()}%") { onDoc(doc.copy(textScale = it)) })
-                        }
-
-                        SettingsSection("Layers and style", "Photo frames, gradient blends, a cut-out subject and moving words.") {
-                            EngineControls(
-                                doc, onDoc, slots, photoArea != null, moveOn,
-                                { on ->
-                                    moveOn = on
-                                    if (!on) moveTarget = null
-                                }
-                            )
-                        }
-
-                        SettingsSection("Layer manager", "Select an element here, then move or resize it directly on the poster preview.") {
-                            ControlHeading("Text layers")
-                            slots.forEach { slot ->
-                                Row(
-                                    Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(PostSlots.label(slot) + if (slot in doc.hiddenTextSlots) " · Hidden" else "", color = PostPalette.Text, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                                    OutlinedButton(
-                                        onClick = {
-                                            moveLogoOn = false
-                                            moveOn = true
-                                            moveTarget = slot
+                                EditorTool.COLOR -> {
+                                    ToolCard("Color pairs, the accent color and the default dark text color. A single box can have its own color in Text.") {
+                                        listOf("pairs" to "Color pairs", "main" to "Accent color", "text" to "Default dark text color").forEach { (group, label) ->
+                                            ControlHeading(label)
+                                            options(EditorTab.LOOK, group)
                                         }
-                                    ) { Text(if (moveOn && moveTarget == slot) "Selected" else "Select") }
-                                    OutlinedButton(onClick = {
-                                        val hidden = doc.hiddenTextSlots.toMutableSet()
-                                        if (slot in hidden) hidden.remove(slot) else hidden.add(slot)
-                                        onDoc(doc.copy(hiddenTextSlots = hidden))
-                                        if (slot in hidden && moveTarget == slot) { moveOn = false; moveTarget = null }
-                                    }) { Text(if (slot in doc.hiddenTextSlots) "Show" else "Hide") }
+                                    }
                                 }
-                            }
 
-                            if (doc.icons.isNotEmpty()) {
-                                ControlHeading("Graphic layers")
-                                doc.icons.forEachIndexed { index, item ->
-                                    Row(
-                                        Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
+                                EditorTool.FONT -> {
+                                    ToolCard("The fonts for the whole post. To change one box only, use Font under that box in Text. Add your own .ttf or .otf files here.") {
+                                        ControlHeading("English")
+                                        options(EditorTab.FONT, "en")
+                                        ControlHeading("Amharic")
+                                        options(EditorTab.FONT, "am")
+                                    }
+                                }
+
+                                EditorTool.PHOTO -> {
+                                    val groups = editorGroups(EditorTab.PHOTO, doc, slots, photoArea != null, false)
+                                        .filterNot { it.key == "bgimg" || it.key == "bgop" }
+                                    ToolCard("The template photo: add it, zoom, and move it up, down, left or right.") {
+                                        if (groups.isEmpty()) {
+                                            Text("This template has no photo area. For a full-canvas picture, use Background.", color = PostPalette.Muted, fontSize = 13.sp)
+                                        }
+                                        groups.forEach { group ->
+                                            ControlHeading(group.label)
+                                            val slider = editorSlider(EditorTab.PHOTO, group.key, doc, photoArea?.dim, onDoc)
+                                            if (slider != null) InlineEditorSlider(slider)
+                                            options(EditorTab.PHOTO, group.key)
+                                        }
+                                    }
+                                }
+
+                                EditorTool.BACKGROUND -> {
+                                    ToolCard("The template background: a solid color, a gradient, or a full-canvas picture behind everything.") {
+                                        listOf("bg" to "Background type", "bgfrom" to "Solid color / gradient start", "bgto" to "Gradient end", "bgdir" to "Gradient direction").forEach { (group, label) ->
+                                            if (group != "bgfrom" || doc.bgMode == BgMode.SOLID || doc.bgMode == BgMode.GRADIENT) {
+                                                if (group != "bgto" && group != "bgdir" || doc.bgMode == BgMode.GRADIENT) {
+                                                    ControlHeading(label)
+                                                    options(EditorTab.LOOK, group)
+                                                }
+                                            }
+                                        }
+
+                                        Spacer(Modifier.height(4.dp))
+                                        ControlHeading("Full-canvas background image")
                                         Text(
-                                            "${index + 1}. ${PostIconStore.titleOf(item)}" + if (item.visible) "" else " · Hidden",
-                                            color = PostPalette.Text,
-                                            fontSize = 13.sp,
-                                            modifier = Modifier.weight(1f)
+                                            "This image sits behind the entire design. Lower opacity to blend it with the template colors.",
+                                            color = PostPalette.Muted,
+                                            fontSize = 12.sp
                                         )
+                                        OutlinedButton(onClick = onPickBackgroundPhoto, modifier = Modifier.fillMaxWidth()) {
+                                            Text(if (doc.backgroundPhotoUri == null) "Add background image" else "Replace background image")
+                                        }
+                                        if (doc.backgroundPhotoUri != null) {
+                                            InlineEditorSlider(
+                                                EditorSlider(
+                                                    "Background image opacity",
+                                                    doc.backgroundPhotoOpacity,
+                                                    0f..1f,
+                                                    "${(doc.backgroundPhotoOpacity * 100).toInt()}%"
+                                                ) { onDoc(doc.copy(backgroundPhotoOpacity = it)) }
+                                            )
+                                            OutlinedButton(
+                                                onClick = { onDoc(doc.copy(backgroundPhotoUri = null, backgroundPhotoOpacity = 1f)) },
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Text("Remove background image")
+                                            }
+                                        }
+                                    }
+                                }
+
+                                EditorTool.MORE -> {
+                                    SettingsSection("Layers and style", "Photo frames, gradient blends, a cut-out subject and moving words.") {
+                                        EngineControls(
+                                            doc, onDoc, slots, photoArea != null, moveOn,
+                                            { on ->
+                                                moveOn = on
+                                                if (!on) moveTarget = null
+                                            }
+                                        )
+                                    }
+
+                                    SettingsSection("Layer manager", "Select an element here, then move or resize it directly on the poster preview.") {
+                                        ControlHeading("Text layers")
+                                        slots.forEach { slot ->
+                                            Row(
+                                                Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(PostSlots.label(slot) + if (slot in doc.hiddenTextSlots) " · Hidden" else "", color = PostPalette.Text, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                                                OutlinedButton(
+                                                    onClick = {
+                                                        moveLogoOn = false
+                                                        moveOn = true
+                                                        moveTarget = slot
+                                                    }
+                                                ) { Text(if (moveOn && moveTarget == slot) "Selected" else "Select") }
+                                                OutlinedButton(onClick = {
+                                                    val hidden = doc.hiddenTextSlots.toMutableSet()
+                                                    if (slot in hidden) hidden.remove(slot) else hidden.add(slot)
+                                                    onDoc(doc.copy(hiddenTextSlots = hidden))
+                                                    if (slot in hidden && moveTarget == slot) { moveOn = false; moveTarget = null }
+                                                }) { Text(if (slot in doc.hiddenTextSlots) "Show" else "Hide") }
+                                            }
+                                        }
+
+                                        if (doc.icons.isNotEmpty()) {
+                                            ControlHeading("Graphic layers")
+                                            doc.icons.forEachIndexed { index, item ->
+                                                Row(
+                                                    Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Text(
+                                                        "${index + 1}. ${PostIconStore.titleOf(item)}" + if (item.visible) "" else " · Hidden",
+                                                        color = PostPalette.Text,
+                                                        fontSize = 13.sp,
+                                                        modifier = Modifier.weight(1f)
+                                                    )
+                                                    OutlinedButton(
+                                                        onClick = {
+                                                            selectedIcon = index
+                                                            moveOn = false
+                                                            moveTarget = null
+                                                            moveLogoOn = false
+                                                        }
+                                                    ) { Text(if (selectedIcon == index) "Selected" else "Select") }
+                                                    OutlinedButton(onClick = {
+                                                        onDoc(doc.copy(icons = doc.icons.mapIndexed { i, old -> if (i == index) old.copy(visible = !old.visible) else old }))
+                                                    }) { Text(if (item.visible) "Hide" else "Show") }
+                                                }
+                                            }
+                                        }
+
+                                        if (doc.cutoutUri != null) {
+                                            Row(
+                                                Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text("Cut-out subject", color = PostPalette.Text, fontSize = 13.sp)
+                                                OutlinedButton(
+                                                    onClick = {
+                                                        moveLogoOn = false
+                                                        moveOn = true
+                                                        moveTarget = PostEngine.CUTOUT_TARGET
+                                                    }
+                                                ) { Text(if (moveOn && moveTarget == PostEngine.CUTOUT_TARGET) "Selected" else "Select") }
+                                            }
+                                        }
+
+                                        if (doc.showLogo && brand.logoPath != null) {
+                                            Row(
+                                                Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text("Brand logo", color = PostPalette.Text, fontSize = 13.sp)
+                                                OutlinedButton(
+                                                    onClick = {
+                                                        moveOn = false
+                                                        moveTarget = null
+                                                        moveLogoOn = true
+                                                    }
+                                                ) { Text(if (moveLogoOn) "Selected" else "Select") }
+                                            }
+                                        }
+
+                                        if (doc.photoUri != null) {
+                                            Text("Template photo · adjust it in Photo", color = PostPalette.Muted, fontSize = 12.sp)
+                                        }
+                                        if (doc.backgroundPhotoUri != null) {
+                                            Text("Full-canvas background · adjust it in Background", color = PostPalette.Muted, fontSize = 12.sp)
+                                        }
                                         OutlinedButton(
                                             onClick = {
-                                                selectedIcon = index
                                                 moveOn = false
                                                 moveTarget = null
                                                 moveLogoOn = false
+                                            },
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) { Text("Finish layer selection") }
+                                    }
+
+                                    SettingsSection("Logo", "Control the logo on this post.") {
+                                        editorGroups(EditorTab.LOGO, doc, slots, photoArea != null, false).forEach { group ->
+                                            ControlHeading(group.label)
+                                            if (group.key == "size") {
+                                                InlineEditorSlider(EditorSlider("Logo size", doc.logoSize, 0.4f..3f,
+                                                    "${(doc.logoSize * 100).toInt()}%") { onDoc(doc.copy(logoSize = it)) })
+                                            } else options(EditorTab.LOGO, group.key)
+                                        }
+                                    }
+
+                                    SettingsSection("Icons", "Add graphics, select one, then drag or pinch it on the preview.") {
+                                        editorGroups(EditorTab.ICONS, doc, slots, photoArea != null, false).forEach { group ->
+                                            ControlHeading(group.label)
+                                            if (group.key == "size") {
+                                                val slider = iconSizeSlider(doc, selectedIcon, onDoc)
+                                                if (slider != null) InlineEditorSlider(slider)
                                             }
-                                        ) { Text(if (selectedIcon == index) "Selected" else "Select") }
-                                        OutlinedButton(onClick = {
-                                            onDoc(doc.copy(icons = doc.icons.mapIndexed { i, old -> if (i == index) old.copy(visible = !old.visible) else old }))
-                                        }) { Text(if (item.visible) "Hide" else "Show") }
+                                            IconOptions(group.key, doc, onDoc, selectedIcon) { selectedIcon = it }
+                                        }
+                                    }
+
+                                    SettingsSection("Footer", "Social icons shown on the post. The footer text color is under Text, Other text.") {
+                                        editorGroups(EditorTab.FOOTER, doc, slots, photoArea != null, false).forEach { group ->
+                                            ControlHeading(group.label)
+                                            if (group.key == "size") {
+                                                InlineEditorSlider(EditorSlider("Footer icon size", brand.iconScale, 0.5f..1.8f,
+                                                    "${(brand.iconScale * 100).toInt()}%") { onBrand(brand.copy(iconScale = it)) })
+                                            } else options(EditorTab.FOOTER, group.key)
+                                        }
                                     }
                                 }
                             }
-
-                            if (doc.cutoutUri != null) {
-                                Row(
-                                    Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text("Cut-out subject", color = PostPalette.Text, fontSize = 13.sp)
-                                    OutlinedButton(
-                                        onClick = {
-                                            moveLogoOn = false
-                                            moveOn = true
-                                            moveTarget = PostEngine.CUTOUT_TARGET
-                                        }
-                                    ) { Text(if (moveOn && moveTarget == PostEngine.CUTOUT_TARGET) "Selected" else "Select") }
-                                }
-                            }
-
-                            if (doc.showLogo && brand.logoPath != null) {
-                                Row(
-                                    Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text("Brand logo", color = PostPalette.Text, fontSize = 13.sp)
-                                    OutlinedButton(
-                                        onClick = {
-                                            moveOn = false
-                                            moveTarget = null
-                                            moveLogoOn = true
-                                        }
-                                    ) { Text(if (moveLogoOn) "Selected" else "Select") }
-                                }
-                            }
-
-                            if (doc.photoUri != null) {
-                                Text("Template photo · adjust it in Photo", color = PostPalette.Muted, fontSize = 12.sp)
-                            }
-                            if (doc.backgroundPhotoUri != null) {
-                                Text("Full-canvas background · adjust it in Photo", color = PostPalette.Muted, fontSize = 12.sp)
-                            }
-                            OutlinedButton(
-                                onClick = {
-                                    moveOn = false
-                                    moveTarget = null
-                                    moveLogoOn = false
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            ) { Text("Finish layer selection") }
-                        }
-
-                        SettingsSection("Logo", "Control the logo on this post.") {
-                            editorGroups(EditorTab.LOGO, doc, slots, photoArea != null, false).forEach { group ->
-                                ControlHeading(group.label)
-                                if (group.key == "size") {
-                                    InlineEditorSlider(EditorSlider("Logo size", doc.logoSize, 0.4f..3f,
-                                        "${(doc.logoSize * 100).toInt()}%") { onDoc(doc.copy(logoSize = it)) })
-                                } else EditorOptions(EditorTab.LOGO, group.key, doc, onDoc, brand, onBrand,
-                                    photoArea != null, onPickPhoto, onPickBackgroundPhoto, onPickLogo,
-                                    moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it })
-                            }
-                        }
-
-                        SettingsSection("Icons", "Add graphics, select one, then drag or pinch it on the preview.") {
-                            editorGroups(EditorTab.ICONS, doc, slots, photoArea != null, false).forEach { group ->
-                                ControlHeading(group.label)
-                                if (group.key == "size") {
-                                    val slider = iconSizeSlider(doc, selectedIcon, onDoc)
-                                    if (slider != null) InlineEditorSlider(slider)
-                                }
-                                IconOptions(group.key, doc, onDoc, selectedIcon) { selectedIcon = it }
-                            }
-                        }
-
-                        SettingsSection("Footer", "Social icons shown on the post. The footer text color is under Words, Other text.") {
-                            editorGroups(EditorTab.FOOTER, doc, slots, photoArea != null, false).forEach { group ->
-                                ControlHeading(group.label)
-                                if (group.key == "size") {
-                                    InlineEditorSlider(EditorSlider("Footer icon size", brand.iconScale, 0.5f..1.8f,
-                                        "${(brand.iconScale * 100).toInt()}%") { onBrand(brand.copy(iconScale = it)) })
-                                } else EditorOptions(EditorTab.FOOTER, group.key, doc, onDoc, brand, onBrand,
-                                    photoArea != null, onPickPhoto, onPickBackgroundPhoto, onPickLogo,
-                                    moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it })
-                            }
                         }
                     }
+                    if (!keyboardOpen) PostToolBar(selected = tool, onSelect = { tool = it })
                 }
             }
         }
@@ -397,8 +421,22 @@ fun PostStudioScreen(
     }
 }
 
+/** A card that holds one tool panel. It is always open; the hint line explains the panel. */
+@Composable
+private fun ToolCard(hint: String?, content: @Composable ColumnScope.() -> Unit) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = PostPalette.Surface),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (hint != null) Text(hint, color = PostPalette.Muted, fontSize = 12.sp)
+            content()
+        }
+    }
+}
+
 /**
- * A card with a tappable header. Collapsed it is one 48 dp row, so the whole editor fits in a few screens instead of one long scroll.
+ * A card with a tappable header, used in the More panel. Collapsed it is one 48 dp row.
  * Its open or closed state is kept per title, also across a screen turn. defaultOpen is only the state the first time.
  */
 @Composable
@@ -496,7 +534,12 @@ private fun TitleRow(
             Icon(Icons.Outlined.Layers, contentDescription = "Batch", tint = PostPalette.Mint)
         }
         IconButton(onClick = onOpenInbox) {
-            Icon(Icons.Outlined.Inbox, contentDescription = "Poster inbox", tint = PostPalette.Mint)
+            Box {
+                Icon(Icons.Outlined.Inbox, contentDescription = "Poster inbox", tint = PostPalette.Mint)
+                if (PostInboxState.drafts > 0) {
+                    Box(Modifier.align(Alignment.TopEnd).size(8.dp).clip(CircleShape).background(PostPalette.Gold))
+                }
+            }
         }
     }
 }

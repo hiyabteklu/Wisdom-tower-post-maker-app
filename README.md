@@ -6,7 +6,9 @@ The direction is set in **[docs/IMPROVEMENT_PLAN.md](docs/IMPROVEMENT_PLAN.md)**
 
 ## How it is used
 
-Ask your AI chat for posters (one or a batch). The chat reads the brand kit, writes the posts and captions, and saves them to the backend. In the app: **Inbox**, tap the batch, **Make posts**. The five bottom tabs are Inbox, Templates, Editor, Batch and Brand.
+Ask your AI chat for posters (one or a batch). The chat reads the brand kit, writes the posts and captions, and saves them to the backend. In the app: Inbox icon (top right of the editor), tap the batch, **Make posts**.
+
+The editor has a tool bar at the bottom: **Text** (the message boxes and overall text size), **Color**, **Font**, **Photo** (add, zoom, move), **Background** (type, colors, full-canvas image) and **More** (layers, logo, icons, footer). Templates are in the strip under the preview.
 
 ## Status by phase
 
@@ -14,8 +16,7 @@ Ask your AI chat for posters (one or a batch). The chat reads the brand kit, wri
 - [x] **Phase 2, brand.** Brand screen, locked header and footer, bundled footer icon set.
 - [x] **Phase 3, templates.** 36 templates in the Library, each laid out per size. Template gallery with live previews.
 - [x] **Chat Inbox.** Batches saved by the AI chat appear in the Inbox (checked on the phone 3 Nov 2026).
-- [ ] **Bottom navigation and faster screens (pushed 3 Nov 2026, NOT compiled).** Five-tab bottom bar, Inbox redesign, Library built lazily, thumbnails warmed in the background. *Check after building:* all five tabs switch at once; the bar hides when the keyboard opens; no gap between the bar and the screen above it; Inbox opens instantly the second time; Templates opens fast.
-- [ ] **Next UI slice:** remove the four navigation icons from the Editor title row (the bar replaces them), once the bar is verified.
+- [ ] **Editor tool bar and faster screens (pushed 3 Nov 2026, NOT compiled).** Bottom tool bar in the editor, Inbox redesign, Library built lazily, thumbnails warmed in the background. *Check after building:* each tool button swaps the panel at once; Text is open on start; the bar hides when the keyboard opens; every control that was in the old long list is still reachable (Colors, Background, Photo, Fonts, Text size, Layers, Layer manager, Logo, Icons, Footer); Inbox opens instantly the second time; Library opens fast.
 - [ ] **Batch posts.** Paste a list of words, get a folder of finished posts. Plan and status: docs/BATCH_PLAN.md.
 
 ## Product principles

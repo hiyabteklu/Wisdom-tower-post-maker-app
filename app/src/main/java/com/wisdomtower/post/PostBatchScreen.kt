@@ -91,6 +91,7 @@ import java.util.Locale
 @Composable
 fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch? = null, onBack: () -> Unit) {
     val context = LocalContext.current
+    var currentBrand by remember(brand) { mutableStateOf(brand) }
     val clipboard = LocalClipboardManager.current
     val view = LocalView.current
     val scope = rememberCoroutineScope()
@@ -168,7 +169,7 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
     val editorLogoPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             val stored = PostStore.importLogo(context, uri)
-            if (stored != null) brand = brand.copy(logoPath = stored, logoStamp = System.currentTimeMillis())
+            if (stored != null) currentBrand = currentBrand.copy(logoPath = stored, logoStamp = System.currentTimeMillis())
             else backendMessage = "That file is not a readable image"
         }
     }
@@ -251,7 +252,7 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
                     try {
                         val saved = withContext(Dispatchers.Default) {
                             PostExport.saveOne(
-                                context, pageDoc(item), brand, chosenSizes,
+                                context, pageDoc(item), currentBrand, chosenSizes,
                                 options.png, options.fourK, stamp,
                                 item.number.toString().padStart(width, '0'), folder
                             )
@@ -385,7 +386,7 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
                             val postDoc = remember(doc, item, batchPhotos) { pageDoc(item) }
                             BatchPostPage(
                                 postDoc = postDoc,
-                                brand = brand,
+                                brand = currentBrand,
                                 number = item.number,
                                 edited = item != originalItems.getOrNull(page),
                                 canEdit = !running,
@@ -424,7 +425,7 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
                             val found = mutableListOf<String>()
                             list.forEach { item ->
                                 val result = withContext(Dispatchers.Default) {
-                                    PostRenderer.preview(context, pageDoc(item), brand, 360) { !isActive }
+                                    PostRenderer.preview(context, pageDoc(item), currentBrand, 360) { !isActive }
                                 }
                                 if (result.overflow.isNotEmpty()) found.add("Post ${item.number}: " + result.overflow.joinToString { PostSlots.label(it) })
                                 result.bitmap.recycle()
@@ -553,12 +554,13 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
                         PostStudioScreen(
                             doc = activeEditorDoc,
                             onDoc = { changed -> saveEditingDoc(changed) },
-                            brand = brand,
+                            brand = currentBrand,
                             library = PostDrafts.loadLibrary(context) ?: PostLibrary(),
-                            onBrand = { brand = it },
+                            onBrand = { currentBrand = it },
                             onPickPhoto = { editorPhotoPicker.launch(arrayOf("image/*")) },
                             onPickBackgroundPhoto = { editorBackgroundPicker.launch(arrayOf("image/*")) },
-                            onPickLogo = { editorLogoPicker.launch(arrayOf("image/*")) }
+                            onPickLogo = { editorLogoPicker.launch(arrayOf("image/*")) },
+                            onOpenBrand = { backendMessage = "Close this editor to manage brand settings from the main studio." }
                         )
                     }
                 }

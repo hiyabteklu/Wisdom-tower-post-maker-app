@@ -507,7 +507,7 @@ private fun TitleRow(
     onOpenBatch: () -> Unit,
     onOpenInbox: () -> Unit
 ) {
-    Row(Modifier.fillMaxWidth().padding(start = 10.dp, end = 2.dp, vertical = 1.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().padding(start = 10.dp, top = 1.dp, end = 2.dp, bottom = 1.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(
             (if (edited) "● " else "") + postTemplate(doc.templateId).name,
             fontWeight = FontWeight.Bold,

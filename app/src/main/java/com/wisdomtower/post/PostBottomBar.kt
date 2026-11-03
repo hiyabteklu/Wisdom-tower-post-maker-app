@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -76,7 +77,7 @@ object PostInboxState {
 
 @Composable
 fun PostToolBar(selected: EditorTool, onSelect: (EditorTool) -> Unit, modifier: Modifier = Modifier) {
-    Column(modifier.fillMaxWidth().background(PostPalette.Surface)) {
+    Column(modifier.fillMaxWidth().navigationBarsPadding().background(PostPalette.Surface)) {
         Box(Modifier.fillMaxWidth().height(1.dp).background(PostPalette.Line))
         Row(Modifier.fillMaxWidth().height(58.dp)) {
             EditorTool.values().forEach { tool ->

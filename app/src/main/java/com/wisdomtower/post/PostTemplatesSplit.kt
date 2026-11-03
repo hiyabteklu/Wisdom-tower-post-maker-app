@@ -24,7 +24,7 @@ private fun spDisc(size: PostSize, cx: Float, cy: Float, rPx: Float, tone: PostT
 /** The panel (the text half) drawn over the photo. These are the left-hand versions; a right-hand template mirrors them. */
 private fun spPanel(kind: SpKind, size: PostSize, bottom: Boolean, t: PostTone): List<DecorBox> {
     val story = size == PostSize.STORY
-    val wide = size == PostSize.LANDSCAPE || size == PostSize.WIDE || size == PostSize.WIDE
+    val wide = size == PostSize.LANDSCAPE || size == PostSize.WIDE
     if (bottom) {
         val y0 = if (story) .50f else .58f
         return when (kind) {
@@ -52,7 +52,7 @@ private fun spPanel(kind: SpKind, size: PostSize, bottom: Boolean, t: PostTone):
 private fun spLayout(size: PostSize, c: SpCfg): TemplateLayout {
     val t = if (c.deep) PostTone.DEEP else PostTone.TINT
     val story = size == PostSize.STORY
-    val wide = size == PostSize.LANDSCAPE
+    val wide = size == PostSize.LANDSCAPE || size == PostSize.WIDE
     val bottom = story || (c.kind == SpKind.DROP && !wide)
     var panel = spPanel(c.kind, size, bottom, t)
     if (!bottom && !c.left) panel = panel.map { it.copy(x = 1f - it.x - it.w) }

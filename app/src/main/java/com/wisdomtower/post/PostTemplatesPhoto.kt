@@ -42,7 +42,7 @@ fun PostDoc.withLook(look: TemplateLook): PostDoc = copy(
 private const val PHU = 1080f
 
 private val PostSize.phStory: Boolean get() = this == PostSize.STORY
-private val PostSize.phWide: Boolean get() = this == PostSize.LANDSCAPE
+private val PostSize.phWide: Boolean get() = this == PostSize.LANDSCAPE || this == PostSize.WIDE
 
 private fun photoTemplate(
     id: String,

@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -22,6 +21,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.FactCheck
 import androidx.compose.material.icons.outlined.Refresh
@@ -55,7 +55,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 
 /**
- * The Poster inbox, the first tab of the bottom bar.
+ * The Poster inbox.
  * It opens at once from the list kept in memory (or the one saved on disk) and refreshes quietly behind it, so there is no blank wait.
  * Pull down or tap the arrow to refresh. Tap a card to open the batch. Filters: All, Draft, Approved, Posted.
  */
@@ -88,7 +88,7 @@ fun PostChatInboxScreen(onBack: () -> Unit, onOpenBatch: (PostChatBatch) -> Unit
             }
         }
     }
-    // Refresh on entry only when the list is older than 15 seconds, so switching tabs back and forth costs nothing.
+    // Refresh on entry only when the list is older than 15 seconds.
     LaunchedEffect(Unit) { if (System.currentTimeMillis() - PostInboxState.loadedAt > 15_000L) refresh() }
 
     val shown = if (filter == "all") batches else batches.filter { it.status == filter }
@@ -97,7 +97,8 @@ fun PostChatInboxScreen(onBack: () -> Unit, onOpenBatch: (PostChatBatch) -> Unit
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text("Inbox", fontWeight = FontWeight.Bold) },
+                    title = { Text("Poster inbox", fontWeight = FontWeight.Bold) },
+                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, contentDescription = "Back") } },
                     actions = {
                         if (onOpenQa != null) {
                             IconButton(onClick = onOpenQa) { Icon(Icons.Outlined.FactCheck, contentDescription = "Template QA: check every template") }
@@ -183,7 +184,7 @@ private fun BatchCard(batch: PostChatBatch, busy: Boolean, onOpen: () -> Unit) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(batch.title, color = PostPalette.Text, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(
-                batch.level.ifBlank { "General" } + " · " + templateName(batch.template),
+                batch.level.ifBlank { "General" } + " \u00b7 " + templateName(batch.template),
                 color = PostPalette.Muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis
             )
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {

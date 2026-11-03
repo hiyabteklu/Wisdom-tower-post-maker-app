@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -90,11 +91,10 @@ object PostThumbs {
 }
 
 /**
- * The Templates tab (the Library home, UI_UX_PLAN.md section 4.1): a page of horizontal rows. Only the page scrolls up and down.
- * The page is a LazyColumn, so only the rows on screen are built; the rest are built as you scroll (this is what makes the tab open fast).
+ * The Library home (UI_UX_PLAN.md section 4.1): a page of horizontal rows. Only the page scrolls up and down.
+ * The page is a LazyColumn, so only the rows on screen are built; the rest are built as you scroll (this is what makes it open fast).
  * Rows: Continue (templates you edited, newest first), Saved (bookmarked), then one row per family.
  * A bookmarked template moves into Saved. An edited template shows your edited version with a small dot.
- * onBack is kept for the caller; the bottom bar and the system back button do the going back.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -114,7 +114,12 @@ fun PostLibraryScreen(
 
     PostTheme {
         Scaffold(
-            topBar = { TopAppBar(title = { Text("Templates", fontWeight = FontWeight.Bold) }) },
+            topBar = {
+                TopAppBar(
+                    title = { Text("Library", fontWeight = FontWeight.Bold) },
+                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, contentDescription = "Back to editor") } }
+                )
+            },
             containerColor = PostPalette.Ink
         ) { padding ->
             Column(Modifier.fillMaxSize().padding(padding)) {

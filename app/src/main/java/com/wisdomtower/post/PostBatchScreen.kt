@@ -141,17 +141,27 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
         }
     }
 
+    fun saveEditingDoc(updated: PostDoc) {
+        editingDoc = updated
+        val index = editingIndex
+        val current = index?.let { reviewItems.getOrNull(it) }
+        if (index != null && current != null) {
+            editedDesigns[current.number] = updated
+            reviewItems[index] = current.copy(texts = updated.texts)
+        }
+    }
+
     val editorPhotoPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             val stored = PostStore.importPhoto(context, uri)
-            if (stored != null) editingDoc = editingDoc?.copy(photoUri = stored, photoZoom = 1f, photoFocusX = 0.5f, photoFocusY = 0.5f)
+            if (stored != null) editingDoc?.copy(photoUri = stored, photoZoom = 1f, photoFocusX = 0.5f, photoFocusY = 0.5f)?.let(::saveEditingDoc)
             else backendMessage = "That file is not a readable image"
         }
     }
     val editorBackgroundPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             val stored = PostStore.importPhoto(context, uri)
-            if (stored != null) editingDoc = editingDoc?.copy(backgroundPhotoUri = stored, backgroundPhotoOpacity = 1f)
+            if (stored != null) editingDoc?.copy(backgroundPhotoUri = stored, backgroundPhotoOpacity = 1f)?.let(::saveEditingDoc)
             else backendMessage = "That file is not a readable image"
         }
     }
@@ -521,7 +531,7 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
         if (index != null && item != null && activeEditorDoc != null) {
             Dialog(
                 onDismissRequest = { editingIndex = null; editingDoc = null },
-                properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
+                properties = DialogProperties(usePlatformDefaultWidth = false)
             ) {
                 Column(Modifier.fillMaxSize().background(PostPalette.Ink)) {
                     Row(
@@ -542,10 +552,7 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
                     Box(Modifier.weight(1f).fillMaxWidth()) {
                         PostStudioScreen(
                             doc = activeEditorDoc,
-                            onDoc = { changed ->
-                                editingDoc = changed
-                                editedDesigns[item.number] = changed
-                            },
+                            onDoc = { changed -> saveEditingDoc(changed) },
                             brand = brand,
                             library = PostDrafts.loadLibrary(context) ?: PostLibrary(),
                             onBrand = { brand = it },

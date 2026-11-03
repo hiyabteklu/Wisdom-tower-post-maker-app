@@ -25,7 +25,7 @@ private val MK_DARK = Backdrop(PostTone.DEEP, PostTone.PAGE, 150f)
 /** Picks the value for the current size. Any size that is not 4:3 or 9:16 gets the 1:1 value. */
 private fun <T> PostSize.mkPick(square: T, wide: T, story: T): T = when (this) {
     PostSize.STORY -> story
-    PostSize.LANDSCAPE -> wide
+    PostSize.LANDSCAPE, PostSize.WIDE -> wide
     else -> square
 }
 

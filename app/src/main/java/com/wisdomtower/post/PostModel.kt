@@ -4,15 +4,13 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * The export sizes. Everything in the renderer is stored as fractions, so a size is just width and height.
- * PORTRAIT (4:5, Instagram feed) has no layouts of its own yet: every template falls into its 1:1 branch for it.
+ * The only supported export sizes. Template layouts use normalized positions, with landscape layouts shared by 4:3 and 16:9.
  * Export order and the order of the size chips follow this order.
  */
 enum class PostSize(val label: String, val width: Int, val height: Int) {
-    SQUARE("1:1", 1080, 1080),
-    PORTRAIT("4:5", 1080, 1350),
     LANDSCAPE("4:3", 1440, 1080),
-    STORY("9:16", 1080, 1920)
+    STORY("9:16", 1080, 1920),
+    WIDE("16:9", 1920, 1080)
 }
 
 object PostSlots {
@@ -115,7 +113,7 @@ data class PostBrand(
  */
 data class PostDoc(
     val templateId: String = "info-quote",
-    val size: PostSize = PostSize.SQUARE,
+    val size: PostSize = PostSize.LANDSCAPE,
     val texts: Map<String, String> = mapOf(
         PostSlots.EYEBROW to "TODAY'S THOUGHT",
         PostSlots.HEADLINE to "Small steps still move you forward.",
@@ -314,7 +312,7 @@ object PostCodec {
         val texts = if (t == null) base.texts else t.keys().asSequence().associateWith { t.optString(it) }
         return PostDoc(
             templateId = j.optString("templateId", base.templateId),
-            size = runCatching { PostSize.valueOf(j.optString("size", "SQUARE")) }.getOrDefault(PostSize.SQUARE),
+            size = when (j.optString("size", "LANDSCAPE")) { "SQUARE", "PORTRAIT" -> PostSize.LANDSCAPE; else -> runCatching { PostSize.valueOf(j.optString("size")) }.getOrDefault(PostSize.LANDSCAPE) },
             texts = texts,
             bgMode = runCatching { BgMode.valueOf(j.optString("bgMode", "TEMPLATE")) }.getOrDefault(BgMode.TEMPLATE),
             bgStartHex = j.optString("bgStartHex", base.bgStartHex).ifBlank { base.bgStartHex },

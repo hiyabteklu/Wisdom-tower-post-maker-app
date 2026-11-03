@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -77,23 +76,23 @@ object PostInboxState {
 
 @Composable
 fun PostToolBar(selected: EditorTool, onSelect: (EditorTool) -> Unit, modifier: Modifier = Modifier) {
-    Column(modifier.fillMaxWidth().navigationBarsPadding().background(PostPalette.Surface)) {
+    Column(modifier.fillMaxWidth().background(PostPalette.Surface)) {
         Box(Modifier.fillMaxWidth().height(1.dp).background(PostPalette.Line))
-        Row(Modifier.fillMaxWidth().height(58.dp)) {
+        Row(Modifier.fillMaxWidth().height(46.dp)) {
             EditorTool.values().forEach { tool ->
                 val on = tool == selected
                 val tint = if (on) PostPalette.Mint else PostPalette.Muted
                 Column(
-                    Modifier.weight(1f).height(58.dp).clickable(role = Role.Tab) { onSelect(tool) },
+                    Modifier.weight(1f).height(46.dp).clickable(role = Role.Tab) { onSelect(tool) },
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
                     Box(
-                        Modifier.width(52.dp).height(28.dp).clip(RoundedCornerShape(14.dp))
+                        Modifier.width(48.dp).height(24.dp).clip(RoundedCornerShape(14.dp))
                             .background(if (on) PostPalette.Mint.copy(alpha = 0.16f) else Color.Transparent),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(if (on) tool.iconOn else tool.icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
+                        Icon(if (on) tool.iconOn else tool.icon, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp))
                     }
                     Text(
                         tool.label,
@@ -102,7 +101,7 @@ fun PostToolBar(selected: EditorTool, onSelect: (EditorTool) -> Unit, modifier: 
                         color = tint,
                         maxLines = 1,
                         overflow = TextOverflow.Clip,
-                        modifier = Modifier.padding(top = 2.dp)
+                        modifier = Modifier.padding(top = 0.dp)
                     )
                 }
             }

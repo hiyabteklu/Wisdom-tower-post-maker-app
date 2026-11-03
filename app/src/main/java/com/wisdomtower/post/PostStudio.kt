@@ -413,7 +413,7 @@ fun PostStudioScreen(
                             }
                         }
                     }
-                    if (!keyboardOpen) PostToolBar(selected = tool, onSelect = { tool = it })
+                    PostToolBar(selected = tool, onSelect = { tool = it })
                 }
             }
         }

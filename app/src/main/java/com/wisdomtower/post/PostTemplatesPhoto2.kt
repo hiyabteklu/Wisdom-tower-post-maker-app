@@ -8,7 +8,7 @@ package com.wisdomtower.post
 
 private fun <T> PostSize.pqPick(square: T, wide: T, story: T): T = when (this) {
     PostSize.STORY -> story
-    PostSize.LANDSCAPE -> wide
+    PostSize.LANDSCAPE, PostSize.WIDE -> wide
     else -> square
 }
 

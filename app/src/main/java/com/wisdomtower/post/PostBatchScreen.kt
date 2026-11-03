@@ -34,7 +34,8 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.SaveAlt
 import androidx.compose.material.icons.outlined.Share
-import androidx.compose.material3.AlertDialog
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
@@ -114,6 +115,8 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
     val reviewItems = remember { mutableStateListOf<BatchItem>() }
     var originalItems by remember { mutableStateOf<List<BatchItem>>(emptyList()) }
     var editingIndex by remember { mutableStateOf<Int?>(null) }
+    var editingDoc by remember { mutableStateOf<PostDoc?>(null) }
+    val editedDesigns = remember { mutableStateMapOf<Int, PostDoc>() }
     val pagerState = rememberPagerState(pageCount = { reviewItems.size })
 
     var checking by remember { mutableStateOf(false) }
@@ -138,11 +141,38 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
         }
     }
 
+    val editorPhotoPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            val stored = PostStore.importPhoto(context, uri)
+            if (stored != null) editingDoc = editingDoc?.copy(photoUri = stored, photoZoom = 1f, photoFocusX = 0.5f, photoFocusY = 0.5f)
+            else backendMessage = "That file is not a readable image"
+        }
+    }
+    val editorBackgroundPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            val stored = PostStore.importPhoto(context, uri)
+            if (stored != null) editingDoc = editingDoc?.copy(backgroundPhotoUri = stored, backgroundPhotoOpacity = 1f)
+            else backendMessage = "That file is not a readable image"
+        }
+    }
+    val editorLogoPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            val stored = PostStore.importLogo(context, uri)
+            if (stored != null) brand = brand.copy(logoPath = stored, logoStamp = System.currentTimeMillis())
+            else backendMessage = "That file is not a readable image"
+        }
+    }
+
     val parsed = remember(text, mode, slots, fill) { PostBatch.parse(text, mode, slots, fill) }
     val items = parsed.items
 
-    fun pageDoc(item: BatchItem): PostDoc =
-        PostBatch.apply(doc, item).copy(photoUri = batchPhotos.getOrNull(item.number - 1) ?: doc.photoUri)
+    fun pageDoc(item: BatchItem): PostDoc {
+        val design = editedDesigns[item.number] ?: doc
+        val batchPhoto = batchPhotos.getOrNull(item.number - 1)
+        return PostBatch.apply(design, item).let { page ->
+            if (item.number !in editedDesigns && batchPhoto != null) page.copy(photoUri = batchPhoto) else page
+        }
+    }
 
     // Words that came from the inbox are not stored as the template's own batch draft.
     LaunchedEffect(text, doc.templateId) {
@@ -349,7 +379,7 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
                                 number = item.number,
                                 edited = item != originalItems.getOrNull(page),
                                 canEdit = !running,
-                                onEdit = { editingIndex = page }
+                                onEdit = { editingIndex = page; editingDoc = postDoc }
                             )
                         }
                     }
@@ -484,51 +514,47 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
             }
         }
 
-        // ---------- Edit one post ----------
-        editingIndex?.let { index ->
-            val item = reviewItems.getOrNull(index)
-            if (item != null) {
-                val drafts = remember(index) {
-                    mutableStateMapOf<String, String>().apply {
-                        slots.forEach { slot -> put(slot, item.texts[slot] ?: doc.texts[slot].orEmpty()) }
+        // Reuse the complete main-screen editor for every inbox poster.
+        val index = editingIndex
+        val item = index?.let { reviewItems.getOrNull(it) }
+        val activeEditorDoc = editingDoc
+        if (index != null && item != null && activeEditorDoc != null) {
+            Dialog(
+                onDismissRequest = { editingIndex = null; editingDoc = null },
+                properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
+            ) {
+                Column(Modifier.fillMaxSize().background(PostPalette.Ink)) {
+                    Row(
+                        Modifier.fillMaxWidth().background(PostPalette.Surface).padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text("Editing post ${item.number}", color = PostPalette.Text, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        OutlinedButton(onClick = {
+                            val source = editingDoc ?: return@OutlinedButton
+                            reviewItems.forEach { target ->
+                                editedDesigns[target.number] = source.copy(texts = doc.texts)
+                            }
+                            backendMessage = "Design applied to all ${reviewItems.size} posts"
+                        }) { Text("Apply to all") }
+                        Button(onClick = { editingIndex = null; editingDoc = null }) { Text("Done") }
+                    }
+                    Box(Modifier.weight(1f).fillMaxWidth()) {
+                        PostStudioScreen(
+                            doc = activeEditorDoc,
+                            onDoc = { changed ->
+                                editingDoc = changed
+                                editedDesigns[item.number] = changed
+                            },
+                            brand = brand,
+                            library = PostDrafts.loadLibrary(context) ?: PostLibrary(),
+                            onBrand = { brand = it },
+                            onPickPhoto = { editorPhotoPicker.launch(arrayOf("image/*")) },
+                            onPickBackgroundPhoto = { editorBackgroundPicker.launch(arrayOf("image/*")) },
+                            onPickLogo = { editorLogoPicker.launch(arrayOf("image/*")) }
+                        )
                     }
                 }
-                AlertDialog(
-                    onDismissRequest = { editingIndex = null },
-                    containerColor = PostPalette.Surface,
-                    titleContentColor = PostPalette.Text,
-                    textContentColor = PostPalette.Text,
-                    title = { Text("Edit post ${item.number}") },
-                    text = {
-                        Column(
-                            Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            slots.forEach { slot ->
-                                OutlinedTextField(
-                                    value = drafts[slot].orEmpty(),
-                                    onValueChange = { drafts[slot] = it },
-                                    label = { Text(PostSlots.label(slot)) },
-                                    minLines = if (slot == PostSlots.LIST) 4 else 1,
-                                    modifier = Modifier.fillMaxWidth(),
-                                    textStyle = TextStyle(color = PostPalette.Text, fontSize = 14.sp)
-                                )
-                            }
-                        }
-                    },
-                    confirmButton = {
-                        Button(onClick = {
-                            val changed = drafts.mapValues { it.value.trim() }.filter { (slot, value) ->
-                                value != (item.texts[slot] ?: doc.texts[slot].orEmpty())
-                            }
-                            if (changed.isNotEmpty()) reviewItems[index] = item.copy(texts = item.texts + changed)
-                            editingIndex = null
-                        }) { Text("Save changes") }
-                    },
-                    dismissButton = {
-                        OutlinedButton(onClick = { editingIndex = null }) { Text("Cancel") }
-                    }
-                )
             }
         }
     }

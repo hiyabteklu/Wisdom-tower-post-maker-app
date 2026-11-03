@@ -148,7 +148,7 @@ object PostDrafts {
             return (if (legacy == PostDoc()) factory(doc.templateId, doc.size) else doc) to library
         }
         val id = existing.lastTemplate ?: PostDoc().templateId
-        return (loadDraft(context, id) ?: factory(id, PostSize.SQUARE)) to existing
+        return (loadDraft(context, id) ?: factory(id, PostSize.LANDSCAPE)) to existing
     }
 
     /** Photo files a post points to, as paths inside app storage. */

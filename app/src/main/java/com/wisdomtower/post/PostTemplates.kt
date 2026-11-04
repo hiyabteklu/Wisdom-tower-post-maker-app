@@ -128,13 +128,14 @@ data class PostTemplateSpec(
 )
 
 /**
- * The 36 templates, in the order the editor strip and the Library show them. 18 take a photo and 18 are text only
+ * The 38 templates, in the order the editor strip and the Library show them. 20 take a photo and 18 are text only
  * (text-only ones still take a background photo from the Background section):
- * photo (PostTemplatesPhoto.kt, 7) + more photo (PostTemplatesPhoto2.kt, 5) + split, half text and half photo (PostTemplatesSplit.kt, 6),
+ * photo (PostTemplatesPhoto.kt, 7) + more photo (PostTemplatesPhoto2.kt, 5) + split, half text and half photo (PostTemplatesSplit.kt, 6)
+ * + phone mockup, a screenshot in a phone frame (PostTemplatesDevice.kt, 2),
  * then information, marketing and type (InfoTemplates in PostTemplatesInfo.kt, 18, which already includes the marketing and type file).
  * The old 36-template list is gone.
  */
-val PostTemplates: List<PostTemplateSpec> = PhotoTemplates + MorePhotoTemplates + SplitTemplates + InfoTemplates
+val PostTemplates: List<PostTemplateSpec> = PhotoTemplates + MorePhotoTemplates + SplitTemplates + DeviceTemplates + InfoTemplates
 
 /**
  * Ids of the removed templates, each pointing at the nearest new one, so a saved draft or an old library entry still opens.

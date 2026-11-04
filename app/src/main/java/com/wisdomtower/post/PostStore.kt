@@ -92,6 +92,32 @@ object PostExport {
         return saveOne(context, doc, brand, sizes, png, fourK, stamp)
     }
 
+    /**
+     * A short, clean file name for the post, 1 to 3 words, lower case, joined with hyphens ("exam-tomorrow"), so a person or an AI
+     * reading a folder of posters can tell which is which. No app name, no size, no date. The words come from the post's own text:
+     * the headline first, then the eyebrow, the number and the body, then any other text, and last the template's name.
+     */
+    fun fileStem(doc: PostDoc): String {
+        val preferred = listOf(PostSlots.HEADLINE, PostSlots.EYEBROW, PostSlots.NUMBER, PostSlots.BODY)
+        val source = preferred.asSequence()
+            .mapNotNull { slot -> doc.texts[slot]?.trim()?.takeIf { it.isNotEmpty() } }
+            .firstOrNull()
+            ?: doc.texts.values.map { it.trim() }.firstOrNull { it.isNotEmpty() }
+            ?: postTemplate(doc.templateId).name
+        val words = Regex("[\\p{L}\\p{N}]+")
+            .findAll(source.replace("'", "").replace("\u2019", ""))
+            .map { it.value }
+            .take(3)
+            .toList()
+        val stem = words.joinToString("-").lowercase(Locale.ROOT).take(40).trim('-')
+        return stem.ifEmpty { "post" }
+    }
+
+    /**
+     * stamp and tag are no longer part of the file name (see fileStem); the parameters stay so the callers do not change.
+     * When more than one size is saved in the same call, the size is added after the name ("exam-tomorrow-9x16") so the files differ.
+     * Two different posts with the same words get the same name: on Android 10 and newer the phone adds " (1)" to the second.
+     */
     fun saveOne(
         context: Context, doc: PostDoc, brand: PostBrand, sizes: List<PostSize>,
         png: Boolean, fourK: Boolean, stamp: String, tag: String = "", subfolder: String? = null
@@ -99,12 +125,12 @@ object PostExport {
         val extension = if (png) "png" else "jpg"
         val uris = mutableListOf<Uri>()
         val overflow = linkedMapOf<PostSize, List<String>>()
+        val stem = fileStem(doc)
         for (size in sizes) {
             val result = PostRenderer.render(context, doc.copy(size = size), brand, if (fourK) 2f else 1f)
             try {
                 if (result.overflow.isNotEmpty()) overflow[size] = result.overflow
-                val name = "WisdomTower_" + size.label.replace(':', 'x') + (if (fourK) "_4K" else "") +
-                    "_" + stamp + (if (tag.isNotEmpty()) "_$tag" else "") + "." + extension
+                val name = stem + (if (sizes.size > 1) "-" + size.label.replace(':', 'x') else "") + "." + extension
                 uris.add(writeImage(context, result.bitmap, name, png, subfolder))
             } finally {
                 result.bitmap.recycle()

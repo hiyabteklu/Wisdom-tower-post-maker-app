@@ -178,6 +178,7 @@ object PostFonts {
  * Order: background gradient, backdrop look glow and pattern, mesh blend and grain, shapes, photo, shapes marked overPhoto, icons placed "behind",
  * text set "behind the subject", the cut-out subject, the rest of the text, header box with the logo, then the social block or the footer,
  * then icons placed "in front".
+ * A template whose layout is bare (TemplateLayout.bare, the phone mockup) draws no logo box and no footer or social block, whatever the post's switches say.
  * Colors come from the Brand kit unless the post overrides them. Derived tones (DEEP, GLOW, TINT, SOFT, PAGE)
  * are built from the brand here, so every gradient follows a color change.
  * Text: each word box takes its color from the template's tone unless the post has a style for that box (PostDoc.slotStyles),
@@ -318,9 +319,11 @@ object PostRenderer {
             drawSlots(false)
             stop()
 
-            if (doc.showLogo) drawLogo(context, canvas, doc, brand, colors, w, h, unit)
+            if (doc.showLogo && !layout.bare) drawLogo(context, canvas, doc, brand, colors, w, h, unit)
             val social = layout.social
-            if (social != null) {
+            if (layout.bare) {
+                // a bare template (the phone mockup) carries no logo box, footer or social block
+            } else if (social != null) {
                 drawSocial(context, canvas, brand, social, colors, w, h, unit)
             } else if (doc.showFooter) {
                 drawFooter(context, canvas, brand, if (layout.footerLight) colors.light else colors.accent, colors, layout.footerLight, w, h, unit)

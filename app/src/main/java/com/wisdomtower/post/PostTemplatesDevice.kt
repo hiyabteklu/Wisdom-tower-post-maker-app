@@ -2,23 +2,30 @@ package com.wisdomtower.post
 
 /**
  * Phone mockup templates (family "Photo"): a raw phone screenshot inside a phone frame, ready to post.
- * Plan and open questions: docs/DEVICE_MOCKUP_PLAN.md (plan A: a fixed 9:20 screen window).
+ * Plan and open questions: docs/DEVICE_MOCKUP_PLAN.md (plan A: a fixed screen window).
  *
- * The phone is drawn from shapes: a dark body (the bezel is the gap between body and screen), three side buttons and a soft glow.
+ * The owner's phone is a TECNO CAMON 30 whose screenshots are 1080 x 2436 (ratio 0.4433, about 9:20.3), so the screen window uses that ratio.
+ * device-hero is BARE (TemplateLayout.bare): no logo box, no footer, no links, no text, just the phone on a plain dark backdrop,
+ * like a product shot. device-headline keeps the header logo and the footer and adds a short headline.
+ *
+ * The phone is drawn from shapes: a thin light rim, a dark body (the bezel is the gap between body and screen) and side buttons.
  * The screenshot goes in the photo window, which has no dim layer. The screen corner comes from PhotoFrame.ROUNDED
  * (radius 5% of the shorter side = 54 px), so the template look sets that frame and the body radius is 54 px + the bezel.
- * If the person turns the frame off, the screen corners become square. No renderer change is needed.
- * The header logo box hangs from the top right and ends at about 14% of the height on 9:16, so the 9:16 phone starts at 15%.
+ * If the person turns the frame off, the screen corners become square. No other renderer change is needed.
  * Same rules as the other template files: own placement for 1:1, 4:3 and 9:16 (4:5 falls into 1:1), text between 12% and 88%
  * of the height, every slot has a sample text, no DIAMOND, TRIANGLE or HEXAGON.
  */
 
-private const val DV_BEZEL = 22f
-private const val DV_SCREEN_RATIO = 9f / 20f
+private const val DV_BEZEL = 28f
+private const val DV_RIM = 3f
 
-/** Screen corner radius is unit * 0.05 (PostEngine.framePath, ROUNDED); the body adds the bezel: (54 + 22) / 1080. */
+/** Screenshot ratio of the TECNO CAMON 30: 1080 / 2436. */
+private const val DV_SCREEN_RATIO = 1080f / 2436f
+
+/** Screen corner radius is unit * 0.05 (PostEngine.framePath, ROUNDED); the body adds the bezel: (54 + 28) / 1080. */
 private const val DV_SCREEN_RADIUS = 0.05f
-private const val DV_BODY_RADIUS = 0.0704f
+private const val DV_BODY_RADIUS = 0.0759f
+private const val DV_RIM_RADIUS = 0.0787f
 
 private enum class DvShape { STORY, SQUARE, WIDE }
 
@@ -37,7 +44,7 @@ private class DvPhone(
 
 /**
  * A phone whose body runs from topFrac to bottomFrac of the height, centred on cxFrac of the width.
- * The screen is the body minus the bezel on every side, and is exactly 9:20 in pixels.
+ * The screen is the body minus the bezel on every side, and has exactly the screenshot ratio in pixels.
  */
 private fun dvPhone(size: PostSize, cxFrac: Float, topFrac: Float, bottomFrac: Float): DvPhone {
     val w = size.width.toFloat()
@@ -72,21 +79,27 @@ private fun dvGlow(size: PostSize, cx: Float, cy: Float, rPx: Float, alpha: Int)
         PostTone.ACCENT, alpha, gradTo = PostTone.GLOW, alphaTo = 0, angle = 45f
     )
 
-/** One power button on the right edge and two volume buttons on the left, half hidden by the body. */
+/** Two buttons on the right edge (volume and power, like the owner's phone), half hidden by the body. */
 private fun dvButtons(size: PostSize, p: DvPhone): List<DecorBox> {
     val w = size.width.toFloat()
-    fun button(onRight: Boolean, topShare: Float, lengthShare: Float): DecorBox {
-        val x = if (onRight) p.bx + p.bw - 3f / w else p.bx - 6f / w
-        return dvBlock(x, p.by + p.bh * topShare, 9f / w, p.bh * lengthShare, 0.004f, PostTone.SECONDARY, alpha = 80)
-    }
-    return listOf(button(true, .22f, .09f), button(false, .17f, .06f), button(false, .26f, .06f))
+    fun button(topShare: Float, lengthShare: Float): DecorBox =
+        dvBlock(p.bx + p.bw - 3f / w, p.by + p.bh * topShare, 9f / w, p.bh * lengthShare, 0.004f, PostTone.SECONDARY, alpha = 80)
+    return listOf(button(.20f, .06f), button(.30f, .11f))
 }
 
-private fun dvLayout(size: PostSize, p: DvPhone, slots: List<SlotBox>): TemplateLayout {
+/** glow = true adds a soft accent glow behind the phone; bare = true removes the logo box and the footer. */
+private fun dvLayout(size: PostSize, p: DvPhone, slots: List<SlotBox>, glow: Boolean, bare: Boolean): TemplateLayout {
     val glowR = if (size.dvShape() == DvShape.STORY) 560f else 420f
-    val decor = listOf(dvGlow(size, p.cx, p.cy, glowR, 150)) +
+    val w = size.width.toFloat()
+    val h = size.height.toFloat()
+    val rim = dvBlock(
+        p.bx - DV_RIM / w, p.by - DV_RIM / h, p.bw + 2f * DV_RIM / w, p.bh + 2f * DV_RIM / h,
+        DV_RIM_RADIUS, PostTone.SECONDARY, alpha = 70
+    )
+    val decor = (if (glow) listOf(dvGlow(size, p.cx, p.cy, glowR, 150)) else emptyList()) +
         dvButtons(size, p) +
         listOf(
+            rim,
             dvBlock(p.bx, p.by, p.bw, p.bh, DV_BODY_RADIUS, PostTone.DARK, shadow = true),
             // what shows through while no screenshot is loaded; follows the chosen photo frame
             dvBlock(p.sx, p.sy, p.sw, p.sh, DV_SCREEN_RADIUS, PostTone.DEEP, to = PostTone.DARK, frameBack = 1)
@@ -94,7 +107,8 @@ private fun dvLayout(size: PostSize, p: DvPhone, slots: List<SlotBox>): Template
     return TemplateLayout(
         PostBase.DARK, decor, slots,
         photo = PostPhotoArea(p.sx, p.sy, p.sw, p.sh, 0),
-        backdrop = Backdrop(PostTone.GLOW, PostTone.DEEP, 150f)
+        backdrop = Backdrop(PostTone.DEEP, PostTone.DARK, 120f),
+        bare = bare
     )
 }
 
@@ -105,11 +119,7 @@ private fun dvTemplate(
 }
 
 internal val DeviceTemplates: List<PostTemplateSpec> = listOf(
-    dvTemplate(
-        "device-hero", "Phone mockup",
-        mapOf(PostSlots.EYEBROW to "NOW IN THE APP"),
-        ::deviceHeroLayout
-    ),
+    dvTemplate("device-hero", "Phone mockup", emptyMap(), ::deviceHeroLayout),
     dvTemplate(
         "device-headline", "Phone and headline",
         mapOf(
@@ -120,17 +130,10 @@ internal val DeviceTemplates: List<PostTemplateSpec> = listOf(
     )
 )
 
-/** Hero: the biggest phone that fits the safe band, with one small label. */
+/** Hero: the biggest phone that fits, centred, nothing else on the post (no logo, no footer, no text). */
 private fun deviceHeroLayout(size: PostSize): TemplateLayout {
-    val story = size.dvShape() == DvShape.STORY
-    val p = if (story) dvPhone(size, .50f, .15f, .88f) else dvPhone(size, .50f, .17f, .88f)
-    // on 9:16 the label sits left, level with the phone edge, because the lowered logo box hangs on the right
-    val label = if (story) {
-        dvText(PostSlots.EYEBROW, p.bx, .122f, .40f, .026f, .022f, PostFont.BOLD, PostTone.SECONDARY, caps = true)
-    } else {
-        dvText(PostSlots.EYEBROW, .10f, .125f, .80f, .035f, .024f, PostFont.BOLD, PostTone.SECONDARY, centered = true, caps = true)
-    }
-    return dvLayout(size, p, listOf(label))
+    val p = if (size.dvShape() == DvShape.STORY) dvPhone(size, .50f, .09f, .91f) else dvPhone(size, .50f, .08f, .92f)
+    return dvLayout(size, p, emptyList(), glow = false, bare = true)
 }
 
 /** Headline: on 9:16 the words sit above a smaller phone; on 1:1, 4:5 and 4:3 the words sit left and the phone right. */
@@ -140,20 +143,23 @@ private fun deviceHeadlineLayout(size: PostSize): TemplateLayout = when (size.dv
         listOf(
             dvText(PostSlots.EYEBROW, .08f, .172f, .84f, .028f, .025f, PostFont.BOLD, PostTone.SECONDARY, centered = true, caps = true),
             dvText(PostSlots.HEADLINE, .08f, .205f, .84f, .082f, .056f, PostFont.DISPLAY, PostTone.LIGHT, centered = true)
-        )
+        ),
+        glow = true, bare = false
     )
     DvShape.SQUARE -> dvLayout(
         size, dvPhone(size, .735f, .20f, .84f),
         listOf(
             dvText(PostSlots.EYEBROW, .07f, .33f, .46f, .035f, .024f, PostFont.BOLD, PostTone.SECONDARY, caps = true),
             dvText(PostSlots.HEADLINE, .07f, .375f, .46f, .34f, .060f, PostFont.DISPLAY, PostTone.LIGHT)
-        )
+        ),
+        glow = true, bare = false
     )
     DvShape.WIDE -> dvLayout(
         size, dvPhone(size, .74f, .16f, .86f),
         listOf(
             dvText(PostSlots.EYEBROW, .07f, .30f, .40f, .04f, .024f, PostFont.BOLD, PostTone.SECONDARY, caps = true),
             dvText(PostSlots.HEADLINE, .07f, .36f, .40f, .34f, .062f, PostFont.DISPLAY, PostTone.LIGHT)
-        )
+        ),
+        glow = true, bare = false
     )
 }

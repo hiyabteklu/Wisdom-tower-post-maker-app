@@ -98,7 +98,9 @@ data class TemplateLayout(
     /** When set, the Brand's social icons are drawn big in this area, and the small footer is left out. */
     val social: SocialArea? = null,
     /** True for the redesigned templates, which is all of them now: their structure is the design, nothing is added behind them. */
-    val clean: Boolean = false
+    val clean: Boolean = false,
+    /** True for a template that carries no logo box, footer or social block at all (the phone mockup), whatever the post's switches say. */
+    val bare: Boolean = false
 )
 
 /** GRID: icon cards in up to two columns. LIST: one wide row per icon. */

@@ -779,7 +779,11 @@ private fun PreviewPane(
     }
 }
 
-/** The Save sheet: a row of sizes (tick any of them), Standard or 4K, a row of formats, then Save and Save and share. */
+/**
+ * The Save sheet: a row of sizes (tick any of them), Standard or 4K, a row of formats, then Save and Save and share.
+ * On the two phone mockup templates it also shows "Save frame for video" (PostFrameExport.kt): a PNG with a see-through
+ * screen, to lay over a screen recording in a video editor. That button uses the sizes and Standard or 4K chosen above.
+ */
 @Composable
 private fun SaveDialog(doc: PostDoc, brand: PostBrand, onDismiss: () -> Unit) {
     val context = LocalContext.current
@@ -814,6 +818,23 @@ private fun SaveDialog(doc: PostDoc, brand: PostBrand, onDismiss: () -> Unit) {
                     intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     context.startActivity(Intent.createChooser(intent, "Share post"))
                 }
+            }
+        }
+    }
+
+    fun runFrameExport() {
+        val sizes = PostSize.values().filter { it in chosen }.ifEmpty { listOf(doc.size) }
+        PostStore.saveSaveOptions(context, options)
+        busy = true
+        status = null
+        scope.launch {
+            val outcome = runCatching { withContext(Dispatchers.Default) { PostFrameExport.save(context, doc, brand, sizes, fourK) } }
+            busy = false
+            val saved = outcome.getOrNull()
+            status = if (saved == null) {
+                "Export failed: " + (outcome.exceptionOrNull()?.localizedMessage ?: "unknown error")
+            } else {
+                "Saved " + saved.size + " frame file(s) to Pictures/Wisdom Tower Post\n" + PostFrameExport.hint(doc, sizes.first())
             }
         }
     }
@@ -854,6 +875,12 @@ private fun SaveDialog(doc: PostDoc, brand: PostBrand, onDismiss: () -> Unit) {
                         Icon(Icons.Outlined.Share, contentDescription = null)
                         Spacer(Modifier.width(6.dp))
                         Text("Save and share")
+                    }
+                }
+                if (PostFrameExport.isDeviceTemplate(doc.templateId)) {
+                    PostSmallLabel("For video: saves only the phone and background as a PNG with a see-through screen, to lay over your screen recording in CapCut.")
+                    OutlinedButton(onClick = { runFrameExport() }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                        Text("Save frame for video")
                     }
                 }
                 status?.let { Text(it, fontSize = 12.sp, color = PostPalette.Muted) }

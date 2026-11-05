@@ -103,6 +103,7 @@ private val InfoOnlyTemplates: List<PostTemplateSpec> = listOf(
             PostSlots.HEADLINE to "Which organelle is called the powerhouse of the cell?",
             PostSlots.LIST to "Nucleus\nMitochondrion\nRibosome\nGolgi apparatus"
         ),
+        null,
         ::quizLayout
     ),
     infoTemplate(
@@ -112,6 +113,7 @@ private val InfoOnlyTemplates: List<PostTemplateSpec> = listOf(
             PostSlots.HEADLINE to "What is the derivative of sin(x)?",
             PostSlots.BODY to "cos(x)"
         ),
+        null,
         ::qaLayout
     ),
     infoTemplate(
@@ -121,6 +123,7 @@ private val InfoOnlyTemplates: List<PostTemplateSpec> = listOf(
             PostSlots.HEADLINE to "Exam day checklist",
             PostSlots.LIST to "ID card and pens\nCalculator checked\nArrive 30 minutes early\nSleep well the night before\nStay calm and read every question"
         ),
+        null,
         ::checklistLayout
     ),
     infoTemplate(
@@ -130,6 +133,7 @@ private val InfoOnlyTemplates: List<PostTemplateSpec> = listOf(
             PostSlots.HEADLINE to "This week's schedule",
             PostSlots.LIST to "Mon: Mathematics\nTue: Physics\nWed: Chemistry\nThu: English\nFri: Revision\nSat: Mock test"
         ),
+        null,
         ::timetableLayout
     ),
     infoTemplate(
@@ -352,25 +356,25 @@ private fun definitionLayout(size: PostSize): TemplateLayout {
         inGlow(size, .50f, .26f, 480f, PostTone.GLOW, 85)
     )
     val decor = size.pick(
-        listOf(panelGlow, inPanel(0f, 0f, 1f, .47f, PostTone.ACCENT, PostTone.DEEP), inBar(0f, .47f, 1f, 6f / size.height, PostTone.SECONDARY), inRule(size, .08f, .52f, .12f, PostTone.ACCENT, 8f)),
-        listOf(panelGlow, inPanel(0f, 0f, 1f, .50f, PostTone.ACCENT, PostTone.DEEP), inBar(0f, .50f, 1f, 6f / size.height, PostTone.SECONDARY), inRule(size, .06f, .55f, .10f, PostTone.ACCENT, 8f)),
-        listOf(panelGlow, inPanel(0f, 0f, 1f, .40f, PostTone.ACCENT, PostTone.DEEP), inBar(0f, .40f, 1f, 6f / size.height, PostTone.SECONDARY), inRule(size, .08f, .44f, .14f, PostTone.ACCENT, 8f))
+        listOf(panelGlow, inPanel(0f, 0f, 1f, .47f, PostTone.ACCENT, PostTone.DEEP), inBlock(.07f, .52f, .86f, .34f, .04f, PostTone.LIGHT, shadow = true), inRule(size, .07f, .47f, .12f, PostTone.ACCENT, 10f)),
+        listOf(panelGlow, inPanel(0f, 0f, .48f, 1f, PostTone.ACCENT, PostTone.DEEP), inBlock(.52f, .16f, .42f, .68f, .04f, PostTone.LIGHT, shadow = true), inRule(size, .52f, .14f, .10f, PostTone.ACCENT, 10f)),
+        listOf(panelGlow, inPanel(0f, 0f, 1f, .42f, PostTone.ACCENT, PostTone.DEEP), inBlock(.07f, .48f, .86f, .38f, .04f, PostTone.LIGHT, shadow = true), inRule(size, .07f, .42f, .14f, PostTone.ACCENT, 10f))
     )
     val slots = size.pick(
         listOf(
-            inText(PostSlots.EYEBROW, .08f, .17f, .60f, .035f, .024f, PostFont.BOLD, PostTone.SECONDARY, caps = true),
-            inText(PostSlots.HEADLINE, .08f, .23f, .84f, .20f, .115f, PostFont.DISPLAY, PostTone.LIGHT),
-            inText(PostSlots.BODY, .08f, .55f, .84f, .30f, .040f, PostFont.REGULAR, PostTone.TEXT)
+            inText(PostSlots.EYEBROW, .08f, .12f, .50f, .04f, .024f, PostFont.BOLD, PostTone.SECONDARY, caps = true),
+            inText(PostSlots.HEADLINE, .08f, .18f, .84f, .20f, .072f, PostFont.DISPLAY, PostTone.LIGHT),
+            inText(PostSlots.BODY, .12f, .56f, .76f, .26f, .040f, PostFont.REGULAR, PostTone.TEXT)
         ),
         listOf(
-            inText(PostSlots.EYEBROW, .06f, .17f, .60f, .04f, .022f, PostFont.BOLD, PostTone.SECONDARY, caps = true),
-            inText(PostSlots.HEADLINE, .06f, .23f, .78f, .24f, .135f, PostFont.DISPLAY, PostTone.LIGHT),
-            inText(PostSlots.BODY, .06f, .58f, .80f, .26f, .040f, PostFont.REGULAR, PostTone.TEXT)
+            inText(PostSlots.EYEBROW, .06f, .12f, .36f, .04f, .022f, PostFont.BOLD, PostTone.SECONDARY, caps = true),
+            inText(PostSlots.HEADLINE, .06f, .20f, .36f, .40f, .070f, PostFont.DISPLAY, PostTone.LIGHT),
+            inText(PostSlots.BODY, .56f, .24f, .36f, .52f, .038f, PostFont.REGULAR, PostTone.TEXT)
         ),
         listOf(
-            inText(PostSlots.EYEBROW, .08f, .17f, .60f, .025f, .026f, PostFont.BOLD, PostTone.SECONDARY, caps = true),
-            inText(PostSlots.HEADLINE, .08f, .215f, .84f, .16f, .125f, PostFont.DISPLAY, PostTone.LIGHT),
-            inText(PostSlots.BODY, .08f, .46f, .84f, .38f, .044f, PostFont.REGULAR, PostTone.TEXT)
+            inText(PostSlots.EYEBROW, .08f, .12f, .50f, .03f, .026f, PostFont.BOLD, PostTone.SECONDARY, caps = true),
+            inText(PostSlots.HEADLINE, .08f, .17f, .84f, .18f, .080f, PostFont.DISPLAY, PostTone.LIGHT),
+            inText(PostSlots.BODY, .12f, .52f, .76f, .30f, .044f, PostFont.REGULAR, PostTone.TEXT)
         )
     )
     return TemplateLayout(PostBase.LIGHT, decor, slots, backdrop = IN_BACKDROP)
@@ -378,33 +382,33 @@ private fun definitionLayout(size: PostSize): TemplateLayout {
 
 private fun statLayout(size: PostSize): TemplateLayout {
     val numGlow = size.pick(
-        inGlow(size, .40f, .35f, 380f, PostTone.ACCENT, 130),
-        inGlow(size, .28f, .42f, 360f, PostTone.ACCENT, 120),
-        inGlow(size, .40f, .32f, 340f, PostTone.ACCENT, 125)
+        inGlow(size, .28f, .38f, 380f, PostTone.ACCENT, 150),
+        inGlow(size, .22f, .42f, 360f, PostTone.ACCENT, 140),
+        inGlow(size, .28f, .32f, 340f, PostTone.ACCENT, 140)
     )
     val decor = size.pick(
-        listOf(numGlow, inRule(size, .07f, .545f, .18f, PostTone.ACCENT, 10f), inBlock(.07f, .735f, .86f, .125f, .035f, PostTone.LIGHT, shadow = true)),
-        listOf(numGlow, inRule(size, .56f, .62f, .12f, PostTone.ACCENT, 10f)),
-        listOf(numGlow, inRule(size, .07f, .47f, .18f, PostTone.ACCENT, 10f), inBlock(.07f, .69f, .86f, .17f, .035f, PostTone.LIGHT, shadow = true))
+        listOf(numGlow, inRule(size, .08f, .62f, .12f, PostTone.ACCENT, 10f)),
+        listOf(numGlow, inRule(size, .06f, .22f, .10f, PostTone.ACCENT, 10f)),
+        listOf(numGlow, inRule(size, .08f, .58f, .14f, PostTone.ACCENT, 10f))
     )
     val slots = size.pick(
         listOf(
-            inText(PostSlots.EYEBROW, .07f, .15f, .60f, .035f, .024f, PostFont.BOLD, PostTone.ACCENT, caps = true),
-            inText(PostSlots.NUMBER, .07f, .19f, .86f, .34f, .250f, PostFont.DISPLAY, PostTone.ACCENT),
-            inText(PostSlots.HEADLINE, .07f, .58f, .86f, .14f, .052f, PostFont.DISPLAY, PostTone.TEXT),
-            inText(PostSlots.BODY, .11f, .755f, .78f, .09f, .028f, PostFont.REGULAR, PostTone.MUTED)
+            inText(PostSlots.EYEBROW, .08f, .14f, .50f, .04f, .024f, PostFont.BOLD, PostTone.ACCENT, caps = true),
+            inText(PostSlots.NUMBER, .06f, .20f, .88f, .36f, .28f, PostFont.DISPLAY, PostTone.ACCENT),
+            inText(PostSlots.HEADLINE, .08f, .64f, .84f, .12f, .048f, PostFont.DISPLAY, PostTone.TEXT),
+            inText(PostSlots.BODY, .08f, .78f, .84f, .10f, .032f, PostFont.REGULAR, PostTone.MUTED)
         ),
         listOf(
-            inText(PostSlots.EYEBROW, .56f, .20f, .38f, .04f, .022f, PostFont.BOLD, PostTone.ACCENT, caps = true),
-            inText(PostSlots.NUMBER, .06f, .22f, .46f, .52f, .310f, PostFont.DISPLAY, PostTone.ACCENT),
-            inText(PostSlots.HEADLINE, .56f, .27f, .38f, .32f, .052f, PostFont.DISPLAY, PostTone.TEXT),
-            inText(PostSlots.BODY, .56f, .65f, .38f, .19f, .028f, PostFont.REGULAR, PostTone.MUTED)
+            inText(PostSlots.EYEBROW, .06f, .14f, .30f, .04f, .022f, PostFont.BOLD, PostTone.ACCENT, caps = true),
+            inText(PostSlots.NUMBER, .06f, .22f, .40f, .50f, .32f, PostFont.DISPLAY, PostTone.ACCENT),
+            inText(PostSlots.HEADLINE, .50f, .28f, .44f, .28f, .052f, PostFont.DISPLAY, PostTone.TEXT),
+            inText(PostSlots.BODY, .50f, .60f, .44f, .22f, .032f, PostFont.REGULAR, PostTone.MUTED)
         ),
         listOf(
-            inText(PostSlots.EYEBROW, .07f, .17f, .60f, .025f, .026f, PostFont.BOLD, PostTone.ACCENT, caps = true),
-            inText(PostSlots.NUMBER, .07f, .21f, .86f, .25f, .280f, PostFont.DISPLAY, PostTone.ACCENT),
-            inText(PostSlots.HEADLINE, .07f, .51f, .86f, .15f, .072f, PostFont.DISPLAY, PostTone.TEXT),
-            inText(PostSlots.BODY, .12f, .715f, .76f, .12f, .034f, PostFont.REGULAR, PostTone.MUTED)
+            inText(PostSlots.EYEBROW, .08f, .14f, .50f, .03f, .026f, PostFont.BOLD, PostTone.ACCENT, caps = true),
+            inText(PostSlots.NUMBER, .06f, .18f, .88f, .32f, .26f, PostFont.DISPLAY, PostTone.ACCENT),
+            inText(PostSlots.HEADLINE, .08f, .60f, .84f, .14f, .056f, PostFont.DISPLAY, PostTone.TEXT),
+            inText(PostSlots.BODY, .08f, .76f, .84f, .12f, .038f, PostFont.REGULAR, PostTone.MUTED)
         )
     )
     return TemplateLayout(PostBase.LIGHT, decor, slots, backdrop = IN_BACKDROP)

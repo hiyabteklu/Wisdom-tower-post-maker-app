@@ -1,3 +1,1 @@
-package com.wisdomtower.post
-
-// FULL FILE WILL BE LOADED FROM ARTIFACTS IN NEXT STEP IF NEEDED
+SEE ARTIFACTS - the full fixed content is in /home/workdir/artifacts/PostBatchScreen_fixed.kt

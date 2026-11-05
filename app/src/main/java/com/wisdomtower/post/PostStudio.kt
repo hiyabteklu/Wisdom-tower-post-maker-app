@@ -127,8 +127,6 @@ fun PostStudioScreen(
     var selectedIcon by remember { mutableStateOf(0) }
     var showSave by remember { mutableStateOf(false) }
     var tool by rememberSaveable { mutableStateOf(EditorTool.TEXT) }
-    // Widest window and its tallest height seen so far: a much shorter window means the keyboard is open.
-    val seen = remember { floatArrayOf(0f, 0f) }
 
     val spec = postTemplate(doc.templateId)
     val layout = remember(doc.templateId, doc.size) { spec.layout(doc.size) }
@@ -154,12 +152,6 @@ fun PostStudioScreen(
         ) { padding ->
             BoxWithConstraints(Modifier.fillMaxSize().padding(padding)) {
                 val previewHeight = (maxHeight * 0.39f).coerceAtMost(350.dp)
-                val w = maxWidth.value
-                val h = maxHeight.value
-                if (w != seen[0]) { seen[0] = w; seen[1] = h }
-                if (h > seen[1]) seen[1] = h
-                val keyboardOpen = h < seen[1] * 0.8f
-
                 // The same options call every panel used before, written once.
                 val options: @Composable (EditorTab, String) -> Unit = { tab, group ->
                     EditorOptions(tab, group, doc, onDoc, brand, onBrand,
@@ -167,9 +159,6 @@ fun PostStudioScreen(
                         moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it })
                 }
 
-                // Keep the tool selector outside the scrolling editor content. In the Inbox
-                // Dialog, the weighted scroll child could consume the available height and
-                // leave the final toolbar below the visible window on some device sizes.
                 Box(Modifier.fillMaxSize()) {
                     Column(Modifier.fillMaxSize()) {
                     TitleRow(doc, edited, bookmarked, onToggleBookmark, onOpenLibrary, onOpenBrand, onOpenBatch, onOpenInbox)

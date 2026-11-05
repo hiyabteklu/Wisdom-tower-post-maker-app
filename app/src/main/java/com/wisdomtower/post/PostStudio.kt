@@ -97,7 +97,7 @@ private const val RAPID_CHANGE_NS = 350_000_000L
  * The tool bar (PostBottomBar.kt, EditorTool) picks the panel: Text (the message boxes, on start), Color, Font, Photo, Background, More.
  * Text holds one box per text slot with its own Color, Font and Size (docs/TEXT_STYLE.md) and the overall text size.
  * More holds the layer tools, logo, icons and footer as collapsed cards. Nothing was removed; each control moved to the panel that names it.
- * The tool bar hides while the keyboard is open, so typing keeps the whole height.
+ * The tool bar is Scaffold's pinned bottom bar; the editing panel scrolls independently above it.
  */
 @Composable
 fun PostStudioScreen(
@@ -140,10 +140,19 @@ fun PostStudioScreen(
 
     PostTheme {
         Scaffold(
+            modifier = Modifier.fillMaxSize().imePadding(),
             contentWindowInsets = if (embedded) WindowInsets(0, 0, 0, 0) else WindowInsets.safeDrawing,
-            containerColor = PostPalette.Ink
+            containerColor = PostPalette.Ink,
+            // Use Scaffold's dedicated bottom-bar slot so the editor content is measured
+            // above the toolbar instead of relying on manual Box alignment and a guessed height.
+            bottomBar = {
+                PostToolBar(
+                    selected = tool,
+                    onSelect = { tool = it }
+                )
+            }
         ) { padding ->
-            BoxWithConstraints(Modifier.fillMaxSize().padding(padding).imePadding()) {
+            BoxWithConstraints(Modifier.fillMaxSize().padding(padding)) {
                 val previewHeight = (maxHeight * 0.39f).coerceAtMost(350.dp)
                 val w = maxWidth.value
                 val h = maxHeight.value
@@ -162,7 +171,7 @@ fun PostStudioScreen(
                 // Dialog, the weighted scroll child could consume the available height and
                 // leave the final toolbar below the visible window on some device sizes.
                 Box(Modifier.fillMaxSize()) {
-                    Column(Modifier.fillMaxSize().padding(bottom = 47.dp)) {
+                    Column(Modifier.fillMaxSize()) {
                     TitleRow(doc, edited, bookmarked, onToggleBookmark, onOpenLibrary, onOpenBrand, onOpenBatch, onOpenInbox)
                     SizeRow(doc, onDoc, edited, onReset) { showSave = true }
                     PreviewPane(
@@ -424,11 +433,6 @@ fun PostStudioScreen(
                         }
                     }
                     }
-                    PostToolBar(
-                        selected = tool,
-                        onSelect = { tool = it },
-                        modifier = Modifier.align(Alignment.BottomCenter)
-                    )
                 }
             }
         }

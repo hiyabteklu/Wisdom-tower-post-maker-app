@@ -99,6 +99,7 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
     val slots = remember(doc.templateId, doc.size) {
         PostBatch.editableSlots(postTemplate(doc.templateId).layout(doc.size))
     }
+    // A batch opened from the Poster inbox fills the list itself (full blocks) and goes straight to the review step.
     var mode by remember(initialBatch?.id) {
         mutableStateOf(if (initialBatch != null) BatchMode.BLOCKS else PostBatchStore.loadMode(context))
     }
@@ -111,6 +112,7 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
     var backendMessage by remember(initialBatch?.id) { mutableStateOf<String?>(null) }
     var platform by remember(initialBatch?.id) { mutableStateOf("Telegram") }
 
+    // Review step
     var reviewing by remember { mutableStateOf(false) }
     val reviewItems = remember { mutableStateListOf<BatchItem>() }
     var originalItems by remember { mutableStateOf<List<BatchItem>>(emptyList()) }
@@ -184,6 +186,7 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
         }
     }
 
+    // Words that came from the inbox are not stored as the template's own batch draft.
     LaunchedEffect(text, doc.templateId) {
         if (initialBatch != null) return@LaunchedEffect
         delay(500)
@@ -202,6 +205,7 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
         }
     }
 
+    // System back from the review step goes back to the list, not out of the screen.
     BackHandler(enabled = reviewing && !running) { reviewing = false }
 
     fun startReview() {
@@ -216,6 +220,7 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
         scope.launch { pagerState.scrollToPage(0) }
     }
 
+    // Opened from the inbox: show the previews straight away.
     LaunchedEffect(initialBatch?.id) {
         if (initialBatch != null && items.isNotEmpty() && !reviewing) startReview()
     }
@@ -257,6 +262,7 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
                         saved.overflow.forEach { (size, boxes) ->
                             shrunk.add("Post ${item.number}, ${size.label}: " + boxes.joinToString { PostSlots.label(it) })
                         }
+
                         done = item.number
                     } catch (e: CancellationException) {
                         throw e
@@ -293,6 +299,7 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 if (!reviewing) {
+                    // ---------- Step 1: write the list ----------
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = onBack) {
                             Icon(Icons.Outlined.ArrowBack, contentDescription = "Back", tint = PostPalette.Text)
@@ -306,21 +313,71 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
                             Text("Clear")
                         }
                     }
-                    Text("Every post uses this design. Review every post, fix any of them, then save.", color = PostPalette.Muted, fontSize = 12.sp)
-                    Button(onClick = { startReview() }, enabled = items.isNotEmpty(), modifier = Modifier.fillMaxWidth().height(52.dp)) {
+                    Text("Every post uses this design, including its colors, photos, logo and fonts. Next you can look at every post, fix any of them, and then save.", color = PostPalette.Muted, fontSize = 12.sp)
+                    if (hasPhotoArea) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedButton(onClick = { photoPicker.launch(arrayOf("image/*")) }) { Text("Add photos") }
+                            Text(if (batchPhotos.isEmpty()) "Optional: one photo per post" else "${batchPhotos.size} photos selected", color = PostPalette.Muted, fontSize = 12.sp)
+                            if (batchPhotos.isNotEmpty()) OutlinedButton(onClick = { importedPhotoPaths.filter { it != doc.photoUri }.forEach { PostStore.deleteImportedPhoto(context, it) }; importedPhotoPaths.clear(); batchPhotos = emptyList() }) { Text("Clear photos") }
+                        }
+                    }
+                    if (doc.photoUri != null || doc.backgroundPhotoUri != null) {
+                        Text("The same photo will be used on every post in this batch.", color = PostPalette.Gold, fontSize = 12.sp)
+                    }
+                    Text("Write your list", color = PostPalette.Text, fontWeight = FontWeight.Bold)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(selected = mode == BatchMode.ONE_LINE, onClick = { mode = BatchMode.ONE_LINE }, label = { Text("One line = one post") })
+                        FilterChip(selected = mode == BatchMode.BLOCKS, onClick = { mode = BatchMode.BLOCKS }, label = { Text("Full blocks") })
+                    }
+                    if (mode == BatchMode.ONE_LINE) {
+                        Text("Fill this box. Other boxes keep the words from the open post.", color = PostPalette.Muted, fontSize = 12.sp)
+                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            slots.forEach { slot ->
+                                FilterChip(selected = fill == slot, onClick = { fill = slot }, label = { Text(PostSlots.label(slot)) })
+                            }
+                        }
+                    } else {
+                        Text("Separate posts with --- . Use labels such as headline:, message: and list:, or write one box per line.", color = PostPalette.Muted, fontSize = 12.sp)
+                    }
+                    OutlinedTextField(
+                        value = text, onValueChange = { text = it },
+                        modifier = Modifier.fillMaxWidth().height(190.dp),
+                        placeholder = { Text(if (mode == BatchMode.ONE_LINE) "One post per line..." else "headline: Your headline\nmessage: Your message\n---\nheadline: Next post") },
+                        minLines = 8,
+                        textStyle = TextStyle(color = PostPalette.Text, fontSize = 14.sp)
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { text = clipboard.getText()?.text.orEmpty() }) {
+                            Icon(Icons.Outlined.ContentPaste, contentDescription = null)
+                            Text("Paste")
+                        }
+                        OutlinedButton(onClick = { text = PostBatch.exampleFor(slots, mode) }) { Text("Example") }
+                        Text("${items.size} posts", color = PostPalette.Muted, fontSize = 12.sp)
+                    }
+                    if (parsed.notes.isNotEmpty()) {
+                        Text(parsed.notes.joinToString("\n"), color = PostPalette.Gold, fontSize = 12.sp)
+                    }
+                    Button(
+                        onClick = { startReview() },
+                        enabled = items.isNotEmpty(),
+                        modifier = Modifier.fillMaxWidth().height(52.dp)
+                    ) {
                         Text("Review ${items.size} posts")
                     }
                 } else {
+                    // ---------- Step 2: review ----------
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = { reviewing = false }) {
                             Icon(Icons.Outlined.ArrowBack, contentDescription = "Back", tint = PostPalette.Text)
                         }
                         Column(Modifier.weight(1f)) {
                             Text("Review batch", color = PostPalette.Text, fontSize = 19.sp, fontWeight = FontWeight.Bold)
-                            Text("${reviewItems.size} posts", color = PostPalette.Muted, fontSize = 12.sp)
+                            Text("${reviewItems.size} posts · swipe to check", color = PostPalette.Muted, fontSize = 12.sp)
                         }
                     }
-                    if (backendMessage != null) Text(backendMessage!!, color = PostPalette.Gold, fontSize = 12.sp)
+                    if (backendMessage != null) {
+                        Text(backendMessage!!, color = PostPalette.Gold, fontSize = 12.sp)
+                    }
                     HorizontalPager(
                         state = pagerState,
                         contentPadding = PaddingValues(horizontal = 24.dp),
@@ -340,7 +397,11 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
                             }
                         )
                     }
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         IconButton(onClick = { scope.launch { pagerState.animateScrollToPage((pagerState.currentPage - 1).coerceAtLeast(0)) } }) {
                             Icon(Icons.Outlined.ArrowBack, contentDescription = "Previous")
                         }
@@ -349,6 +410,9 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
                             Icon(Icons.Outlined.ArrowForward, contentDescription = "Next")
                         }
                     }
+                    // Save options + actions
+                    Text("Save options", color = PostPalette.Text, fontWeight = FontWeight.Bold)
+                    // (save options UI continues...)
                     if (running) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                             CircularProgressIndicator()
@@ -356,17 +420,57 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
                             OutlinedButton(onClick = { cancelRequested = true }) { Text("Cancel") }
                         }
                     } else {
-                        Button(onClick = { startBatch() }, enabled = reviewItems.isNotEmpty(), modifier = Modifier.fillMaxWidth().height(52.dp)) {
+                        val fileCount = reviewItems.size * PostSize.values().count { it in options.sizes }.coerceAtLeast(1)
+                        Button(
+                            onClick = { startBatch() },
+                            enabled = reviewItems.isNotEmpty(),
+                            modifier = Modifier.fillMaxWidth().height(52.dp)
+                        ) {
                             Icon(Icons.Outlined.SaveAlt, contentDescription = null)
                             Spacer(Modifier.width(8.dp))
-                            Text("Save to gallery")
+                            Text(if (resultUris.isEmpty()) "Save to gallery ($fileCount files)" else "Save again to a new folder")
                         }
                     }
-                    status?.let { Text(it, color = PostPalette.Text, fontSize = 13.sp) }
+                    status?.takeIf { it != "All posts fit" }?.let { Text(it, color = PostPalette.Text, fontSize = 13.sp) }
+                    if (resultUris.isNotEmpty() && !running && initialBatch != null) {
+                        Text("Backend status: $backendStatus", color = PostPalette.Muted, fontSize = 12.sp)
+                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            listOf("Telegram", "Instagram", "Facebook", "TikTok").forEach { item ->
+                                FilterChip(selected = platform == item, onClick = { platform = item }, label = { Text(item) })
+                            }
+                        }
+                        OutlinedButton(onClick = {
+                            scope.launch {
+                                try {
+                                    PostChatApi.setBatchStatus(context, initialBatch.id, "approved")
+                                    backendStatus = "approved"
+                                    backendMessage = "Batch marked approved"
+                                } catch (e: Exception) { backendMessage = e.message ?: "Status update failed" }
+                            }
+                        }, modifier = Modifier.fillMaxWidth(), enabled = backendStatus != "approved" && backendStatus != "published") { Text("Mark approved") }
+                        Button(onClick = {
+                            scope.launch {
+                                try {
+                                    PostChatApi.setBatchStatus(context, initialBatch.id, "published")
+                                    backendStatus = "published"
+                                    val postedOn = LocalDate.now().toString()
+                                    backendMessage = "Marked published on $postedOn"
+                                } catch (e: Exception) { backendMessage = e.message ?: "Status update failed" }
+                            }
+                        }, modifier = Modifier.fillMaxWidth(), enabled = backendStatus != "published") { Text("Mark published") }
+                    }
+                    if (resultUris.isNotEmpty() && resultUris.size <= 30) {
+                        OutlinedButton(onClick = { shareResults() }, modifier = Modifier.fillMaxWidth()) {
+                            Icon(Icons.Outlined.Share, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Share saved images")
+                        }
+                    }
                 }
             }
         }
 
+        // Full-screen editor dialog for one post in the batch
         val index = editingIndex
         val item = index?.let { reviewItems.getOrNull(it) }
         val activeEditorDoc = editingDoc
@@ -411,6 +515,7 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
     }
 }
 
+/** One swipeable page: the preview of one post and its Edit button. Fixed height so swiping never jumps. */
 @Composable
 private fun BatchPostPage(
     postDoc: PostDoc,
@@ -432,22 +537,52 @@ private fun BatchPostPage(
     }
     Column(Modifier.fillMaxWidth()) {
         Box(
-            Modifier.fillMaxWidth().height(340.dp).background(PostPalette.Surface, RoundedCornerShape(12.dp))
+            Modifier
+                .fillMaxWidth()
+                .height(340.dp)
+                .background(PostPalette.Surface, RoundedCornerShape(12.dp))
         ) {
             bitmap?.let {
-                Image(bitmap = it.asImageBitmap(), contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+                Image(
+                    bitmap = it.asImageBitmap(),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit
+                )
             }
             if (edited) {
-                Text("Edited", color = PostPalette.Ink, fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                    modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).background(PostPalette.Mint, RoundedCornerShape(6.dp)).padding(horizontal = 8.dp, vertical = 3.dp))
+                Text(
+                    "Edited",
+                    color = PostPalette.Ink,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(8.dp)
+                        .background(PostPalette.Mint, RoundedCornerShape(6.dp))
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                )
             }
             if (overflow.isNotEmpty()) {
-                Text("Text shrunk to fit", color = PostPalette.Ink, fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                    modifier = Modifier.align(Alignment.TopStart).padding(8.dp).background(PostPalette.Gold, RoundedCornerShape(6.dp)).padding(horizontal = 8.dp, vertical = 3.dp))
+                Text(
+                    "Text shrunk to fit",
+                    color = PostPalette.Ink,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(8.dp)
+                        .background(PostPalette.Gold, RoundedCornerShape(6.dp))
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                )
             }
         }
         Spacer(Modifier.height(8.dp))
-        OutlinedButton(onClick = onEdit, enabled = canEdit, modifier = Modifier.fillMaxWidth().height(48.dp)) {
+        OutlinedButton(
+            onClick = onEdit,
+            enabled = canEdit,
+            modifier = Modifier.fillMaxWidth().height(48.dp)
+        ) {
             Icon(Icons.Outlined.Edit, contentDescription = null)
             Spacer(Modifier.width(8.dp))
             Text("Edit post $number")

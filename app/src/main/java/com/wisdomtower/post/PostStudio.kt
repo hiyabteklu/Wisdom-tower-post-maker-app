@@ -158,7 +158,11 @@ fun PostStudioScreen(
                         moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it })
                 }
 
-                Column(Modifier.fillMaxSize()) {
+                // Keep the tool selector outside the scrolling editor content. In the Inbox
+                // Dialog, the weighted scroll child could consume the available height and
+                // leave the final toolbar below the visible window on some device sizes.
+                Box(Modifier.fillMaxSize()) {
+                    Column(Modifier.fillMaxSize().padding(bottom = 47.dp)) {
                     TitleRow(doc, edited, bookmarked, onToggleBookmark, onOpenLibrary, onOpenBrand, onOpenBatch, onOpenInbox)
                     SizeRow(doc, onDoc, edited, onReset) { showSave = true }
                     PreviewPane(
@@ -419,7 +423,12 @@ fun PostStudioScreen(
                             }
                         }
                     }
-                    PostToolBar(selected = tool, onSelect = { tool = it })
+                    }
+                    PostToolBar(
+                        selected = tool,
+                        onSelect = { tool = it },
+                        modifier = Modifier.align(Alignment.BottomCenter)
+                    )
                 }
             }
         }

@@ -8,6 +8,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -36,8 +37,6 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.SaveAlt
 import androidx.compose.material.icons.outlined.Share
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
@@ -61,6 +60,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -294,6 +294,7 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
     }
 
     PostTheme {
+        Box(Modifier.fillMaxSize()) {
         Scaffold(containerColor = PostPalette.Ink) { padding ->
             Column(
                 Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 10.dp),
@@ -471,41 +472,46 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
             }
         }
 
-        // Full-screen editor dialog for one post in the batch
+        // The editor for one post in the batch.
+        // It is NOT a Dialog any more. A Dialog is a second window, and on this phone (gesture navigation, Android 15
+        // edge-to-edge) that window was laid out taller than the visible screen, so the pinned tool bar was pushed
+        // below the bottom edge. Here the editor is a full-screen layer inside the SAME window as the normal editor,
+        // so it gets exactly the same status bar and navigation bar handling and the tool bar always stays visible.
+        // The studio owns the two fixed header rows (title row with Apply all / Done, then size row) and the pinned tool bar.
+        // Do not add a third header above it.
         val index = editingIndex
         val item = index?.let { reviewItems.getOrNull(it) }
         val activeEditorDoc = editingDoc
         if (index != null && item != null && activeEditorDoc != null) {
-            Dialog(
-                onDismissRequest = { editingIndex = null; editingDoc = null },
-                properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
+            BackHandler { editingIndex = null; editingDoc = null }
+            Box(
+                Modifier.fillMaxSize().background(PostPalette.Ink)
+                    // Swallow touches so nothing under the editor can be tapped through it.
+                    .pointerInput(Unit) { detectTapGestures { } }
             ) {
-                // The studio owns the two fixed header rows and the pinned bottom toolbar.
-                // Do not add a third header above it: that was shrinking the editor viewport.
-                Column(Modifier.fillMaxSize().background(PostPalette.Ink)) {
-                    PostStudioScreen(
-                            doc = activeEditorDoc,
-                            onDoc = { changed -> saveEditingDoc(changed) },
-                            brand = currentBrand,
-                            library = PostDrafts.loadLibrary(context) ?: PostLibrary(),
-                            onBrand = { currentBrand = it },
-                            onPickPhoto = { editorPhotoPicker.launch(arrayOf("image/*")) },
-                            onPickBackgroundPhoto = { editorBackgroundPicker.launch(arrayOf("image/*")) },
-                            onPickLogo = { editorLogoPicker.launch(arrayOf("image/*")) },
-                            onOpenBrand = { backendMessage = "Close this editor to manage brand settings from the main studio." },
-                            embedded = true,
-                            headerTitle = "Editing poster ${item.number}/${reviewItems.size}",
-                            onHeaderApplyAll = {
-                                val source = editingDoc ?: return@PostStudioScreen
-                                reviewItems.forEach { target ->
-                                    editedDesigns[target.number] = source.copy(texts = doc.texts)
-                                }
-                                backendMessage = "Design applied to all ${reviewItems.size} posts"
-                            },
-                            onHeaderDone = { editingIndex = null; editingDoc = null }
-                        )
-                }
+                PostStudioScreen(
+                    doc = activeEditorDoc,
+                    onDoc = { changed -> saveEditingDoc(changed) },
+                    brand = currentBrand,
+                    library = PostDrafts.loadLibrary(context) ?: PostLibrary(),
+                    onBrand = { currentBrand = it },
+                    onPickPhoto = { editorPhotoPicker.launch(arrayOf("image/*")) },
+                    onPickBackgroundPhoto = { editorBackgroundPicker.launch(arrayOf("image/*")) },
+                    onPickLogo = { editorLogoPicker.launch(arrayOf("image/*")) },
+                    onOpenBrand = { backendMessage = "Close this editor to manage brand settings from the main studio." },
+                    embedded = false,
+                    headerTitle = "Editing poster ${item.number}/${reviewItems.size}",
+                    onHeaderApplyAll = {
+                        val source = editingDoc ?: return@PostStudioScreen
+                        reviewItems.forEach { target ->
+                            editedDesigns[target.number] = source.copy(texts = doc.texts)
+                        }
+                        backendMessage = "Design applied to all ${reviewItems.size} posts"
+                    },
+                    onHeaderDone = { editingIndex = null; editingDoc = null }
+                )
             }
+        }
         }
     }
 }

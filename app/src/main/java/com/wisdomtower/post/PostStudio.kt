@@ -118,7 +118,10 @@ fun PostStudioScreen(
     onOpenLibrary: () -> Unit = {},
     onOpenBatch: () -> Unit = {},
     onOpenInbox: () -> Unit = {},
-    embedded: Boolean = false
+    embedded: Boolean = false,
+    headerTitle: String? = null,
+    onHeaderApplyAll: (() -> Unit)? = null,
+    onHeaderDone: (() -> Unit)? = null
 ) {
     var moveLogoOn by remember { mutableStateOf(false) }
     var moveOn by remember { mutableStateOf(false) }
@@ -151,7 +154,7 @@ fun PostStudioScreen(
             }
         ) { padding ->
             BoxWithConstraints(Modifier.fillMaxSize().padding(padding)) {
-                val previewHeight = (maxHeight * 0.39f).coerceAtMost(350.dp)
+                val previewHeight = (maxHeight * 0.28f).coerceIn(140.dp, 220.dp)
                 // The same options call every panel used before, written once.
                 val options: @Composable (EditorTab, String) -> Unit = { tab, group ->
                     EditorOptions(tab, group, doc, onDoc, brand, onBrand,
@@ -161,26 +164,33 @@ fun PostStudioScreen(
 
                 Box(Modifier.fillMaxSize()) {
                     Column(Modifier.fillMaxSize()) {
-                    TitleRow(doc, edited, bookmarked, onToggleBookmark, onOpenLibrary, onOpenBrand, onOpenBatch, onOpenInbox)
-                    SizeRow(doc, onDoc, edited, onReset) { showSave = true }
-                    PreviewPane(
-                        doc, brand, moveLogoOn, onDoc,
-                        iconEdit = doc.icons.isNotEmpty() && !moveOn && !moveLogoOn,
-                        selectedIcon = selectedIcon,
-                        layout = layout,
-                        moveOn = moveOn,
-                        moveTarget = moveTarget,
-                        onTarget = { moveTarget = it },
-                        modifier = Modifier.fillMaxWidth().height(previewHeight)
-                    )
-                    TemplateStrip(doc, brand, library, onDoc)
-                    // A new scroll position for each panel, so a panel always opens at its top.
-                    key(tool) {
-                        Column(
-                            Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            when (tool) {
+                        TitleRow(
+                            doc, edited, bookmarked, onToggleBookmark, onOpenLibrary,
+                            onOpenBrand, onOpenBatch, onOpenInbox,
+                            headerTitle, onHeaderApplyAll, onHeaderDone
+                        )
+                        SizeRow(doc, onDoc, edited, onReset) { showSave = true }
+
+                        // Preview, template strip and editor controls share one scroll area.
+                        // The title/size rows and bottom tool bar remain pinned.
+                        key(tool) {
+                            Column(
+                                Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                PreviewPane(
+                                    doc, brand, moveLogoOn, onDoc,
+                                    iconEdit = doc.icons.isNotEmpty() && !moveOn && !moveLogoOn,
+                                    selectedIcon = selectedIcon,
+                                    layout = layout,
+                                    moveOn = moveOn,
+                                    moveTarget = moveTarget,
+                                    onTarget = { moveTarget = it },
+                                    modifier = Modifier.fillMaxWidth().height(previewHeight)
+                                )
+                                TemplateStrip(doc, brand, library, onDoc)
+
+                                when (tool) {
                                 EditorTool.TEXT -> {
                                     ToolCard("Type your words. Under each box, tap Color, Font or Size to style just that box.") {
                                         slots.forEach { slot ->
@@ -513,39 +523,61 @@ private fun TitleRow(
     onOpenLibrary: () -> Unit,
     onOpenBrand: () -> Unit,
     onOpenBatch: () -> Unit,
-    onOpenInbox: () -> Unit
+    onOpenInbox: () -> Unit,
+    headerTitle: String?,
+    onHeaderApplyAll: (() -> Unit)?,
+    onHeaderDone: (() -> Unit)?
 ) {
-    Row(Modifier.fillMaxWidth().padding(start = 10.dp, top = 1.dp, end = 2.dp, bottom = 1.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        Modifier.fillMaxWidth().padding(start = 10.dp, top = 1.dp, end = 6.dp, bottom = 1.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
         Text(
-            (if (edited) "● " else "") + postTemplate(doc.templateId).name,
+            headerTitle ?: ((if (edited) "● " else "") + postTemplate(doc.templateId).name),
             fontWeight = FontWeight.Bold,
-            fontSize = 16.sp,
+            fontSize = if (headerTitle != null) 13.sp else 16.sp,
             color = PostPalette.Text,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
         )
-        IconButton(onClick = onToggleBookmark, modifier = Modifier.size(36.dp)) {
-            Icon(
-                if (bookmarked) Icons.Outlined.Bookmark else Icons.Outlined.BookmarkBorder,
-                contentDescription = if (bookmarked) "Remove from Saved" else "Save this template",
-                tint = if (bookmarked) PostPalette.Gold else PostPalette.Muted
-            )
-        }
-        IconButton(onClick = onOpenLibrary, modifier = Modifier.size(36.dp)) {
-            Icon(Icons.Outlined.GridView, contentDescription = "Library", tint = PostPalette.Mint)
-        }
-        IconButton(onClick = onOpenBrand, modifier = Modifier.size(36.dp)) {
-            Icon(Icons.Outlined.Palette, contentDescription = "Brand and social icons", tint = PostPalette.Mint)
-        }
-        IconButton(onClick = onOpenBatch, modifier = Modifier.size(36.dp)) {
-            Icon(Icons.Outlined.Layers, contentDescription = "Batch", tint = PostPalette.Mint)
-        }
-        IconButton(onClick = onOpenInbox, modifier = Modifier.size(36.dp)) {
-            Box {
-                Icon(Icons.Outlined.Inbox, contentDescription = "Poster inbox", tint = PostPalette.Mint)
-                if (PostInboxState.drafts > 0) {
-                    Box(Modifier.align(Alignment.TopEnd).size(8.dp).clip(CircleShape).background(PostPalette.Gold))
+        if (headerTitle != null) {
+            if (onHeaderApplyAll != null) {
+                OutlinedButton(
+                    onClick = onHeaderApplyAll,
+                    contentPadding = PaddingValues(horizontal = 7.dp, vertical = 0.dp)
+                ) { Text("Apply all", fontSize = 11.sp, maxLines = 1) }
+            }
+            if (onHeaderDone != null) {
+                Button(
+                    onClick = onHeaderDone,
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
+                ) { Text("Done", fontSize = 11.sp, maxLines = 1) }
+            }
+        } else {
+            IconButton(onClick = onToggleBookmark, modifier = Modifier.size(36.dp)) {
+                Icon(
+                    if (bookmarked) Icons.Outlined.Bookmark else Icons.Outlined.BookmarkBorder,
+                    contentDescription = if (bookmarked) "Remove from Saved" else "Save this template",
+                    tint = if (bookmarked) PostPalette.Gold else PostPalette.Muted
+                )
+            }
+            IconButton(onClick = onOpenLibrary, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Outlined.GridView, contentDescription = "Library", tint = PostPalette.Mint)
+            }
+            IconButton(onClick = onOpenBrand, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Outlined.Palette, contentDescription = "Brand and social icons", tint = PostPalette.Mint)
+            }
+            IconButton(onClick = onOpenBatch, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Outlined.Layers, contentDescription = "Batch", tint = PostPalette.Mint)
+            }
+            IconButton(onClick = onOpenInbox, modifier = Modifier.size(36.dp)) {
+                Box {
+                    Icon(Icons.Outlined.Inbox, contentDescription = "Poster inbox", tint = PostPalette.Mint)
+                    if (PostInboxState.drafts > 0) {
+                        Box(Modifier.align(Alignment.TopEnd).size(8.dp).clip(CircleShape).background(PostPalette.Gold))
+                    }
                 }
             }
         }

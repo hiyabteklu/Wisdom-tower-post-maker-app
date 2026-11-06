@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -74,9 +75,13 @@ object PostInboxState {
     }
 }
 
+/**
+ * The bar always keeps itself clear of the system gesture / navigation bar (navigationBarsPadding AFTER the background,
+ * so the bar color also fills the area behind the gesture line). Callers must not add that padding themselves.
+ */
 @Composable
 fun PostToolBar(selected: EditorTool, onSelect: (EditorTool) -> Unit, modifier: Modifier = Modifier) {
-    Column(modifier.fillMaxWidth().background(PostPalette.Surface)) {
+    Column(modifier.fillMaxWidth().background(PostPalette.Surface).navigationBarsPadding()) {
         Box(Modifier.fillMaxWidth().height(1.dp).background(PostPalette.Line))
         Row(Modifier.fillMaxWidth().height(46.dp)) {
             EditorTool.values().forEach { tool ->

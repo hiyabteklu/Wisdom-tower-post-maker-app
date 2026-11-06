@@ -478,7 +478,7 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
         if (index != null && item != null && activeEditorDoc != null) {
             Dialog(
                 onDismissRequest = { editingIndex = null; editingDoc = null },
-                properties = DialogProperties(usePlatformDefaultWidth = false)
+                properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
             ) {
                 // The studio owns the two fixed header rows and the pinned bottom toolbar.
                 // Do not add a third header above it: that was shrinking the editor viewport.

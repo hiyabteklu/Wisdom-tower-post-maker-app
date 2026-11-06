@@ -138,7 +138,7 @@ fun PostStudioScreen(
 
     PostTheme {
         Scaffold(
-            modifier = Modifier.fillMaxSize().imePadding(),
+            modifier = Modifier.fillMaxSize().then(if (embedded) Modifier else Modifier.imePadding()),
             contentWindowInsets = if (embedded) WindowInsets(0, 0, 0, 0) else WindowInsets.safeDrawing,
             containerColor = PostPalette.Ink,
             // Use Scaffold's dedicated bottom-bar slot so the editor content is measured

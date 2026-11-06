@@ -479,7 +479,7 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
                 onDismissRequest = { editingIndex = null; editingDoc = null },
                 properties = DialogProperties(usePlatformDefaultWidth = false)
             ) {
-                Column(Modifier.fillMaxSize().background(PostPalette.Ink).systemBarsPadding()) {
+                Column(Modifier.fillMaxSize().background(PostPalette.Ink).systemBarsPadding().imePadding()) {
                     Row(
                         Modifier.fillMaxWidth().background(PostPalette.Surface).padding(horizontal = 10.dp, vertical = 3.dp),
                         verticalAlignment = Alignment.CenterVertically,

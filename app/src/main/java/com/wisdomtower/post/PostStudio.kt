@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -51,7 +52,6 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -137,109 +137,17 @@ fun PostStudioScreen(
     val photoArea = layout.photo
 
     PostTheme {
-        Scaffold(
-            modifier = Modifier.fillMaxSize().imePadding(),
-            contentWindowInsets = if (embedded) WindowInsets(0, 0, 0, 0) else WindowInsets.safeDrawing,
-            containerColor = PostPalette.Ink,
-            // Use Scaffold's dedicated bottom-bar slot so the editor content is measured
-            // above the toolbar instead of relying on manual Box alignment and a guessed height.
-            bottomBar = {
-                PostToolBar(
-                    selected = tool,
-                    onSelect = { tool = it }
-                )
-            }
-        ) { padding ->
-            BoxWithConstraints(Modifier.fillMaxSize().padding(padding)) {
-                val previewHeight = (maxHeight * 0.39f).coerceAtMost(350.dp)
-                // The same options call every panel used before, written once.
-                val options: @Composable (EditorTab, String) -> Unit = { tab, group ->
-                    EditorOptions(tab, group, doc, onDoc, brand, onBrand,
-                        photoArea != null, onPickPhoto, onPickBackgroundPhoto, onPickLogo,
-                        moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it })
-                }
-
-                Box(Modifier.fillMaxSize()) {
-                    Column(Modifier.fillMaxSize()) {
-                    TitleRow(doc, edited, bookmarked, onToggleBookmark, onOpenLibrary, onOpenBrand, onOpenBatch, onOpenInbox)
-                    SizeRow(doc, onDoc, edited, onReset) { showSave = true }
-                    PreviewPane(
-                        doc, brand, moveLogoOn, onDoc,
-                        iconEdit = doc.icons.isNotEmpty() && !moveOn && !moveLogoOn,
-                        selectedIcon = selectedIcon,
-                        layout = layout,
-                        moveOn = moveOn,
-                        moveTarget = moveTarget,
-                        onTarget = { moveTarget = it },
-                        modifier = Modifier.fillMaxWidth().height(previewHeight)
-                    )
-                    TemplateStrip(doc, brand, library, onDoc)
-                    // A new scroll position for each panel, so a panel always opens at its top.
-                    key(tool) {
-                        Column(
-                            Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            when (tool) {
-                                EditorTool.TEXT -> {
-                                    ToolCard("Type your words. Under each box, tap Color, Font or Size to style just that box.") {
-                                        slots.forEach { slot ->
-                                            ControlHeading(PostSlots.label(slot))
-                                            WordBox(slot, doc, onDoc, brand)
-                                        }
-                                        OtherTextStyles(doc, onDoc, brand, hasMarks)
-                                        if (onBringWords != null) {
-                                            OutlinedButton(onClick = onBringWords, modifier = Modifier.fillMaxWidth()) {
-                                                Text("Bring my words from the previous template")
-                                            }
-                                        }
-                                        InlineEditorSlider(EditorSlider("Text size, all words", doc.textScale, 0.7f..1.5f,
-                                            "${(doc.textScale * 100).toInt()}%") { onDoc(doc.copy(textScale = it)) })
+        // Keep the tool selector outside the content viewport. Only the editor content
+        // is allowed to shrink or scroll; the toolbar is always the final fixed child.
+        // The Inbox dialog owns system-bar and IME insets when embedded.
+        Column(
+            Modifier
+                .fillMaxSize()
+                .background(PostPalette.Ink)
+                .then(if (embedded) Modifier else Modifier.windowInsetsPadding(WindowInsets.safeDrawing).imePadding())
+        ) {
+            BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                                     }
-                                }
-
-                                EditorTool.COLOR -> {
-                                    ToolCard("Color pairs, the accent color and the default dark text color. A single box can have its own color in Text.") {
-                                        listOf("pairs" to "Color pairs", "main" to "Accent color", "text" to "Default dark text color").forEach { (group, label) ->
-                                            ControlHeading(label)
-                                            options(EditorTab.LOOK, group)
-                                        }
-                                    }
-                                }
-
-                                EditorTool.FONT -> {
-                                    ToolCard("The fonts for the whole post. To change one box only, use Font under that box in Text. Add your own .ttf or .otf files here.") {
-                                        ControlHeading("English")
-                                        options(EditorTab.FONT, "en")
-                                        ControlHeading("Amharic")
-                                        options(EditorTab.FONT, "am")
-                                    }
-                                }
-
-                                EditorTool.PHOTO -> {
-                                    val groups = editorGroups(EditorTab.PHOTO, doc, slots, photoArea != null, false)
-                                        .filterNot { it.key == "bgimg" || it.key == "bgop" }
-                                    ToolCard("The template photo: add it, zoom, and move it up, down, left or right.") {
-                                        if (groups.isEmpty()) {
-                                            Text("This template has no photo area. For a full-canvas picture, use Background.", color = PostPalette.Muted, fontSize = 13.sp)
-                                        }
-                                        groups.forEach { group ->
-                                            ControlHeading(group.label)
-                                            val slider = editorSlider(EditorTab.PHOTO, group.key, doc, photoArea?.dim, onDoc)
-                                            if (slider != null) InlineEditorSlider(slider)
-                                            options(EditorTab.PHOTO, group.key)
-                                        }
-                                    }
-                                }
-
-                                EditorTool.BACKGROUND -> {
-                                    ToolCard("The template background: a solid color, a gradient, or a full-canvas picture behind everything.") {
-                                        listOf("bg" to "Background type", "bgfrom" to "Solid color / gradient start", "bgto" to "Gradient end", "bgdir" to "Gradient direction").forEach { (group, label) ->
-                                            if (group != "bgfrom" || doc.bgMode == BgMode.SOLID || doc.bgMode == BgMode.GRADIENT) {
-                                                if (group != "bgto" && group != "bgdir" || doc.bgMode == BgMode.GRADIENT) {
-                                                    ControlHeading(label)
-                                                    options(EditorTab.LOOK, group)
-                                                }
                                             }
                                         }
 
@@ -424,6 +332,7 @@ fun PostStudioScreen(
                     }
                 }
             }
+            PostToolBar(selected = tool, onSelect = { tool = it })
         }
         if (showSave) SaveDialog(doc, brand) { showSave = false }
     }

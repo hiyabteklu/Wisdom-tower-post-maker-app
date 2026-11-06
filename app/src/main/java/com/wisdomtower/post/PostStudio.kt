@@ -152,3 +152,163 @@ fun PostStudioScreen(
                 )
             }
         ) { padding ->
+            BoxWithConstraints(Modifier.fillMaxSize().padding(padding)) {
+                val previewHeight = (maxHeight * 0.39f).coerceAtMost(350.dp)
+                // The same options call every panel used before, written once.
+                val options: @Composable (EditorTab, String) -> Unit = { tab, group ->
+                    EditorOptions(tab, group, doc, onDoc, brand, onBrand,
+                        photoArea != null, onPickPhoto, onPickBackgroundPhoto, onPickLogo,
+                        moveLogoOn, { moveLogoOn = it }, footerItem, { footerItem = it })
+                }
+
+                Box(Modifier.fillMaxSize()) {
+                    Column(Modifier.fillMaxSize()) {
+                    TitleRow(doc, edited, bookmarked, onToggleBookmark, onOpenLibrary, onOpenBrand, onOpenBatch, onOpenInbox)
+                    SizeRow(doc, onDoc, edited, onReset) { showSave = true }
+                    PreviewPane(
+                        doc, brand, moveLogoOn, onDoc,
+                        iconEdit = doc.icons.isNotEmpty() && !moveOn && !moveLogoOn,
+                        selectedIcon = selectedIcon,
+                        layout = layout,
+                        moveOn = moveOn,
+                        moveTarget = moveTarget,
+                        onTarget = { moveTarget = it },
+                        modifier = Modifier.fillMaxWidth().height(previewHeight)
+                    )
+                    TemplateStrip(doc, brand, library, onDoc)
+                    // A new scroll position for each panel, so a panel always opens at its top.
+                    key(tool) {
+                        Column(
+                            Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            when (tool) {
+                                EditorTool.TEXT -> {
+                                    ToolCard("Type your words. Under each box, tap Color, Font or Size to style just that box.") {
+                                        slots.forEach { slot ->
+                                            ControlHeading(PostSlots.label(slot))
+                                            WordBox(slot, doc, onDoc, brand)
+                                        }
+                                        OtherTextStyles(doc, onDoc, brand, hasMarks)
+                                        if (onBringWords != null) {
+                                            OutlinedButton(onClick = onBringWords, modifier = Modifier.fillMaxWidth()) {
+                                                Text("Bring my words from the previous template")
+                                            }
+                                        }
+                                        InlineEditorSlider(EditorSlider("Text size, all words", doc.textScale, 0.7f..1.5f,
+                                            "${(doc.textScale * 100).toInt()}%") { onDoc(doc.copy(textScale = it)) })
+                                    }
+                                }
+
+                                EditorTool.COLOR -> {
+                                    ToolCard("Color pairs, the accent color and the default dark text color. A single box can have its own color in Text.") {
+                                        listOf("pairs" to "Color pairs", "main" to "Accent color", "text" to "Default dark text color").forEach { (group, label) ->
+                                            ControlHeading(label)
+                                            options(EditorTab.LOOK, group)
+                                        }
+                                    }
+                                }
+
+                                EditorTool.FONT -> {
+                                    ToolCard("The fonts for the whole post. To change one box only, use Font under that box in Text. Add your own .ttf or .otf files here.") {
+                                        ControlHeading("English")
+                                        options(EditorTab.FONT, "en")
+                                        ControlHeading("Amharic")
+                                        options(EditorTab.FONT, "am")
+                                    }
+                                }
+
+                                EditorTool.PHOTO -> {
+                                    val groups = editorGroups(EditorTab.PHOTO, doc, slots, photoArea != null, false)
+                                        .filterNot { it.key == "bgimg" || it.key == "bgop" }
+                                    ToolCard("The template photo: add it, zoom, and move it up, down, left or right.") {
+                                        if (groups.isEmpty()) {
+                                            Text("This template has no photo area. For a full-canvas picture, use Background.", color = PostPalette.Muted, fontSize = 13.sp)
+                                        }
+                                        groups.forEach { group ->
+                                            ControlHeading(group.label)
+                                            val slider = editorSlider(EditorTab.PHOTO, group.key, doc, photoArea?.dim, onDoc)
+                                            if (slider != null) InlineEditorSlider(slider)
+                                            options(EditorTab.PHOTO, group.key)
+                                        }
+                                    }
+                                }
+
+                                EditorTool.BACKGROUND -> {
+                                    ToolCard("The template background: a solid color, a gradient, or a full-canvas picture behind everything.") {
+                                        listOf("bg" to "Background type", "bgfrom" to "Solid color / gradient start", "bgto" to "Gradient end", "bgdir" to "Gradient direction").forEach { (group, label) ->
+                                            if (group != "bgfrom" || doc.bgMode == BgMode.SOLID || doc.bgMode == BgMode.GRADIENT) {
+                                                if (group != "bgto" && group != "bgdir" || doc.bgMode == BgMode.GRADIENT) {
+                                                    ControlHeading(label)
+                                                    options(EditorTab.LOOK, group)
+                                                }
+                                            }
+                                        }
+
+                                        Spacer(Modifier.height(4.dp))
+                                        ControlHeading("Full-canvas background image")
+                                        Text(
+                                            "This image sits behind the entire design. Lower opacity to blend it with the template colors.",
+                                            color = PostPalette.Muted,
+                                            fontSize = 12.sp
+                                        )
+                                        OutlinedButton(onClick = onPickBackgroundPhoto, modifier = Modifier.fillMaxWidth()) {
+                                            Text(if (doc.backgroundPhotoUri == null) "Add background image" else "Replace background image")
+                                        }
+                                        if (doc.backgroundPhotoUri != null) {
+                                            InlineEditorSlider(
+                                                EditorSlider(
+                                                    "Background image opacity",
+                                                    doc.backgroundPhotoOpacity,
+                                                    0f..1f,
+                                                    "${(doc.backgroundPhotoOpacity * 100).toInt()}%"
+                                                ) { onDoc(doc.copy(backgroundPhotoOpacity = it)) }
+                                            )
+                                            OutlinedButton(
+                                                onClick = { onDoc(doc.copy(backgroundPhotoUri = null, backgroundPhotoOpacity = 1f)) },
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Text("Remove background image")
+                                            }
+                                        }
+                                    }
+                                }
+
+                                EditorTool.MORE -> {
+                                    SettingsSection("Layers and style", "Photo frames, gradient blends, a cut-out subject and moving words.") {
+                                        EngineControls(
+                                            doc, onDoc, slots, photoArea != null, moveOn,
+                                            { on ->
+                                                moveOn = on
+                                                if (!on) moveTarget = null
+                                            }
+                                        )
+                                    }
+
+                                    SettingsSection("Layer manager", "Select an element here, then move or resize it directly on the poster preview.") {
+                                        ControlHeading("Text layers")
+                                        slots.forEach { slot ->
+                                            Row(
+                                                Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(PostSlots.label(slot) + if (slot in doc.hiddenTextSlots) " · Hidden" else "", color = PostPalette.Text, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                                                OutlinedButton(
+                                                    onClick = {
+                                                        moveLogoOn = false
+                                                        moveOn = true
+                                                        moveTarget = slot
+                                                    }
+                                                ) { Text(if (moveOn && moveTarget == slot) "Selected" else "Select") }
+                                                OutlinedButton(onClick = {
+                                                    val hidden = doc.hiddenTextSlots.toMutableSet()
+                                                    if (slot in hidden) hidden.remove(slot) else hidden.add(slot)
+                                                    onDoc(doc.copy(hiddenTextSlots = hidden))
+                                                    if (slot in hidden && moveTarget == slot) { moveOn = false; moveTarget = null }
+                                                }) { Text(if (slot in doc.hiddenTextSlots) "Show" else "Hide") }
+                                            }
+                                        }
+
+                                        if (doc.icons.isNotEmpty()) {
+                                            ControlHeading("Graphic layers")

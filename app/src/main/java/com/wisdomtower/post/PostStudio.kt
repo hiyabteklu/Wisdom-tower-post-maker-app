@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.padding
@@ -147,9 +148,12 @@ fun PostStudioScreen(
             // Use Scaffold's dedicated bottom-bar slot so the editor content is measured
             // above the toolbar instead of relying on manual Box alignment and a guessed height.
             bottomBar = {
+                // A full-screen Dialog does not automatically keep custom bottom bars
+                // above the gesture/navigation area. The activity's normal editor does.
                 PostToolBar(
                     selected = tool,
-                    onSelect = { tool = it }
+                    onSelect = { tool = it },
+                    modifier = if (embedded) Modifier.navigationBarsPadding() else Modifier
                 )
             }
         ) { padding ->

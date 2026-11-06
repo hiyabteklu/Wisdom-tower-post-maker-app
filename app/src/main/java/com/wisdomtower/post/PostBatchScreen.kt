@@ -480,24 +480,10 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
                 onDismissRequest = { editingIndex = null; editingDoc = null },
                 properties = DialogProperties(usePlatformDefaultWidth = false)
             ) {
-                Column(Modifier.fillMaxSize().background(PostPalette.Ink).systemBarsPadding().imePadding()) {
-                    Row(
-                        Modifier.fillMaxWidth().background(PostPalette.Surface).padding(horizontal = 10.dp, vertical = 3.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text("Editing post ${item.number}", color = PostPalette.Text, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                        OutlinedButton(onClick = {
-                            val source = editingDoc ?: return@OutlinedButton
-                            reviewItems.forEach { target ->
-                                editedDesigns[target.number] = source.copy(texts = doc.texts)
-                            }
-                            backendMessage = "Design applied to all ${reviewItems.size} posts"
-                        }) { Text("Apply to all") }
-                        Button(onClick = { editingIndex = null; editingDoc = null }) { Text("Done") }
-                    }
-                    Box(Modifier.weight(1f).fillMaxWidth()) {
-                        PostStudioScreen(
+                // The studio owns the two fixed header rows and the pinned bottom toolbar.
+                // Do not add a third header above it: that was shrinking the editor viewport.
+                Column(Modifier.fillMaxSize().background(PostPalette.Ink)) {
+                    PostStudioScreen(
                             doc = activeEditorDoc,
                             onDoc = { changed -> saveEditingDoc(changed) },
                             brand = currentBrand,
@@ -507,9 +493,17 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
                             onPickBackgroundPhoto = { editorBackgroundPicker.launch(arrayOf("image/*")) },
                             onPickLogo = { editorLogoPicker.launch(arrayOf("image/*")) },
                             onOpenBrand = { backendMessage = "Close this editor to manage brand settings from the main studio." },
-                            embedded = true
+                            embedded = true,
+                            headerTitle = "Editing poster ${item.number}/${reviewItems.size}",
+                            onHeaderApplyAll = {
+                                val source = editingDoc ?: return@PostStudioScreen
+                                reviewItems.forEach { target ->
+                                    editedDesigns[target.number] = source.copy(texts = doc.texts)
+                                }
+                                backendMessage = "Design applied to all ${reviewItems.size} posts"
+                            },
+                            onHeaderDone = { editingIndex = null; editingDoc = null }
                         )
-                    }
                 }
             }
         }

@@ -1,5 +1,7 @@
 # Wisdom Tower Post: chat control plan
 
+> **SUPERSEDED:** The current agent contract is [AI_CONTENT_DELIVERY.md](AI_CONTENT_DELIVERY.md). Its requirements override older statements below about announcing the batch title, asking for template screenshots, or returning copy in chat. On success, save to Supabase and do not reply in chat.
+
 Written 2 Nov 2026 by Claude, for any assistant that continues this work, and for Hiyab. Read `CLAUDE.md` and `BATCH_PLAN.md` first.
 
 ## 1. Goal

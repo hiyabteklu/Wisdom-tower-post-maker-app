@@ -109,6 +109,8 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
     }
     var fill by remember(doc.templateId, slots) { mutableStateOf(PostBatchStore.loadFill(context, doc.templateId, slots)) }
     var options by remember(doc.size) { mutableStateOf(PostStore.loadSaveOptions(context, doc.size)) }
+    // The review page owns the output aspect ratio; changing it re-renders the preview and controls export.
+    var batchSize by remember(initialBatch?.id) { mutableStateOf(doc.size) }
     var backendStatus by remember(initialBatch?.id) { mutableStateOf(initialBatch?.status.orEmpty()) }
     var backendMessage by remember(initialBatch?.id) { mutableStateOf<String?>(null) }
     var platform by remember(initialBatch?.id) { mutableStateOf("Telegram") }
@@ -164,6 +166,8 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
         val current = index?.let { reviewItems.getOrNull(it) }
         if (index != null && current != null) {
             editedDesigns[current.number] = updated
+            batchSize = updated.size
+            options = options.copy(sizes = setOf(updated.size))
             reviewItems[index] = current.copy(texts = updated.texts)
         }
     }
@@ -197,7 +201,8 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
         val design = editedDesigns[item.number] ?: doc
         val batchPhoto = batchPhotos.getOrNull(item.number - 1)
         return PostBatch.apply(design, item).let { page ->
-            if (item.number !in editedDesigns && batchPhoto != null) page.copy(photoUri = batchPhoto) else page
+            val withSize = page.copy(size = batchSize)
+            if (item.number !in editedDesigns && batchPhoto != null) withSize.copy(photoUri = batchPhoto) else withSize
         }
     }
 
@@ -394,6 +399,23 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
                     if (backendMessage != null) {
                         Text(backendMessage!!, color = PostPalette.Gold, fontSize = 12.sp)
                     }
+                    Text("Aspect ratio", color = PostPalette.Text, fontWeight = FontWeight.Bold)
+                    Row(
+                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        PostSize.values().forEach { size ->
+                            FilterChip(
+                                selected = batchSize == size,
+                                onClick = {
+                                    batchSize = size
+                                    options = options.copy(sizes = setOf(size))
+                                },
+                                label = { Text(size.label) }
+                            )
+                        }
+                    }
+                    Text("Preview and Save to gallery use the selected ratio.", color = PostPalette.Muted, fontSize = 12.sp)
                     HorizontalPager(
                         state = pagerState,
                         contentPadding = PaddingValues(horizontal = 24.dp),

@@ -120,6 +120,20 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
     var editingIndex by remember { mutableStateOf<Int?>(null) }
     var editingDoc by remember { mutableStateOf<PostDoc?>(null) }
     val editedDesigns = remember { mutableStateMapOf<Int, PostDoc>() }
+    // Captions belong to the inbox batch, not to the poster design. Keep edits locally on this phone
+    // so they survive leaving and reopening the batch; the current wt-mcp API has no caption-update tool.
+    val captionDrafts = remember(initialBatch?.id) {
+        mutableStateMapOf<Int, String>().apply {
+            val batch = initialBatch
+            if (batch != null) {
+                for (i in 0 until batch.captions.length()) put(i + 1, batch.captions.optString(i))
+                val saved = context.getSharedPreferences("wt_post_captions", 0)
+                for (i in 1..batch.posts.length()) {
+                    saved.getString("${batch.id}:$i", null)?.let { put(i, it) }
+                }
+            }
+        }
+    }
     val pagerState = rememberPagerState(pageCount = { reviewItems.size })
 
     var checking by remember { mutableStateOf(false) }
@@ -398,6 +412,33 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
                                 editingDoc = pageDoc(item)
                             }
                         )
+                    }
+                    // Caption controls stay in the review flow, directly below the matching poster.
+                    val captionItem = reviewItems.getOrNull(pagerState.currentPage)
+                    if (initialBatch != null && captionItem != null) {
+                        val caption = captionDrafts[captionItem.number].orEmpty()
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Caption for post ${captionItem.number}", color = PostPalette.Text, fontWeight = FontWeight.Bold)
+                            OutlinedTextField(
+                                value = caption,
+                                onValueChange = { updated ->
+                                    captionDrafts[captionItem.number] = updated
+                                    context.getSharedPreferences("wt_post_captions", 0).edit()
+                                        .putString("${initialBatch.id}:${captionItem.number}", updated)
+                                        .apply()
+                                },
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 96.dp),
+                                label = { Text("Edit caption") },
+                                minLines = 3,
+                                textStyle = TextStyle(color = PostPalette.Text, fontSize = 14.sp)
+                            )
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                                OutlinedButton(
+                                    onClick = { clipboard.setText(AnnotatedString(caption)) },
+                                    enabled = caption.isNotBlank()
+                                ) { Text("Copy caption") }
+                            }
+                        }
                     }
                     Row(
                         Modifier.fillMaxWidth(),

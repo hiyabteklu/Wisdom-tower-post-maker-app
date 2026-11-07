@@ -1,12 +1,14 @@
 # Wisdom Tower Post
 
+> **AI CONTENT DELIVERY CONTRACT:** Read [docs/AI_CONTENT_DELIVERY.md](docs/AI_CONTENT_DELIVERY.md) before any content-agent integration work. The Brand Kit is the sole content authority; this app is the visual template/rendering authority; Supabase delivers structured posts to Poster inbox. Agents choose the template, save poster slots and captions to the backend, and **must not reply with content in chat after a successful save**.
+
 **Wisdom Tower Post is a private, offline-first post maker for Wisdom Tower Academy.** It is for personal use, not public release. The goal is a branded social post in under a minute, with the same logo and footer every time.
 
 The direction is set in **[docs/IMPROVEMENT_PLAN.md](docs/IMPROVEMENT_PLAN.md)**: template first, brand locked, several sizes. Current status of the templates and the engine is in **[docs/REDESIGN_PLAN.md](docs/REDESIGN_PLAN.md)**. The next feature, making many posts from a pasted list, is planned in **[docs/BATCH_PLAN.md](docs/BATCH_PLAN.md)**. Posters written by an AI chat arrive in the Inbox: **[docs/CHAT_CONTROL_PLAN.md](docs/CHAT_CONTROL_PLAN.md)**. The whole-app plan is **[docs/APP_QUALITY_ROADMAP.md](docs/APP_QUALITY_ROADMAP.md)**. Phone-frame mockups for screenshots: **[docs/DEVICE_MOCKUP_PLAN.md](docs/DEVICE_MOCKUP_PLAN.md)**.
 
 ## How it is used
 
-Ask your AI chat for posters (one or a batch). The chat reads the brand kit, writes the posts and captions, and saves them to the backend. In the app: Inbox icon (top right of the editor), tap the batch, **Make posts**.
+The AI agent reads the full Brand Kit, chooses an app template, writes the structured poster slots and matching caption, then saves the batch to Supabase. Open **Poster inbox**, tap the batch, review it, and press **Make posts**. The successful agent workflow ends at the Inbox; it does not return the copy in chat.
 
 The editor has a tool bar at the bottom: **Text** (the message boxes and overall text size), **Color**, **Font**, **Photo** (add, zoom, move), **Background** (type, colors, full-canvas image) and **More** (layers, logo, icons, footer). Templates are in the strip under the preview.
 

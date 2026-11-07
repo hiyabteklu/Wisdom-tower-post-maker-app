@@ -108,7 +108,7 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
         mutableStateOf(initialBatch?.batchInput() ?: PostBatchStore.loadText(context, doc.templateId))
     }
     var fill by remember(doc.templateId, slots) { mutableStateOf(PostBatchStore.loadFill(context, doc.templateId, slots)) }
-    var options by remember(doc.size) { mutableStateOf(PostStore.loadSaveOptions(context, doc.size)) }
+    var options by remember(doc.size) { mutableStateOf(PostStore.loadSaveOptions(context, doc.size).copy(sizes = setOf(doc.size))) }
     // The review page owns the output aspect ratio; changing it re-renders the preview and controls export.
     var batchSize by remember(initialBatch?.id) { mutableStateOf(doc.size) }
     var backendStatus by remember(initialBatch?.id) { mutableStateOf(initialBatch?.status.orEmpty()) }

@@ -195,7 +195,9 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
     }
 
     val parsed = remember(text, mode, slots, fill) { PostBatch.parse(text, mode, slots, fill) }
-    val items = parsed.items
+    val mockupBatch = doc.templateId == "device-hero" || doc.templateId == "device-headline"
+    // Phone mockups are image-driven: one imported screenshot creates one review/export item.
+    val items = if (mockupBatch) batchPhotos.mapIndexed { index, _ -> BatchItem(index + 1, emptyMap(), emptyList()) } else parsed.items
 
     fun pageDoc(item: BatchItem): PostDoc {
         val design = editedDesigns[item.number] ?: doc
@@ -334,56 +336,84 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
                             Text("Clear")
                         }
                     }
-                    Text("Every post uses this design, including its colors, photos, logo and fonts. Next you can look at every post, fix any of them, and then save.", color = PostPalette.Muted, fontSize = 12.sp)
-                    if (hasPhotoArea) {
+                    if (mockupBatch) {
+                        Text("Create phone-frame mockups from a whole gallery of screenshots. Each image stays in its own phone screen; review and edit any one before exporting the set.", color = PostPalette.Muted, fontSize = 13.sp)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            OutlinedButton(onClick = { photoPicker.launch(arrayOf("image/*")) }) { Text("Add photos") }
-                            Text(if (batchPhotos.isEmpty()) "Optional: one photo per post" else "${batchPhotos.size} photos selected", color = PostPalette.Muted, fontSize = 12.sp)
-                            if (batchPhotos.isNotEmpty()) OutlinedButton(onClick = { importedPhotoPaths.filter { it != doc.photoUri }.forEach { PostStore.deleteImportedPhoto(context, it) }; importedPhotoPaths.clear(); batchPhotos = emptyList() }) { Text("Clear photos") }
-                        }
-                    }
-                    if (doc.photoUri != null || doc.backgroundPhotoUri != null) {
-                        Text("The same photo will be used on every post in this batch.", color = PostPalette.Gold, fontSize = 12.sp)
-                    }
-                    Text("Write your list", color = PostPalette.Text, fontWeight = FontWeight.Bold)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(selected = mode == BatchMode.ONE_LINE, onClick = { mode = BatchMode.ONE_LINE }, label = { Text("One line = one post") })
-                        FilterChip(selected = mode == BatchMode.BLOCKS, onClick = { mode = BatchMode.BLOCKS }, label = { Text("Full blocks") })
-                    }
-                    if (mode == BatchMode.ONE_LINE) {
-                        Text("Fill this box. Other boxes keep the words from the open post.", color = PostPalette.Muted, fontSize = 12.sp)
-                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            slots.forEach { slot ->
-                                FilterChip(selected = fill == slot, onClick = { fill = slot }, label = { Text(PostSlots.label(slot)) })
+                            Button(onClick = { photoPicker.launch(arrayOf("image/*")) }, modifier = Modifier.height(48.dp)) {
+                                Text(if (batchPhotos.isEmpty()) "Select screenshots" else "Replace screenshots")
                             }
+                            Text(if (batchPhotos.isEmpty()) "Choose multiple images at once" else "${batchPhotos.size} screenshots ready", color = PostPalette.Mint, fontSize = 12.sp)
+                        }
+                        if (batchPhotos.isNotEmpty()) {
+                            OutlinedButton(
+                                onClick = {
+                                    importedPhotoPaths.filter { it != doc.photoUri && it != doc.backgroundPhotoUri }.forEach { PostStore.deleteImportedPhoto(context, it) }
+                                    importedPhotoPaths.clear()
+                                    batchPhotos = emptyList()
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text("Clear selected screenshots") }
+                        }
+                        Text("Nothing is downloaded until you review the previews and press Save to gallery.", color = PostPalette.Muted, fontSize = 12.sp)
+                        Button(
+                            onClick = { startReview() },
+                            enabled = batchPhotos.isNotEmpty() && !running,
+                            modifier = Modifier.fillMaxWidth().height(52.dp)
+                        ) {
+                            Text("Review ${batchPhotos.size} mockups")
                         }
                     } else {
-                        Text("Separate posts with --- . Use labels such as headline:, message: and list:, or write one box per line.", color = PostPalette.Muted, fontSize = 12.sp)
-                    }
-                    OutlinedTextField(
-                        value = text, onValueChange = { text = it },
-                        modifier = Modifier.fillMaxWidth().height(190.dp),
-                        placeholder = { Text(if (mode == BatchMode.ONE_LINE) "One post per line..." else "headline: Your headline\nmessage: Your message\n---\nheadline: Next post") },
-                        minLines = 8,
-                        textStyle = TextStyle(color = PostPalette.Text, fontSize = 14.sp)
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { text = clipboard.getText()?.text.orEmpty() }) {
-                            Icon(Icons.Outlined.ContentPaste, contentDescription = null)
-                            Text("Paste")
+                        Text("Every post uses this design, including its colors, photos, logo and fonts. Next you can look at every post, fix any of them, and then save.", color = PostPalette.Muted, fontSize = 12.sp)
+                        if (hasPhotoArea) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                OutlinedButton(onClick = { photoPicker.launch(arrayOf("image/*")) }) { Text("Add photos") }
+                                Text(if (batchPhotos.isEmpty()) "Optional: one photo per post" else "${batchPhotos.size} photos selected", color = PostPalette.Muted, fontSize = 12.sp)
+                                if (batchPhotos.isNotEmpty()) OutlinedButton(onClick = { importedPhotoPaths.filter { it != doc.photoUri && it != doc.backgroundPhotoUri }.forEach { PostStore.deleteImportedPhoto(context, it) }; importedPhotoPaths.clear(); batchPhotos = emptyList() }) { Text("Clear photos") }
+                            }
                         }
-                        OutlinedButton(onClick = { text = PostBatch.exampleFor(slots, mode) }) { Text("Example") }
-                        Text("${items.size} posts", color = PostPalette.Muted, fontSize = 12.sp)
-                    }
-                    if (parsed.notes.isNotEmpty()) {
-                        Text(parsed.notes.joinToString("\n"), color = PostPalette.Gold, fontSize = 12.sp)
-                    }
-                    Button(
-                        onClick = { startReview() },
-                        enabled = items.isNotEmpty(),
-                        modifier = Modifier.fillMaxWidth().height(52.dp)
-                    ) {
-                        Text("Review ${items.size} posts")
+                        if (doc.photoUri != null || doc.backgroundPhotoUri != null) {
+                            Text("The same photo will be used on every post in this batch.", color = PostPalette.Gold, fontSize = 12.sp)
+                        }
+                        Text("Write your list", color = PostPalette.Text, fontWeight = FontWeight.Bold)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(selected = mode == BatchMode.ONE_LINE, onClick = { mode = BatchMode.ONE_LINE }, label = { Text("One line = one post") })
+                            FilterChip(selected = mode == BatchMode.BLOCKS, onClick = { mode = BatchMode.BLOCKS }, label = { Text("Full blocks") })
+                        }
+                        if (mode == BatchMode.ONE_LINE) {
+                            Text("Fill this box. Other boxes keep the words from the open post.", color = PostPalette.Muted, fontSize = 12.sp)
+                            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                slots.forEach { slot ->
+                                    FilterChip(selected = fill == slot, onClick = { fill = slot }, label = { Text(PostSlots.label(slot)) })
+                                }
+                            }
+                        } else {
+                            Text("Separate posts with --- . Use labels such as headline:, message: and list:, or write one box per line.", color = PostPalette.Muted, fontSize = 12.sp)
+                        }
+                        OutlinedTextField(
+                            value = text, onValueChange = { text = it },
+                            modifier = Modifier.fillMaxWidth().height(190.dp),
+                            placeholder = { Text(if (mode == BatchMode.ONE_LINE) "One post per line..." else "headline: Your headline\nmessage: Your message\n---\nheadline: Next post") },
+                            minLines = 8,
+                            textStyle = TextStyle(color = PostPalette.Text, fontSize = 14.sp)
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(onClick = { text = clipboard.getText()?.text.orEmpty() }) {
+                                Icon(Icons.Outlined.ContentPaste, contentDescription = null)
+                                Text("Paste")
+                            }
+                            OutlinedButton(onClick = { text = PostBatch.exampleFor(slots, mode) }) { Text("Example") }
+                            Text("${items.size} posts", color = PostPalette.Muted, fontSize = 12.sp)
+                        }
+                        if (parsed.notes.isNotEmpty()) {
+                            Text(parsed.notes.joinToString("\n"), color = PostPalette.Gold, fontSize = 12.sp)
+                        }
+                        Button(
+                            onClick = { startReview() },
+                            enabled = items.isNotEmpty(),
+                            modifier = Modifier.fillMaxWidth().height(52.dp)
+                        ) {
+                            Text("Review ${items.size} posts")
+                        }
                     }
                 } else {
                     // ---------- Step 2: review ----------
@@ -567,7 +597,19 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
                     onHeaderApplyAll = {
                         val source = editingDoc ?: return@PostStudioScreen
                         reviewItems.forEach { target ->
-                            editedDesigns[target.number] = source.copy(texts = doc.texts)
+                            if (mockupBatch) {
+                                // Copy the styling/layout edit, but preserve each page's own screenshot and crop.
+                                val targetDesign = editedDesigns[target.number] ?: pageDoc(target)
+                                editedDesigns[target.number] = source.copy(
+                                    photoUri = targetDesign.photoUri,
+                                    photoZoom = targetDesign.photoZoom,
+                                    photoFocusX = targetDesign.photoFocusX,
+                                    photoFocusY = targetDesign.photoFocusY,
+                                    texts = targetDesign.texts
+                                )
+                            } else {
+                                editedDesigns[target.number] = source.copy(texts = doc.texts)
+                            }
                         }
                         backendMessage = "Design applied to all ${reviewItems.size} posts"
                     },

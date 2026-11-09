@@ -49,6 +49,7 @@ The template look sets `PhotoFrame.ROUNDED`; if the owner turns the frame off in
 - [ ] T5. Check on the phone: hero phone fills the 9:16 canvas cleanly; headline variant clears the logo box and footer.
 - [ ] T6. Brand kit: add both templates to `TEMPLATES.md` in `hiyabteklu/wisdom-tower-brand-kit` (boxes and limits per box; the hero has NO text boxes, the headline has eyebrow and headline). The same numbers must go into the Supabase table `wt_post.template_boxes`, which refuses unknown template ids at save. Only the owner or the dev agent changes that table: prepare the exact rows and ask.
 - [x] T7. CHAT_CONTROL_PLAN C4 "Photos in order" reuses Batch B5's multi-photo picker and is ticked (source pushed, build and phone check pending). Not tested.
+- [x] T10. 9 Nov 2026: `PostBatchScreen.kt` now has a mockup-specific image-driven batch path for `device-hero` and `device-headline`: select multiple screenshots, swipe through preview pages, edit each page, and export the set together. Apply-to-all styling preserves each item's screenshot and crop. Pushed directly to `main`; owner must build and verify.
 - [ ] T8. Template QA: run Check all (Stress mode) on the new templates and send the report.
 - [ ] T9. Optional, plan B.
 
@@ -60,4 +61,5 @@ The template look sets `PhotoFrame.ROUNDED`; if the owner turns the frame off in
 
 ## 8. Status
 
-- 4 Nov 2026: plan written. Same day: T1 to T4, T4b and T7 done in code and docs. Nothing compiled. Next: owner builds, opens Phone mockup on 9:16 with a TECNO CAMON 30 screenshot, then T5, T6 and T8.
+- 4 Nov 2026: plan written. Same day: T1 to T4, T4b and T7 done in code and docs. Nothing compiled.
+- 9 Nov 2026: multi-image mockup batch flow pushed to `main` (T10). Compilation and device verification are still pending. Next: owner builds, opens Phone mockup on 9:16 with a TECNO CAMON 30 screenshot, checks batch screenshots/edit/export, then T5, T6 and T8.

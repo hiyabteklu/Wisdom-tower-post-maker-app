@@ -197,7 +197,8 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
     }
 
     val parsed = remember(text, mode, slots, fill) { PostBatch.parse(text, mode, slots, fill) }
-    val mockupBatch = doc.templateId == "device-hero" || doc.templateId == "device-headline"
+    // This image-driven path is for the local studio Batch action; Inbox batches retain their existing text/caption flow.
+    val mockupBatch = initialBatch == null && (doc.templateId == "device-hero" || doc.templateId == "device-headline")
     // Phone mockups are image-driven: one imported screenshot creates one review/export item.
     val items = if (mockupBatch) batchPhotos.mapIndexed { index, _ -> BatchItem(index + 1, emptyMap(), emptyList()) } else parsed.items
 

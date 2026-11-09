@@ -155,8 +155,10 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
             val stored = withContext(Dispatchers.IO) { uris.mapNotNull { PostStore.importPhoto(context, it) } }
             importedPhotoPaths.filter { it != doc.photoUri && it != doc.backgroundPhotoUri }.forEach { PostStore.deleteImportedPhoto(context, it) }
             importedPhotoPaths.clear()
-            importedPhotoPaths.addAll(stored)
-            batchPhotos = stored
+            val limited = stored.take(PostBatch.MAX_POSTS)
+            stored.drop(PostBatch.MAX_POSTS).forEach { PostStore.deleteImportedPhoto(context, it) }
+            importedPhotoPaths.addAll(limited)
+            batchPhotos = limited
         }
     }
 
@@ -328,7 +330,7 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
                             Icon(Icons.Outlined.ArrowBack, contentDescription = "Back", tint = PostPalette.Text)
                         }
                         Column(Modifier.weight(1f)) {
-                            Text("Batch posts", color = PostPalette.Text, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                            Text(if (mockupBatch) "Phone mockup batch" else "Batch posts", color = PostPalette.Text, fontSize = 19.sp, fontWeight = FontWeight.Bold)
                             Text(postTemplate(doc.templateId).name, color = PostPalette.Muted, fontSize = 12.sp)
                         }
                         OutlinedButton(onClick = { text = "" }) {
@@ -422,8 +424,8 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
                             Icon(Icons.Outlined.ArrowBack, contentDescription = "Back", tint = PostPalette.Text)
                         }
                         Column(Modifier.weight(1f)) {
-                            Text("Review batch", color = PostPalette.Text, fontSize = 19.sp, fontWeight = FontWeight.Bold)
-                            Text("${reviewItems.size} posts · swipe to check", color = PostPalette.Muted, fontSize = 12.sp)
+                            Text(if (mockupBatch) "Review mockups" else "Review batch", color = PostPalette.Text, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                            Text(if (mockupBatch) "${reviewItems.size} mockups · swipe to preview" else "${reviewItems.size} posts · swipe to check", color = PostPalette.Muted, fontSize = 12.sp)
                         }
                     }
                     if (backendMessage != null) {
@@ -523,7 +525,9 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
                         ) {
                             Icon(Icons.Outlined.SaveAlt, contentDescription = null)
                             Spacer(Modifier.width(8.dp))
-                            Text(if (resultUris.isEmpty()) "Save to gallery ($fileCount files)" else "Save again to a new folder")
+                            Text(if (resultUris.isEmpty()) {
+                                if (mockupBatch) "Save mockups to gallery ($fileCount files)" else "Save to gallery ($fileCount files)"
+                            } else "Save again to a new folder")
                         }
                     }
                     status?.takeIf { it != "All posts fit" }?.let { Text(it, color = PostPalette.Text, fontSize = 13.sp) }
@@ -691,7 +695,7 @@ private fun BatchPostPage(
         ) {
             Icon(Icons.Outlined.Edit, contentDescription = null)
             Spacer(Modifier.width(8.dp))
-            Text("Edit post $number")
+            Text(if (postDoc.templateId == "device-hero" || postDoc.templateId == "device-headline") "Edit mockup $number" else "Edit post $number")
         }
     }
 }

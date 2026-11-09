@@ -20,6 +20,7 @@ The editor has a tool bar at the bottom: **Text** (the message boxes and overall
 - [x] **Chat Inbox.** Batches saved by the AI chat appear in the Inbox (checked on the phone 3 Nov 2026).
 - [ ] **Editor tool bar and faster screens (pushed 3 Nov 2026, NOT compiled).** Bottom tool bar in the editor, Inbox redesign, Library built lazily, thumbnails warmed in the background. *Check after building:* each tool button swaps the panel at once; Text is open on start; the bar hides when the keyboard opens; every control that was in the old long list is still reachable (Colors, Background, Photo, Fonts, Text size, Layers, Layer manager, Logo, Icons, Footer); Inbox opens instantly the second time; Library opens fast.
 - [ ] **Batch posts.** Paste a list of words, get a folder of finished posts. Plan and status: docs/BATCH_PLAN.md.
+- [ ] **Phone mockup image batches (pushed 9 Nov 2026, NOT compiled).** For `Phone mockup` and `Phone and headline`, select multiple screenshots, review them in a swipeable preview, edit individually, and export together. Apply-to-all styling preserves each phone's unique screenshot and crop. Plan/status: docs/DEVICE_MOCKUP_PLAN.md.
 
 ## Product principles
 

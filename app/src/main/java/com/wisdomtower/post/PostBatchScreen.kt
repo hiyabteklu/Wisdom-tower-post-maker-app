@@ -333,7 +333,13 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
                             Text(if (mockupBatch) "Phone mockup batch" else "Batch posts", color = PostPalette.Text, fontSize = 19.sp, fontWeight = FontWeight.Bold)
                             Text(postTemplate(doc.templateId).name, color = PostPalette.Muted, fontSize = 12.sp)
                         }
-                        OutlinedButton(onClick = { text = "" }) {
+                        OutlinedButton(onClick = {
+                            if (mockupBatch) {
+                                importedPhotoPaths.filter { it != doc.photoUri && it != doc.backgroundPhotoUri }.forEach { PostStore.deleteImportedPhoto(context, it) }
+                                importedPhotoPaths.clear()
+                                batchPhotos = emptyList()
+                            } else text = ""
+                        }) {
                             Icon(Icons.Outlined.Delete, contentDescription = null)
                             Text("Clear")
                         }
@@ -344,7 +350,7 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
                             Button(onClick = { photoPicker.launch(arrayOf("image/*")) }, modifier = Modifier.height(48.dp)) {
                                 Text(if (batchPhotos.isEmpty()) "Select screenshots" else "Replace screenshots")
                             }
-                            Text(if (batchPhotos.isEmpty()) "Choose multiple images at once" else "${batchPhotos.size} screenshots ready", color = PostPalette.Mint, fontSize = 12.sp)
+                            Text(if (batchPhotos.isEmpty()) "Choose multiple images (up to 50)" else "${batchPhotos.size} screenshots ready", color = PostPalette.Mint, fontSize = 12.sp)
                         }
                         if (batchPhotos.isNotEmpty()) {
                             OutlinedButton(

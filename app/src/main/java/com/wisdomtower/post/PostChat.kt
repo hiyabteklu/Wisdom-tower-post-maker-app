@@ -27,7 +27,8 @@ object PostChatStore {
         batches.forEach { batch ->
             rows.put(JSONObject().put("id", batch.id).put("title", batch.title).put("template", batch.template)
                 .put("level", batch.level).put("pillar", batch.pillar).put("status", batch.status)
-                .put("post_count", batch.postCount).put("created_at", batch.createdAt))
+                .put("post_count", batch.postCount).put("created_at", batch.createdAt)
+                .put("folder", batch.folder).put("subfolder", batch.subfolder))
         }
         prefs(context).edit().putString("batches_cache", rows.toString()).apply()
     }
@@ -38,10 +39,14 @@ object PostChatStore {
             val row = rows.optJSONObject(index) ?: return@mapNotNull null
             PostChatBatch(row.optString("id"), row.optString("title"), row.optString("template"), row.optString("level"),
                 row.optString("pillar"), row.optString("status"), row.optInt("post_count"), row.optString("created_at"),
-                JSONArray(), JSONArray())
+                JSONArray(), JSONArray(),
+                folder = row.textOrEmpty("folder").ifBlank { "Unsorted" }, subfolder = row.textOrEmpty("subfolder"))
         }
     }.getOrDefault(emptyList())
 }
+
+/** optString that turns a JSON null into an empty string instead of the word "null". */
+private fun JSONObject.textOrEmpty(key: String): String = if (isNull(key)) "" else optString(key)
 
 data class PostChatBatch(
     val id: String,
@@ -53,7 +58,11 @@ data class PostChatBatch(
     val postCount: Int,
     val createdAt: String,
     val posts: JSONArray,
-    val captions: JSONArray
+    val captions: JSONArray,
+    /** Inbox folder: one of the 8 pillars, or Other, Test samples, Unsorted. Set by the database from the pillar. */
+    val folder: String = "Unsorted",
+    /** Label inside the folder. The database fills it with the level when nothing else is given. Can be empty. */
+    val subfolder: String = ""
 ) {
     fun batchInput(): String {
         val keys = linkedMapOf(
@@ -130,14 +139,15 @@ object PostChatApi {
                 val tools = response.optJSONObject("result")?.optJSONArray("tools") ?: throw IllegalStateException("Unexpected response from wt-mcp")
                 if (tools.length() < 6) throw IllegalStateException("Connected, but backend tools are incomplete")
                 PostChatStore.save(context, url, secret)
-                "Connected · ${tools.length()} backend tools"
+                "Connected \u00b7 ${tools.length()} backend tools"
             } catch (e: java.net.UnknownHostException) { throw IllegalStateException("No internet or server not found")
             } catch (e: java.net.SocketTimeoutException) { throw IllegalStateException("Connection timed out")
             } finally { connection.disconnect() }
         }
 
     suspend fun listBatches(context: Context): List<PostChatBatch> {
-        val result = rpc(context, "tools/call", JSONObject().put("name", "list_batches").put("arguments", JSONObject().put("limit", 50)))
+        // 1000 is the backend maximum. The list rows are small (no poster text), so the whole inbox loads in one call and folders are built on the phone.
+        val result = rpc(context, "tools/call", JSONObject().put("name", "list_batches").put("arguments", JSONObject().put("limit", 1000)))
         if (result.optBoolean("isError")) throw IllegalStateException(result.optJSONArray("content")?.optJSONObject(0)?.optString("text") ?: "Could not load batches")
         val payload = result.optJSONArray("content")?.optJSONObject(0)?.optString("text")
             ?: throw IllegalStateException("Unexpected list response")
@@ -148,7 +158,8 @@ object PostChatApi {
                 id = row.optString("id"), title = row.optString("title").ifBlank { "Untitled batch" },
                 template = row.optString("template"), level = row.optString("level"), pillar = row.optString("pillar"),
                 status = row.optString("status"), postCount = row.optInt("post_count"),
-                createdAt = row.optString("created_at"), posts = JSONArray(), captions = JSONArray()
+                createdAt = row.optString("created_at"), posts = JSONArray(), captions = JSONArray(),
+                folder = row.textOrEmpty("folder").ifBlank { "Unsorted" }, subfolder = row.textOrEmpty("subfolder")
             )
         }
         PostChatStore.saveCachedBatches(context, batches)
@@ -177,7 +188,8 @@ object PostChatApi {
             id = row.optString("id"), title = row.optString("title").ifBlank { "Untitled batch" },
             template = row.optString("template"), level = row.optString("level"), pillar = row.optString("pillar"),
             status = row.optString("status"), postCount = posts.length(), createdAt = row.optString("created_at"),
-            posts = posts, captions = captions
+            posts = posts, captions = captions,
+            folder = row.textOrEmpty("folder").ifBlank { "Unsorted" }, subfolder = row.textOrEmpty("subfolder")
         )
     }
 }

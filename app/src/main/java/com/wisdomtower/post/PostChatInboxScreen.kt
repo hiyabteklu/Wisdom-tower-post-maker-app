@@ -1,5 +1,6 @@
 package com.wisdomtower.post
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -24,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.FactCheck
+import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -54,10 +56,23 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 
+/** Folder order in the inbox: the 8 pillars of the Brand Kit PLAYBOOK, then the catch-all folders. Any other name is added after these. */
+private val FOLDER_ORDER = listOf(
+    "Academic Mastery", "Study Systems", "Commercial Offers", "Community & Retention",
+    "Student Culture & Memes", "Skills & Campus Life", "Proof & Celebrations", "Official Notices",
+    "Other", "Test samples", "Unsorted"
+)
+
+/** Key of the "All batches" shortcut folder (every batch, newest first). */
+private const val ALL_KEY = "__all__"
+
 /**
- * The Poster inbox.
+ * The Poster inbox, organised in folders.
+ * Level 1: folder list (one folder per pillar, with batch and post counts and a draft badge), plus "All batches".
+ * Level 2: the batches of one folder, newest first. When a folder has more than one subfolder (by default the level, for example Freshman or Grade 12), a chip row filters them.
+ * The status chips (All, Draft, Approved, Posted) apply on both levels. Back from a folder returns to the folder list.
  * It opens at once from the list kept in memory (or the one saved on disk) and refreshes quietly behind it, so there is no blank wait.
- * Pull down or tap the arrow to refresh. Tap a card to open the batch. Filters: All, Draft, Approved, Posted.
+ * Pull down or tap the arrow to refresh. Tap a card to open the batch.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,6 +86,8 @@ fun PostChatInboxScreen(onBack: () -> Unit, onOpenBatch: (PostChatBatch) -> Unit
     var opening by remember { mutableStateOf<String?>(null) }
     var notice by remember { mutableStateOf<String?>(null) }
     var filter by rememberSaveable { mutableStateOf("all") }
+    var openFolder by rememberSaveable { mutableStateOf<String?>(null) }
+    var openSub by rememberSaveable { mutableStateOf<String?>(null) }
 
     fun refresh() {
         if (refreshing) return
@@ -91,14 +108,36 @@ fun PostChatInboxScreen(onBack: () -> Unit, onOpenBatch: (PostChatBatch) -> Unit
     // Refresh on entry only when the list is older than 15 seconds.
     LaunchedEffect(Unit) { if (System.currentTimeMillis() - PostInboxState.loadedAt > 15_000L) refresh() }
 
-    val shown = if (filter == "all") batches else batches.filter { it.status == filter }
+    val currentFolder = openFolder
+    val currentSub = openSub
+    BackHandler(enabled = currentFolder != null) { openFolder = null; openSub = null }
+
+    val byStatus = if (filter == "all") batches else batches.filter { it.status == filter }
+    val inFolder = when (currentFolder) {
+        null -> emptyList()
+        ALL_KEY -> byStatus
+        else -> byStatus.filter { it.folder == currentFolder }
+    }
+    val subCounts = inFolder.groupingBy { it.subfolder }.eachCount()
+    val shown = if (currentSub == null) inFolder else inFolder.filter { it.subfolder == currentSub }
+    val folderNames = (FOLDER_ORDER + byStatus.map { it.folder }.distinct().filter { it !in FOLDER_ORDER })
+        .filter { name -> byStatus.any { it.folder == name } }
 
     PostTheme {
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text("Poster inbox", fontWeight = FontWeight.Bold) },
-                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, contentDescription = "Back") } },
+                    title = {
+                        Text(
+                            when (currentFolder) { null -> "Poster inbox"; ALL_KEY -> "All batches"; else -> currentFolder },
+                            fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = { if (currentFolder != null) { openFolder = null; openSub = null } else onBack() }) {
+                            Icon(Icons.Outlined.ArrowBack, contentDescription = "Back")
+                        }
+                    },
                     actions = {
                         if (onOpenQa != null) {
                             IconButton(onClick = onOpenQa) { Icon(Icons.Outlined.FactCheck, contentDescription = "Template QA: check every template") }
@@ -130,30 +169,58 @@ fun PostChatInboxScreen(onBack: () -> Unit, onOpenBatch: (PostChatBatch) -> Unit
                     notice?.let { text ->
                         item(key = "notice") { Text(text, color = PostPalette.Muted, fontSize = 13.sp) }
                     }
-                    if (shown.isEmpty() && !refreshing) {
-                        item(key = "empty") {
-                            Column(
-                                Modifier.fillMaxWidth().padding(top = 48.dp, start = 24.dp, end = 24.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Text(if (batches.isEmpty()) "Nothing here yet" else "No batches in this filter", color = PostPalette.Text, fontWeight = FontWeight.Bold, fontSize = 17.sp)
-                                Text(
-                                    "Ask your AI chat for posters, for example: give me 10 posts about Freshman mistakes. They land here.",
-                                    color = PostPalette.Muted, fontSize = 14.sp, textAlign = TextAlign.Center
+
+                    if (currentFolder == null) {
+                        // Level 1: the folder list.
+                        if (byStatus.isNotEmpty()) {
+                            item(key = "folder_all") {
+                                FolderCard("All batches", byStatus.size, byStatus.sumOf { it.postCount }, byStatus.count { it.status == "draft" }) {
+                                    openFolder = ALL_KEY; openSub = null
+                                }
+                            }
+                            items(folderNames, key = { "folder_$it" }) { name ->
+                                val inThis = byStatus.filter { it.folder == name }
+                                FolderCard(name, inThis.size, inThis.sumOf { it.postCount }, inThis.count { it.status == "draft" }) {
+                                    openFolder = name; openSub = null
+                                }
+                            }
+                        } else if (!refreshing) {
+                            item(key = "empty") {
+                                EmptyState(
+                                    if (batches.isEmpty()) "Nothing here yet" else "No batches in this filter",
+                                    "Ask your AI chat for posters, for example: give me 10 posts about Freshman mistakes. They land here, in the folder of their pillar."
                                 )
                             }
                         }
-                    }
-                    items(shown, key = { it.id }) { batch ->
-                        BatchCard(batch, busy = opening == batch.id) {
-                            if (opening != null) return@BatchCard
-                            opening = batch.id
-                            notice = null
-                            scope.launch {
-                                try { onOpenBatch(PostChatApi.getBatch(context, batch.id)) }
-                                catch (e: Exception) { notice = e.message ?: "Could not open batch" }
-                                finally { opening = null }
+                    } else {
+                        // Level 2: the batches of one folder.
+                        if (subCounts.size > 1) {
+                            item(key = "subfolders") {
+                                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    FilterChip(selected = currentSub == null, onClick = { openSub = null }, label = { Text("Everything ${inFolder.size}", fontSize = 12.sp) })
+                                    subCounts.entries.sortedBy { it.key.lowercase() }.forEach { (sub, n) ->
+                                        FilterChip(
+                                            selected = currentSub == sub,
+                                            onClick = { openSub = sub },
+                                            label = { Text("${sub.ifBlank { "General" }} $n", fontSize = 12.sp) }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        if (shown.isEmpty() && !refreshing) {
+                            item(key = "empty") { EmptyState("No batches in this folder", "Try another filter, or pull down to refresh.") }
+                        }
+                        items(shown, key = { it.id }) { batch ->
+                            BatchCard(batch, busy = opening == batch.id, folderLabel = if (currentFolder == ALL_KEY) batch.folder else null) {
+                                if (opening != null) return@BatchCard
+                                opening = batch.id
+                                notice = null
+                                scope.launch {
+                                    try { onOpenBatch(PostChatApi.getBatch(context, batch.id)) }
+                                    catch (e: Exception) { notice = e.message ?: "Could not open batch" }
+                                    finally { opening = null }
+                                }
                             }
                         }
                     }
@@ -164,7 +231,52 @@ fun PostChatInboxScreen(onBack: () -> Unit, onOpenBatch: (PostChatBatch) -> Unit
 }
 
 @Composable
-private fun BatchCard(batch: PostChatBatch, busy: Boolean, onOpen: () -> Unit) {
+private fun EmptyState(title: String, hint: String) {
+    Column(
+        Modifier.fillMaxWidth().padding(top = 48.dp, start = 24.dp, end = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(title, color = PostPalette.Text, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+        Text(hint, color = PostPalette.Muted, fontSize = 14.sp, textAlign = TextAlign.Center)
+    }
+}
+
+@Composable
+private fun FolderCard(name: String, batches: Int, posts: Int, drafts: Int, onOpen: () -> Unit) {
+    val shape = RoundedCornerShape(16.dp)
+    Row(
+        Modifier.fillMaxWidth().clip(shape).background(PostPalette.Surface)
+            .border(BorderStroke(1.dp, PostPalette.Line), shape)
+            .clickable(onClick = onOpen).padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(PostPalette.Mint.copy(alpha = 0.14f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(Icons.Outlined.Folder, contentDescription = null, tint = PostPalette.Mint)
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(name, color = PostPalette.Text, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                "$batches " + (if (batches == 1) "batch" else "batches") + " \u00b7 $posts " + (if (posts == 1) "post" else "posts"),
+                color = PostPalette.Muted, fontSize = 13.sp
+            )
+        }
+        if (drafts > 0) {
+            Box(Modifier.clip(RoundedCornerShape(8.dp)).background(PostPalette.Gold.copy(alpha = 0.16f)).padding(horizontal = 8.dp, vertical = 2.dp)) {
+                Text("$drafts draft", color = PostPalette.Gold, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Spacer(Modifier.width(8.dp))
+        }
+        Icon(Icons.Outlined.ChevronRight, contentDescription = "Open folder", tint = PostPalette.Muted)
+    }
+}
+
+@Composable
+private fun BatchCard(batch: PostChatBatch, busy: Boolean, folderLabel: String? = null, onOpen: () -> Unit) {
     val shape = RoundedCornerShape(16.dp)
     Row(
         Modifier.fillMaxWidth().clip(shape).background(PostPalette.Surface)
@@ -184,7 +296,7 @@ private fun BatchCard(batch: PostChatBatch, busy: Boolean, onOpen: () -> Unit) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(batch.title, color = PostPalette.Text, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(
-                batch.level.ifBlank { "General" } + " \u00b7 " + templateName(batch.template),
+                (if (folderLabel != null) "$folderLabel \u00b7 " else "") + batch.level.ifBlank { "General" } + " \u00b7 " + templateName(batch.template),
                 color = PostPalette.Muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis
             )
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {

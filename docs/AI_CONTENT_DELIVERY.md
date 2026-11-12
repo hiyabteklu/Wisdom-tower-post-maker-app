@@ -4,17 +4,17 @@ This is the current operating contract for every AI agent/automation creating Wi
 
 ## Authorities and verified backend
 
-- **Content authority:** [Wisdom Tower Brand Kit](https://github.com/hiyabteklu/wisdom-tower-brand-kit). Read the entire current repo on `main`, starting at `AGENT_START.md`. Facts, product claims, offers, voice, original Amharic/hybrid writing, anti-AI rules, strategy, post ideas and content-slot limits come from this repo. Do not use shallow summaries, model memory, generic copy or invented facts as substitutes.
-- **Template/rendering authority:** this app repo. Brand Kit `TEMPLATES.md` specifies copy shape and limits; `PostTemplates.kt` and its template files define the actual app template registry and renderer. The chosen ID must exist in both. The app renders the poster; agents send structured slot text and captions, not a generated image file.
+- **Content authority:** [Wisdom Tower Brand Kit](https://github.com/hiyabteklu/wisdom-tower-brand-kit). Read the entire current repo on `main`, starting at `rules/AGENT_START.md`. The kit has three content folders: `facts/` (verified facts), `rules/` (how to write and format) and `posts/` (ready posts by topic, Amharic, hybrid and English together). Facts, product claims, offers, voice, original Amharic/hybrid writing, anti-AI rules, strategy, post ideas and content-slot limits come from this repo. Do not use shallow summaries, model memory, generic copy or invented facts as substitutes.
+- **Template/rendering authority:** this app repo. Brand Kit `rules/TEMPLATES.md` specifies copy shape and limits; `PostTemplates.kt` and its template files define the actual app template registry and renderer. The chosen ID must exist in both. The app renders the poster; agents send structured slot text and captions, not a generated image file.
 - **Supabase project:** **Ft agritech**, ref/ID `zfgrgbrrqclugszsotfo`, region `eu-west-1`, URL https://zfgrgbrrqclugszsotfo.supabase.co.
 - **Edge Function:** `wt-mcp`, ID `cf54ecaf-9ac4-4492-835d-8c611a31f580`, URL https://zfgrgbrrqclugszsotfo.supabase.co/functions/v1/wt-mcp.
 - **Private schema:** `wt_post`; tables `batches`, `post_log`, `template_boxes`. RLS is enabled.
 
 ## Required agent workflow
 
-1. Read the full Brand Kit, not just its README. Follow `AGENT_START.md`'s read order. For Amharic/hybrid, read `AMHARIC_VOICE_LIBRARY.md`, `LANGUAGE.md` and relevant original categorized examples in full; preserve the original voice and code-switching.
+1. Read the full Brand Kit, not just its README. Follow `rules/AGENT_START.md`'s read order. For Amharic/hybrid, read `rules/LANGUAGE.md` and the relevant niche files in `posts/` (index: `posts/README.md`) in full; preserve the original voice and code-switching.
 2. Read recent batches and the post log before drafting to avoid repetition.
-3. Select the best supported template from Brand Kit `TEMPLATES.md`; verify the exact ID against app `PostTemplates.kt`. The agent chooses; do not ask the owner for an editor screenshot.
+3. Select the best supported template from Brand Kit `rules/TEMPLATES.md`; verify the exact ID against app `PostTemplates.kt`. The agent chooses; do not ask the owner for an editor screenshot.
 4. Write every required slot and one matching caption per post. Apply all brand facts, anti-AI, language, voice, emoji, footer and length rules.
 5. Save directly to `wt_post.batches` using `wt-mcp` `save_batch` (or an authorized Supabase connector write if that is the available route), with `status=draft`.
 6. **After confirmed save, do not respond in chat.** No copy, caption, batch title, preview, summary or success message. The owner finds the saved work in **Poster inbox** (in its folder) and taps **Make posts**.
@@ -26,7 +26,7 @@ This is the current operating contract for every AI agent/automation creating Wi
 - `template`: exact ID in both Brand Kit and app.
 - `title`: short searchable title.
 - `level`: one level only.
-- `pillar`: **one of the 8 exact pillar names from Brand Kit `PLAYBOOK.md`**: Academic Mastery, Study Systems, Commercial Offers, Community & Retention, Student Culture & Memes, Skills & Campus Life, Proof & Celebrations, Official Notices. The pillar decides the inbox folder (see below), so do not invent other pillar names.
+- `pillar`: **one of the 8 exact pillar names from Brand Kit `rules/PLAYBOOK.md`**: Academic Mastery, Study Systems, Commercial Offers, Community & Retention, Student Culture & Memes, Skills & Campus Life, Proof & Celebrations, Official Notices. The pillar decides the inbox folder (see below), so do not invent other pillar names.
 - `subfolder`: optional short label inside the folder (for example `Motivation` or `Department guides`). Leave it out and the database uses `level`. Maximum 120 characters.
 - `posts`: JSON array of poster objects using supported slots `eyebrow`, `headline`, `message`, `number`, `list`, `button`. Include all required slots; `list` is an array of strings.
 - `captions`: one caption per post, same order/index.
@@ -43,7 +43,7 @@ The Poster inbox shows folders, not one long list. Folder list first, then the b
 - The database fills `wt_post.batches.folder` from `pillar` on every save (`wt_post.folder_for_pillar`, trigger `batches_folder`) and fills `subfolder` from `level` when it is empty. An agent never has to send `folder`. A batch saved with a pillar the database does not recognise lands in Unsorted: fix the pillar name instead of leaving it there.
 - Old pillar names still map to the right folder (Study tips, Study habits, Study plans and Exam tips go to Study Systems; Key terms and Practice to Academic Mastery; Product updates to Commercial Offers; Announcements to Official Notices).
 - `wt-mcp` tools: `save_batch` accepts optional `subfolder` (and `folder` from the fixed list). `list_batches` returns `folder` and `subfolder` and accepts a `folder` filter and a limit up to 1000. `list_folders` counts batches and posts per folder, subfolder and status. `set_batch_folder` moves a batch to another folder (and subfolder).
-- Folder names live in three places that must stay identical: the `FOLDERS` list in the `wt-mcp` function, the CASE in `wt_post.folder_for_pillar`, and `FOLDER_ORDER` in `PostChatInboxScreen.kt`.
+- Folder names live in three places that must stay identical: the `FOLDERS` list in the `wt-mcp` function, the CASE in `wt_post.folder_for_pillar`, and `FOLDER_ORDER` in `PostChatInboxScreen.kt`. They must also match the 8 pillar names in Brand Kit `rules/PLAYBOOK.md` (checked against `FOLDER_ORDER` on 12 Nov 2026: identical).
 
 ## Runtime flow
 
@@ -59,11 +59,11 @@ The Poster inbox shows folders, not one long list. Folder list first, then the b
 
 ## Source links
 
-- [Brand Kit AGENT_START](https://github.com/hiyabteklu/wisdom-tower-brand-kit/blob/main/AGENT_START.md)
-- [Brand Kit templates](https://github.com/hiyabteklu/wisdom-tower-brand-kit/blob/main/TEMPLATES.md)
-- [Brand Kit playbook (the 8 pillars)](https://github.com/hiyabteklu/wisdom-tower-brand-kit/blob/main/PLAYBOOK.md)
-- [Brand Kit Amharic library](https://github.com/hiyabteklu/wisdom-tower-brand-kit/blob/main/AMHARIC_VOICE_LIBRARY.md)
-- [Brand Kit language rules](https://github.com/hiyabteklu/wisdom-tower-brand-kit/blob/main/LANGUAGE.md)
+- [Brand Kit AGENT_START](https://github.com/hiyabteklu/wisdom-tower-brand-kit/blob/main/rules/AGENT_START.md)
+- [Brand Kit templates](https://github.com/hiyabteklu/wisdom-tower-brand-kit/blob/main/rules/TEMPLATES.md)
+- [Brand Kit playbook (the 8 pillars)](https://github.com/hiyabteklu/wisdom-tower-brand-kit/blob/main/rules/PLAYBOOK.md)
+- [Brand Kit posts index (Amharic, hybrid and English by topic)](https://github.com/hiyabteklu/wisdom-tower-brand-kit/blob/main/posts/README.md)
+- [Brand Kit language rules](https://github.com/hiyabteklu/wisdom-tower-brand-kit/blob/main/rules/LANGUAGE.md)
 - [Post Maker chat API](https://github.com/hiyabteklu/Wisdom-tower-post-maker-app/blob/main/app/src/main/java/com/wisdomtower/post/PostChat.kt)
 - [Post Maker Inbox UI](https://github.com/hiyabteklu/Wisdom-tower-post-maker-app/blob/main/app/src/main/java/com/wisdomtower/post/PostChatInboxScreen.kt)
 - [Post Maker template registry](https://github.com/hiyabteklu/Wisdom-tower-post-maker-app/blob/main/app/src/main/java/com/wisdomtower/post/PostTemplates.kt)

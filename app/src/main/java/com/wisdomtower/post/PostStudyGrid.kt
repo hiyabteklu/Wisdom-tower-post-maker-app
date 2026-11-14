@@ -29,10 +29,11 @@ import kotlin.math.min
  *   1. text, 1.1. text                    numbered rows (the number is kept)
  *   > text                                key idea (green bar); > NB / WARNING / CAUTION / TRAP / AVOID is a red bar
  *   >> text, >> Label | text              Key Point box: green border, the label (default "Key Point") on its first line, then the text
- *   Term: explanation                     in ROW templates the term becomes a bold colored label
+ *   Term: explanation                     the term becomes a bold colored label on every row style (a short label before a colon)
  *   ---                                   one blank line
  *   |a|b|c|                               a real table: consecutive pipe rows, the first row is the header, |---|---| rows are ignored
- * Inline marks (**bold**, *italic*, ==highlight==, [[term]], #underline#, [[#HEX;B:word]], $math$) go through PostFonts.styled.
+ * Inline styling (explicit marks AND automatic styling of plain text: colored formulas, real sub and superscripts, Greek,
+ * emphasis words) is done by PostStudyInline.
  */
 internal object PostStudyGrid {
     private const val FIRST = 0.025f
@@ -49,6 +50,9 @@ internal object PostStudyGrid {
     private val GREEN = Color.rgb(22, 128, 60)
     private val PURPLE = Color.rgb(124, 58, 237)
     private val INK = Color.rgb(37, 43, 49)
+
+    /** Term colors, used in turn on the row styles that do not have one color of their own (checklist, numbered, bullets). */
+    private val LABELS = intArrayOf(BLUE, RED, GREEN, PURPLE, NAVY)
 
     private val MARKS = listOf("★", "✦", "✧", "•", "✓", "✔", "☑", "☐", "→")
     private val NUMBERED = Regex("""^(\d+(?:\.\d+)*[.)])\s+(.+)$""")
@@ -104,7 +108,7 @@ internal object PostStudyGrid {
         return runCatching { Color.parseColor(if (hex.startsWith("#")) hex else "#" + hex) }.getOrNull()
     }
 
-    private fun hexOf(color: Int): String = String.format("#%06X", color and 0xFFFFFF)
+    private fun hexOf(color: Int): String = String.format(java.util.Locale.US, "#%06X", color and 0xFFFFFF)
 
     private fun markColor(symbol: String, look: Look): Int = when (symbol) {
         "✓", "✔", "☑" -> GREEN
@@ -116,17 +120,28 @@ internal object PostStudyGrid {
 
     /** "Term: explanation" or "Term — explanation" into its two parts, or null when the line has no label. */
     private fun splitRow(line: String): Pair<String, String>? {
-        val colon = line.indexOf(':')
-        val markup = line.indexOf("[[")
-        if (colon in 1..42 && !(markup in 0 until colon)) {
-            return line.substring(0, colon).trim() to line.substring(colon + 1).trim()
-        }
+        splitColon(line)?.let { return it }
         for (separator in listOf(" — ", " – ", " - ")) {
             val at = line.indexOf(separator)
             if (at in 1..42) return line.substring(0, at).trim() to line.substring(at + separator.length).trim()
         }
         return null
     }
+
+    /** "Term: explanation" only (a colon within the first 42 characters, before any [[ mark). */
+    private fun splitColon(line: String): Pair<String, String>? {
+        val colon = line.indexOf(':')
+        val markup = line.indexOf("[[")
+        if (colon in 1..42 && !(markup in 0 until colon)) {
+            return line.substring(0, colon).trim() to line.substring(colon + 1).trim()
+        }
+        return null
+    }
+
+    /** A real term is short: up to 3 words and no sentence marks, so a sentence that merely contains a colon is left alone. */
+    private fun goodLabel(label: String): Boolean =
+        label.isNotEmpty() && label.split(' ').filter { it.isNotEmpty() }.size <= 3 &&
+            label.none { it == '.' || it == ';' || it == '(' || it == '=' }
 
     private fun labelled(label: String, rest: String, color: Int): String =
         "[[" + hexOf(color) + ";B:" + label + "]]" + (if (rest.isEmpty()) "" else " – " + rest)
@@ -165,8 +180,9 @@ internal object PostStudyGrid {
             return p
         }
 
-        fun styled(slot: String, raw: String): CharSequence =
-            PostFonts.styled(context, raw, doc, doc.slotStyles[slot]?.fontAm)
+        /** auto: false for titles, so only the explicit marks are applied there (see PostStudyInline). */
+        fun styled(slot: String, raw: String, auto: Boolean = true): CharSequence =
+            PostStudyInline.render(context, raw, doc, doc.slotStyles[slot]?.fontAm, auto)
 
         fun layout(text: CharSequence, paint: TextPaint, width: Int): StaticLayout =
             StaticLayout.Builder.obtain(text, 0, text.length, paint, max(1, width))
@@ -205,7 +221,7 @@ internal object PostStudyGrid {
             val own = doc.slotStyles[slot]
             val ink = parseColor(own?.colorHex) ?: color
             var size = step * scale * (own?.scale ?: 1f)
-            val text = styled(slot, if (caps) raw.uppercase() else raw)
+            val text = styled(slot, if (caps) raw.uppercase() else raw, false)
             val avail = room(cell, width)
             val p = paint(true, size, ink)
             p.letterSpacing = spacing
@@ -237,7 +253,10 @@ internal object PostStudyGrid {
             cell += used
         }
 
-        /** One row: an optional marker, then the text wrapped over as many cells as it needs, with a hanging indent. */
+        /**
+         * One row: an optional marker, then the text wrapped over as many cells as it needs, with a hanging indent.
+         * The marker "•" is drawn as a small filled dot (no font needed); every other marker is text.
+         */
         fun item(slot: String, marker: String, raw: String, level: Int, markerColor: Int, ink: Int, bold: Boolean = false) {
             if (full()) {
                 overflow.add(slot)
@@ -257,7 +276,13 @@ internal object PostStudyGrid {
                 cell = lastCell + 1
                 return
             }
-            if (marker.isNotEmpty()) canvas.drawText(marker, x0, baseline(cell), paint(true, size, markerColor))
+            if (marker == "•") {
+                val dot = Paint(Paint.ANTI_ALIAS_FLAG)
+                dot.color = markerColor
+                canvas.drawCircle(x0 + size * 0.3f, baseline(cell) - size * 0.3f, size * 0.13f, dot)
+            } else if (marker.isNotEmpty()) {
+                canvas.drawText(marker, x0, baseline(cell), paint(true, size, markerColor))
+            }
             drawLayout(lay, x0 + indent, cell)
             cell += need
         }
@@ -438,6 +463,20 @@ internal object PostStudyGrid {
         fun text(slot: String): String =
             if (slot in slots && slot !in doc.hiddenTextSlots) doc.texts[slot].orEmpty().trim() else ""
 
+        var labelIdx = 0
+
+        /**
+         * Turns "Term: explanation" into a colored bold label plus the explanation. On the ROW styles (table-notes, mnemonic) the label
+         * takes the variant's color and may also be split on a dash; on every other style a short term before a colon takes the next
+         * color of the rotation, so no sheet is one flat ink.
+         */
+        fun lab(text: String, rowStyle: Boolean): String {
+            val row = (if (rowStyle) splitRow(text) else splitColon(text)) ?: return text
+            if (!rowStyle && !goodLabel(row.first)) return text
+            val color = if (rowStyle) look.marker else LABELS[labelIdx++ % LABELS.size]
+            return labelled(row.first, row.second, color)
+        }
+
         fun flow(slot: String, raw: String, style: ListStyle) {
             if (raw.isEmpty()) return
             var counter = 0
@@ -513,29 +552,25 @@ internal object PostStudyGrid {
                 val numbered = NUMBERED.matchEntire(body)
                 val ink = page.bodyInk
                 if (symbol != null) {
-                    page.item(slot, symbol, body.drop(symbol.length).trim(), level, markColor(symbol, look), ink)
+                    page.item(slot, symbol, lab(body.drop(symbol.length).trim(), false), level, markColor(symbol, look), ink)
                 } else if (numbered != null) {
-                    page.item(slot, numbered.groupValues[1], numbered.groupValues[2], level, look.marker, ink)
+                    page.item(slot, numbered.groupValues[1], lab(numbered.groupValues[2], false), level, look.marker, ink)
                 } else if (dash) {
-                    page.item(slot, "•", body, level, look.marker, ink)
+                    page.item(slot, "•", lab(body, false), level, look.marker, ink)
                 } else {
                     when (style) {
                         ListStyle.NUMBER -> {
                             counter++
-                            page.item(slot, "$counter.", body, level, look.marker, ink)
+                            page.item(slot, "$counter.", lab(body, false), level, look.marker, ink)
                         }
-                        ListStyle.CHECK -> page.item(slot, "✓", body, level, GREEN, ink)
-                        ListStyle.DOT -> page.item(slot, "•", body, level, look.marker, ink)
+                        ListStyle.CHECK -> page.item(slot, "✓", lab(body, false), level, GREEN, ink)
+                        ListStyle.DOT -> page.item(slot, "•", lab(body, false), level, look.marker, ink)
                         ListStyle.LETTER -> {
                             counter++
-                            page.item(slot, ('A' + counter - 1).toString() + ".", body, level, look.marker, ink)
+                            page.item(slot, ('A' + counter - 1).toString() + ".", lab(body, false), level, look.marker, ink)
                         }
-                        ListStyle.ROW -> {
-                            val row = splitRow(body)
-                            if (row != null) page.item(slot, "", labelled(row.first, row.second, look.marker), level, look.marker, ink)
-                            else page.item(slot, "", body, level, look.marker, ink)
-                        }
-                        ListStyle.NONE -> page.item(slot, "", body, level, look.marker, ink)
+                        ListStyle.ROW -> page.item(slot, "•", lab(body, true), level, look.marker, ink)
+                        ListStyle.NONE -> page.item(slot, "", lab(body, false), level, look.marker, ink)
                     }
                 }
             }

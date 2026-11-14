@@ -1,7 +1,7 @@
 # Math rendering, template switching and design controls
 
-Status: IN PROGRESS (started 14 Nov 2026, evening). Written 14 Nov 2026. Read this before touching math rendering, the six templates, the inbox draft flow or the editor controls.
-Nothing below has been compiled or run (the assistant cannot build the app). Build and test before anything depends on it.
+Status: CODE WRITTEN FOR STEPS A TO D, NOT COMPILED (started 14 Nov 2026, evening). Written 14 Nov 2026. Read this before touching math rendering, the six templates, the inbox draft flow or the editor controls.
+Nothing below has been compiled or run (the assistant cannot build the app). Build and test before anything depends on it. Expect small compile errors (a missing import, a renamed helper); fix those first.
 
 ## Brief
 
@@ -64,7 +64,14 @@ Create a reliable, intuitive editing workflow with clear single-slide and whole-
 
 ## Progress
 
-- [~] Step A (pushed, not compiled): every study variant declares every text box (`PostTemplatesStudy.kt`, `stPaperLayout`). Fixes finding 1.
-- [ ] Step B: `PostTex.kt` LaTeX layout engine and its use in `PostStudyGrid` (display math blocks, auto-promoted standalone formulas).
-- [ ] Step C: `PostStudyGrid`: Text size, per-box Font, text color, dark background ink.
-- [ ] Step D: `PostBatchScreen`: Single page / Entire batch scope, template + color + background + font + size panel, no sample words on a variant switch, designs saved per inbox batch.
+- [x] Step A (pushed, not compiled): every study variant declares every text box (`PostTemplatesStudy.kt`, `stPaperLayout`). Fixes finding 1.
+- [x] Step B (pushed, not compiled): `PostTex.kt` LaTeX layout engine; `PostStudyGrid` draws display math through it (formulas on whole cells, multi-line merge).
+- [x] Step C (pushed, not compiled): `PostStudyGrid` honors Text size, per-box Font, text color on headings, and light ink on dark backgrounds.
+- [x] Step D (pushed, not compiled): `PostBatchDesign.kt` (Design panel, `withTemplateKeepingWords`, `PostDesignStore`) and `PostBatchScreen.kt` wiring. The panel sits under the preview in the review step. Scope switch "This page / Entire batch" (default Entire batch). Entire batch changes the batch design and every page that has its own design; This page gives that page its own design (a copy of the batch design, keeping its own photo). Template switches keep exactly the words the post has (no sample words). Designs of an inbox batch are saved in SharedPreferences `wt_post_designs` (key = inbox batch id) and reloaded when the batch is reopened. Studio "Apply all" and Done also save.
+- [ ] Step E: build, fix compile errors, then run the test list above on the phone. Things to look at first: `PostTex` line splitting on long formulas, the font chips in the Design panel (`PostFonts.typeface`), and that a batch opened from the inbox restores its saved designs.
+
+## Known limits of Step D
+
+- Designs are only remembered for inbox batches (they have an id). A local studio batch (typed list) forgets its design when closed.
+- The saved batch design is a snapshot of the open post's design the first time something is changed; later changes to the studio's open post do not flow into an already-saved batch design.
+- Words typed in a box that the new template does not draw stay stored and come back when the template is switched back.

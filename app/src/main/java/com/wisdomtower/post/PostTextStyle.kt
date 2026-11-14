@@ -14,7 +14,10 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.TextRange
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -111,19 +114,64 @@ private fun StyleFontPicker(style: SlotStyle, onChange: (SlotStyle) -> Unit) {
 @Composable
 internal fun WordBox(slot: String, doc: PostDoc, onDoc: (PostDoc) -> Unit, brand: PostBrand) {
     var panel by remember(slot) { mutableStateOf("") }
+    var field by remember(slot) { mutableStateOf(TextFieldValue(doc.texts[slot].orEmpty())) }
+    var inlineHex by remember(slot) { mutableStateOf("#D11A26") }
+    LaunchedEffect(doc.texts[slot]) {
+        val external = doc.texts[slot].orEmpty()
+        if (field.text != external) field = TextFieldValue(external, TextRange(external.length))
+    }
+    fun applyInline(open: String, close: String, placeholder: String = "text") {
+        val value = field
+        val start = minOf(value.selection.start, value.selection.end).coerceIn(0, value.text.length)
+        val end = maxOf(value.selection.start, value.selection.end).coerceIn(0, value.text.length)
+        val chosen = value.text.substring(start, end).ifEmpty { placeholder }
+        val replacement = open + chosen + close
+        val next = value.text.substring(0, start) + replacement + value.text.substring(end)
+        val cursor = if (start == end) start + open.length + chosen.length else start + replacement.length
+        field = TextFieldValue(next, TextRange(cursor))
+        onDoc(doc.withText(slot, next))
+    }
     val style = doc.slotStyles[slot] ?: SlotStyle()
     val boxes = remember(doc.templateId, doc.size) {
         postTemplate(doc.templateId).layout(doc.size).slots.filter { it.literal == null }.map { it.slot }.distinct()
     }
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         OutlinedTextField(
-            value = doc.texts[slot].orEmpty(),
-            onValueChange = { onDoc(doc.withText(slot, it)) },
+            value = field,
+            onValueChange = { field = it; onDoc(doc.withText(slot, it.text)) },
             placeholder = { Text(PostSlots.label(slot)) },
             minLines = 1,
-            maxLines = if (slot == PostSlots.LIST) 6 else 4,
+            maxLines = if (slot == PostSlots.LIST) 8 else 5,
             modifier = Modifier.fillMaxWidth()
         )
+        PostSmallLabel("Select a word or phrase above, then tap a formatting control. With no selection, a placeholder is inserted at the cursor.")
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            FilterChip(selected = false, onClick = { applyInline("**", "**", "bold") }, label = { Text("Bold") })
+            FilterChip(selected = false, onClick = { applyInline("*", "*", "italic") }, label = { Text("Italic") })
+            FilterChip(selected = false, onClick = { applyInline("==", "==", "highlight") }, label = { Text("Highlight") })
+            FilterChip(selected = false, onClick = { applyInline("[[", "]]", "key term") }, label = { Text("Key term") })
+            FilterChip(selected = false, onClick = { applyInline("#", "#", "underline") }, label = { Text("Underline") })
+            FilterChip(selected = false, onClick = { applyInline("\\box{", "}", "important note") }, label = { Text("Note box") })
+            FilterChip(selected = false, onClick = { applyInline("\u0024", "\u0024", "formula") }, label = { Text("Formula") })
+            FilterChip(selected = false, onClick = { applyInline("\u0024\u0024", "\u0024\u0024", "display formula") }, label = { Text("Display math") })
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                value = inlineHex,
+                onValueChange = { inlineHex = it },
+                label = { Text("Word ink HEX") },
+                singleLine = true,
+                modifier = Modifier.weight(1f)
+            )
+            TextButton(onClick = {
+                val hex = inlineHex.trim().uppercase().let { if (it.startsWith("#")) it else "#$it" }
+                if (hex.matches(Regex("#[0-9A-F]{6}([0-9A-F]{2})?"))) applyInline("[[$hex:", "]]", "colored word")
+            }) { Text("Apply color") }
+        }
         Row(
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp),

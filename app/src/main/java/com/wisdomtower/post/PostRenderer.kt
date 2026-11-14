@@ -17,8 +17,14 @@ import android.graphics.Typeface
 import android.net.Uri
 import android.text.Layout
 import android.text.SpannableString
+import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.StaticLayout
+import android.text.style.BackgroundColorSpan
+import android.text.style.TypefaceSpan
+import android.text.style.ForegroundColorSpan
+import android.text.style.StyleSpan
+import android.text.style.UnderlineSpan
 import android.text.style.MetricAffectingSpan
 import android.text.TextPaint
 import android.util.LruCache
@@ -147,22 +153,92 @@ object PostFonts {
      * else the first one available, else the phone's own.
      * Everything else keeps the English font, so mixed English and Amharic text works in one box.
      */
-    fun styled(context: Context, text: String, doc: PostDoc, amharicOwn: String? = null): CharSequence {
-        if (text.none { isEthiopic(it) }) return text
-        val face = load(context, amharicOwn)
-            ?: load(context, doc.fontAmharic ?: defaultAmharic(context))
-            ?: return text
-        val out = SpannableString(text)
-        var i = 0
-        while (i < text.length) {
-            if (isEthiopic(text[i])) {
-                var j = i
-                while (j < text.length && (isEthiopic(text[j]) || (text[j] == ' ' && j + 1 < text.length && isEthiopic(text[j + 1])))) j++
-                out.setSpan(EthiopicSpan(face), i, j, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                i = j
-            } else {
-                i++
+    /**
+     * Inline color syntax is [[#HEX:words]]. It is stripped from the rendered copy and applied as a
+     * foreground span, so a sentence or list row can mix ink colors without changing the stored words.
+     * Examples: "Remember [[#D11A26:THIS]]" or "Blue: [[#176BCE:term]]".
+     */
+    /** Inline study-sheet markup aligned to Academy composer conventions. */
+    /** Never let malformed user-entered inline markup crash the editor or its previews. */
+    fun styled(context: Context, text: String, doc: PostDoc, amharicOwn: String? = null): CharSequence =
+        runCatching { styledUnsafe(context, text, doc, amharicOwn) }.getOrElse { text }
+
+    private fun styledUnsafe(context: Context, text: String, doc: PostDoc, amharicOwn: String? = null): CharSequence {
+        val out = SpannableStringBuilder(text)
+        fun transform(pattern: Regex, mathContent: Boolean = false, style: (SpannableStringBuilder, Int, Int, String) -> Unit) {
+            val src = out.toString()
+            val matches = pattern.findAll(src).toList()
+            if (matches.isEmpty()) return
+            val next = SpannableStringBuilder()
+            var cursor = 0
+            for (m in matches) {
+                next.append(out, cursor, m.range.first)
+                val content = if (mathContent) m.groupValues.drop(1).firstOrNull { it.isNotEmpty() } ?: "" else m.groupValues.last()
+                val s = next.length
+                next.append(content)
+                style(next, s, next.length, m.value)
+                cursor = m.range.last + 1
             }
+            next.append(out, cursor, out.length)
+            out.clear(); out.append(next)
+        }
+        val colorRegex = Regex("""\[\[(#[0-9A-Fa-f]{6}(?:[0-9A-Fa-f]{2})?)(?:;([BUIH]+))?:(.*?)]]""", RegexOption.DOT_MATCHES_ALL)
+        transform(colorRegex) { b, s, e, raw ->
+            val m = colorRegex.matchEntire(raw)!!
+            runCatching { Color.parseColor(m.groupValues[1]) }.getOrNull()?.let { b.setSpan(ForegroundColorSpan(it), s, e, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE) }
+            val f = m.groupValues[2]
+            if ('B' in f) b.setSpan(StyleSpan(Typeface.BOLD), s, e, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            if ('I' in f) b.setSpan(StyleSpan(Typeface.ITALIC), s, e, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            if ('U' in f) b.setSpan(UnderlineSpan(), s, e, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            if ('H' in f) b.setSpan(BackgroundColorSpan(Color.rgb(255,235,105)), s, e, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+        transform(Regex("""\*\*([\s\S]+?)\*\*""")) { b,s,e,_ -> b.setSpan(StyleSpan(Typeface.BOLD),s,e,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE) }
+        transform(Regex("""==([^=\n]+?)==""")) { b,s,e,_ ->
+            b.setSpan(BackgroundColorSpan(Color.rgb(255,235,105)),s,e,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            b.setSpan(ForegroundColorSpan(Color.rgb(55,42,8)),s,e,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+        transform(Regex("""(?<!\*)\*([^*\n]+?)\*(?!\*)""")) { b,s,e,_ -> b.setSpan(StyleSpan(Typeface.ITALIC),s,e,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE) }
+        transform(Regex("""\[\[([^\]]+)]]""")) { b,s,e,_ ->
+            b.setSpan(BackgroundColorSpan(Color.rgb(222,240,255)),s,e,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            b.setSpan(ForegroundColorSpan(Color.rgb(20,83,150)),s,e,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            b.setSpan(StyleSpan(Typeface.BOLD),s,e,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+        transform(Regex("""#([^#\n]+?)#""")) { b,s,e,_ -> b.setSpan(UnderlineSpan(),s,e,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE) }
+        transform(Regex("""\`([^\`]+?)\`""")) { b,s,e,_ ->
+            b.setSpan(BackgroundColorSpan(Color.rgb(238,238,238)),s,e,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            b.setSpan(TypefaceSpan("monospace"),s,e,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+        val mathRegex = Regex("""\$\$([\s\S]+?)\$\$|(?<!\\)\$(?!\s)([^$\n]+?)(?<!\s)\$|\\\((.+?)\\\)""")
+        transform(mathRegex, true) { b,s,e,raw ->
+            val formula = when { raw.startsWith("$$") -> raw.substring(2,raw.length-2); raw.startsWith("\\(") -> raw.substring(2,raw.length-2); else -> raw.substring(1,raw.length-1) }.trim()
+            b.replace(s,e,formula)
+            if (formula.isNotEmpty()) {
+                b.setSpan(TypefaceSpan("serif"),s,s+formula.length,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                b.setSpan(StyleSpan(Typeface.ITALIC),s,s+formula.length,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                b.setSpan(ForegroundColorSpan(Color.rgb(25,85,145)),s,s+formula.length,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+        }
+        val newlineToken = "\\newline"
+        var newlineIndex = out.indexOf(newlineToken)
+        while (newlineIndex >= 0) {
+            out.replace(newlineIndex, newlineIndex + newlineToken.length, "\n")
+            newlineIndex = out.indexOf(newlineToken, newlineIndex + 1)
+        }
+        transform(Regex("""\\box\{([^{}]+)}""")) { b,s,e,_ ->
+            b.setSpan(BackgroundColorSpan(Color.rgb(255,246,205)),s,e,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            b.setSpan(ForegroundColorSpan(Color.rgb(110,68,12)),s,e,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            b.setSpan(StyleSpan(Typeface.BOLD),s,e,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+        val visible = out.toString()
+        if (visible.none { isEthiopic(it) }) return out
+        val face = load(context, amharicOwn) ?: load(context, doc.fontAmharic ?: defaultAmharic(context)) ?: return out
+        var i = 0
+        while (i < visible.length) {
+            if (isEthiopic(visible[i])) {
+                var j = i
+                while (j < visible.length && (isEthiopic(visible[j]) || (visible[j] == ' ' && j + 1 < visible.length && isEthiopic(visible[j + 1])))) j++
+                out.setSpan(EthiopicSpan(face), i, j, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE); i = j
+            } else i++
         }
         return out
     }
@@ -252,7 +328,7 @@ object PostRenderer {
         val layout = postTemplate(doc.templateId).layout(doc.size)
         val colors = colorsFor(doc, brand, layout.base)
         // a backdrop look only applies to dark-first brands and to posts that use the template background
-        val look = PostBackdrops.byId(brand.bgLook)?.takeIf { colors.darkFirst && doc.bgMode == BgMode.TEMPLATE }
+        val look = PostBackdrops.byId(brand.bgLook)?.takeIf { colors.darkFirst && doc.bgMode == BgMode.TEMPLATE && !doc.templateId.startsWith("study-") }
         val bg = backgroundFor(doc, colors, layout, look)
         colors.page = bg.to
         val bitmap = Bitmap.createBitmap(max(1, (w * s).toInt()), max(1, (h * s).toInt()), Bitmap.Config.ARGB_8888)
@@ -506,6 +582,7 @@ object PostRenderer {
         PostTone.DARK -> c.dark
         PostTone.BLUE -> Color.rgb(18, 42, 105)
         PostTone.RED -> Color.rgb(211, 25, 38)
+        PostTone.PAPER -> Color.WHITE
         PostTone.DEEP -> c.deep
         PostTone.GLOW -> c.glow
         PostTone.TINT -> c.tint
@@ -514,7 +591,7 @@ object PostRenderer {
     }
 
     private fun isLightTone(tone: PostTone): Boolean =
-        tone == PostTone.LIGHT || tone == PostTone.LIGHT_MUTED || tone == PostTone.SECONDARY
+        tone == PostTone.LIGHT || tone == PostTone.LIGHT_MUTED || tone == PostTone.SECONDARY || tone == PostTone.PAPER
 
     // ---- shapes ----
 
@@ -640,7 +717,7 @@ object PostRenderer {
         val boxW = (box.w * w).toInt().coerceAtLeast(1)
         val boxH = box.h * h
         val paint = TextPaint(Paint.ANTI_ALIAS_FLAG)
-        paint.typeface = PostFonts.resolve(context, box.font, doc, if (own) style?.fontEn else null)
+        paint.typeface = if (doc.templateId.startsWith("study-") && style?.fontEn == null && doc.fontEnglish == null) Typeface.create("casual", if (box.font == PostFont.REGULAR) Typeface.NORMAL else Typeface.BOLD) else PostFonts.resolve(context, box.font, doc, if (own) style?.fontEn else null)
         val picked = parseHexOrNull(style?.colorHex)
         paint.color = picked ?: toneColor(colors, box.tone)
         // contrast guard: only for colors the template chose, never for a color the user picked
@@ -652,7 +729,16 @@ object PostRenderer {
         if (box.caps) paint.letterSpacing = 0.12f
         val alignment = if (box.centered) Layout.Alignment.ALIGN_CENTER else Layout.Alignment.ALIGN_NORMAL
         var size = box.size * unit * doc.textScale * (if (own) (style?.scale ?: 1f) else 1f)
-        val minSize = size * 0.6f
+        // Study chapter/headline labels are single-line ruled headings: reduce the type size until the full
+        // heading width fits instead of allowing an awkward wrap over multiple notebook rules.
+        val studySingleLine = doc.templateId.startsWith("study-") && box.slot == PostSlots.HEADLINE
+        val minSize = size * if (studySingleLine) 0.28f else 0.6f
+        if (studySingleLine) {
+            while (paint.measureText(text, 0, text.length) > boxW && size > minSize) {
+                size *= 0.92f
+                paint.textSize = size
+            }
+        }
         var layout = buildLayout(text, paint, size, boxW, alignment)
         while (layout.height > boxH && size > minSize) {
             size *= 0.94f
@@ -678,7 +764,18 @@ object PostRenderer {
         val lines = rawText.split('\n').map { it.trim() }.filter { it.isNotEmpty() }
         if (lines.isEmpty()) return true
         val rows = lines.mapIndexed { i, line ->
-            when (box.list) {
+            // Respect hand-authored bullets and nested numbering, while retaining template defaults.
+            val numberMatch = Regex("""^(\d+(?:\.\d+)*[.)])\s+(.+)$""").matchEntire(line)
+            val custom = when {
+                line.startsWith("★ ") -> Row("★", line.drop(2).trim())
+                line.startsWith("✦ ") -> Row("✦", line.drop(2).trim())
+                line.startsWith("✧ ") -> Row("✧", line.drop(2).trim())
+                line.startsWith("* ") -> Row("✦", line.drop(2).trim())
+                line.startsWith("• ") -> Row("•", line.drop(2).trim())
+                numberMatch != null -> Row(numberMatch.groupValues[1], numberMatch.groupValues[2])
+                else -> null
+            }
+            custom ?: when (box.list) {
                 ListStyle.DOT -> Row("•", line)
                 ListStyle.CHECK -> Row("✓", line)
                 ListStyle.LETTER -> Row(('A' + i).toString() + ".", line)
@@ -697,17 +794,17 @@ object PostRenderer {
         val top = box.y * h
         val boxW = box.w * w
         val boxH = box.h * h
-        var markColor = ownColor ?: (if (isLightTone(box.tone)) colors.secondary else colors.accent)
+        var markColor = ownColor ?: (if (box.tone == PostTone.DARK) toneColor(colors, PostTone.RED) else if (isLightTone(box.tone)) colors.secondary else colors.accent)
         var textColor = ownColor ?: toneColor(colors, box.tone)
         if (ownColor == null) {
             markColor = readable(colors, markColor, left, top, boxW, boxH)
             if (!(doc.textHex != null && box.tone == PostTone.TEXT)) textColor = readable(colors, textColor, left, top, boxW, boxH)
         }
         val paint = TextPaint(Paint.ANTI_ALIAS_FLAG)
-        paint.typeface = PostFonts.resolve(context, box.font, doc, style?.fontEn)
+        paint.typeface = if (doc.templateId.startsWith("study-") && style?.fontEn == null && doc.fontEnglish == null) Typeface.create("casual", if (box.font == PostFont.REGULAR) Typeface.NORMAL else Typeface.BOLD) else PostFonts.resolve(context, box.font, doc, style?.fontEn)
         paint.color = textColor
         val markPaint = TextPaint(Paint.ANTI_ALIAS_FLAG)
-        markPaint.typeface = PostFonts.get(context, PostFont.BOLD)
+        markPaint.typeface = if (doc.templateId.startsWith("study-")) Typeface.create("casual", Typeface.BOLD) else PostFonts.get(context, PostFont.BOLD)
         markPaint.color = markColor
 
         fun indentFor(sz: Float): Float = when (box.list) {

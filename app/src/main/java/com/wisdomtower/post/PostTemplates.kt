@@ -7,7 +7,7 @@ enum class PostFont { DISPLAY, BOLD, REGULAR }
  * LIGHT and SECONDARY are for text and shapes that sit on a primary or dark background.
  */
 enum class PostTone {
-    ACCENT, TEXT, MUTED, LIGHT, LIGHT_MUTED, SECONDARY, DARK, BLUE, RED,
+    ACCENT, TEXT, MUTED, LIGHT, LIGHT_MUTED, SECONDARY, DARK, BLUE, RED, PAPER,
 
     /** Derived colors, built from the brand so every gradient follows a color change: DEEP is the accent pulled toward dark,
      * GLOW the accent pulled toward the second color, TINT a whisper of accent on the light color, SOFT the light color

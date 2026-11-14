@@ -4,7 +4,7 @@
 2. Before editing any file, read the latest copy from `main`, because `main` may have moved since the last session.
 3. If a change was made on another branch earlier, bring it onto `main` (ask first if it would replace newer work on `main`) instead of continuing on that branch.
 4. The assistant cannot compile or run the app. Say so after each change so it gets built and tested before anything depends on it.
-5. **Where to continue:** read `docs/APP_QUALITY_ROADMAP.md` first (whole-system plan, slices Q1 to Q7), then `docs/DESIGN_PLAN.md` (single-template fixes). `docs/CHAT_CONTROL_PLAN.md` explains how posters travel from chat to the phone inbox.
+5. **Where to continue:** read `docs/APP_QUALITY_ROADMAP.md` first (whole-system plan, slices Q1 to Q7), then `docs/DESIGN_PLAN.md` (single-template fixes). `docs/CHAT_CONTROL_PLAN.md` explains how posters travel from chat to the phone inbox. For the Chapter summaries (handwritten dense notes) read `docs/CHAPTER_SUMMARIES_PLAN.md` (the spec) and then `docs/CHAPTER_SUMMARIES_PROGRESS.md` (what is done and what is next).
 
 
 ## Content-agent integration (mandatory)

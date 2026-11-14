@@ -210,10 +210,13 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
     val items = if (mockupBatch) batchPhotos.mapIndexed { index, _ -> BatchItem(index + 1, emptyMap(), emptyList()) } else parsed.items
 
     // A page's design: its own (edited alone or in the editor), else the design of the whole batch, else the open post.
+    // Words: an inbox batch shows exactly the words the post came with (or the words edited in the editor), never the template's
+    // SAMPLE words, so a box the post left empty stays empty. A local studio batch keeps the open post's words for boxes it did not fill.
     fun pageDoc(item: BatchItem): PostDoc {
         val design = editedDesigns[item.number] ?: batchDesign ?: doc
         val batchPhoto = batchPhotos.getOrNull(item.number - 1)
-        return PostBatch.apply(design, item).let { page ->
+        val worded = if (initialBatch != null) design.copy(texts = item.texts) else PostBatch.apply(design, item)
+        return worded.let { page ->
             val withSize = page.copy(size = batchSize)
             if (item.number !in editedDesigns && batchPhoto != null) withSize.copy(photoUri = batchPhoto) else withSize
         }

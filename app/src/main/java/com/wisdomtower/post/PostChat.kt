@@ -171,6 +171,12 @@ object PostChatApi {
         if (result.optBoolean("isError")) throw IllegalStateException(result.optJSONArray("content")?.optJSONObject(0)?.optString("text") ?: "Could not update status")
     }
 
+    /** Deletes one DRAFT batch in Supabase (wt-mcp v4 delete_batch). The server refuses approved and posted batches and never touches the post log. */
+    suspend fun deleteBatch(context: Context, id: String) {
+        val result = rpc(context, "tools/call", JSONObject().put("name", "delete_batch").put("arguments", JSONObject().put("id", id)))
+        if (result.optBoolean("isError")) throw IllegalStateException(result.optJSONArray("content")?.optJSONObject(0)?.optString("text") ?: "Could not delete batch")
+    }
+
     suspend fun logPost(context: Context, values: JSONObject) {
         val result = rpc(context, "tools/call", JSONObject().put("name", "log_post").put("arguments", values))
         if (result.optBoolean("isError")) throw IllegalStateException(result.optJSONArray("content")?.optJSONObject(0)?.optString("text") ?: "Could not log post")

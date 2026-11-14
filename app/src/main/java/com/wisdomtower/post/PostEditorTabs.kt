@@ -271,7 +271,11 @@ private fun PairSwatch(accentHex: String, textHex: String, selected: Boolean, on
 @Composable
 internal fun TemplateStrip(doc: PostDoc, brand: PostBrand, library: PostLibrary, onDoc: (PostDoc) -> Unit) {
     val state = rememberLazyListState()
-    val index = PostTemplates.indexOfFirst { it.id == doc.templateId }.coerceAtLeast(0)
+    // Chapter summaries are their own family (docs/CHAPTER_SUMMARIES_PLAN.md section 4): a draft of that family shows only its
+    // variants in the strip, and a poster draft never shows them.
+    val chapter = postTemplate(doc.templateId).family == CHAPTER_FAMILY
+    val shown = remember(chapter) { PostTemplates.filter { (it.family == CHAPTER_FAMILY) == chapter } }
+    val index = shown.indexOfFirst { it.id == doc.templateId }.coerceAtLeast(0)
     LaunchedEffect(doc.templateId) {
         if (state.layoutInfo.visibleItemsInfo.none { it.index == index }) state.animateScrollToItem(index)
     }
@@ -281,7 +285,7 @@ internal fun TemplateStrip(doc: PostDoc, brand: PostBrand, library: PostLibrary,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        items(PostTemplates, key = { it.id }) { spec ->
+        items(shown, key = { it.id }) { spec ->
             TemplateCard(spec, doc.size, brand, library.edited[spec.id], if (spec.id == doc.templateId) doc else null,
                 doc.accentHex, doc.textHex, spec.id == doc.templateId) { onDoc(doc.withTemplate(spec)) }
         }

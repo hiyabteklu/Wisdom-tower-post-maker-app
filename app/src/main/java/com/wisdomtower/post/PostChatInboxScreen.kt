@@ -1,6 +1,7 @@
 package com.wisdomtower.post
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -23,11 +24,17 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.FactCheck
 import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -73,6 +80,12 @@ private const val ALL_KEY = "__all__"
  * The status chips (All, Draft, Approved, Posted) apply on both levels. Back from a folder returns to the folder list.
  * It opens at once from the list kept in memory (or the one saved on disk) and refreshes quietly behind it, so there is no blank wait.
  * Pull down or tap the arrow to refresh. Tap a card to open the batch.
+ *
+ * Card menu (the three dots, docs/URGENT_PLAN.md U1):
+ * - Mark posted (draft or approved batch): pick the platforms (Telegram, TikTok, LinkedIn, Instagram, Facebook); the batch becomes Posted and
+ *   one post log row per post and platform is saved in Supabase.
+ * - Delete draft (draft batch only): deleted on this phone and in Supabase.
+ * - Remove from inbox (posted batch): hidden on this phone only. The batch and the post log stay in Supabase.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -82,9 +95,14 @@ fun PostChatInboxScreen(onBack: () -> Unit, onOpenBatch: (PostChatBatch) -> Unit
     var batches by remember {
         mutableStateOf(if (PostInboxState.batches.isNotEmpty()) PostInboxState.batches else PostChatStore.loadCachedBatches(context))
     }
+    var hidden by remember { mutableStateOf(PostInboxHidden.ids(context)) }
     var refreshing by remember { mutableStateOf(false) }
     var opening by remember { mutableStateOf<String?>(null) }
     var notice by remember { mutableStateOf<String?>(null) }
+    var working by remember { mutableStateOf<String?>(null) }
+    var postFor by remember { mutableStateOf<PostChatBatch?>(null) }
+    var deleteFor by remember { mutableStateOf<PostChatBatch?>(null) }
+    var removeFor by remember { mutableStateOf<PostChatBatch?>(null) }
     var filter by rememberSaveable { mutableStateOf("all") }
     var openFolder by rememberSaveable { mutableStateOf<String?>(null) }
     var openSub by rememberSaveable { mutableStateOf<String?>(null) }
@@ -108,11 +126,61 @@ fun PostChatInboxScreen(onBack: () -> Unit, onOpenBatch: (PostChatBatch) -> Unit
     // Refresh on entry only when the list is older than 15 seconds.
     LaunchedEffect(Unit) { if (System.currentTimeMillis() - PostInboxState.loadedAt > 15_000L) refresh() }
 
+    /** Keeps the list in memory and the saved copy on disk in step with a change made here. */
+    fun keep(next: List<PostChatBatch>) {
+        batches = next
+        PostInboxState.update(next)
+        PostChatStore.saveCachedBatches(context, next)
+    }
+
+    fun deleteDraft(batch: PostChatBatch) {
+        if (working != null) return
+        working = "Deleting draft..."
+        notice = null
+        scope.launch {
+            try {
+                PostChatApi.deleteBatch(context, batch.id)
+                keep(batches.filter { it.id != batch.id })
+                notice = "Draft deleted, here and in Supabase."
+            } catch (e: Exception) {
+                notice = e.message ?: "Could not delete the draft"
+            } finally {
+                working = null
+            }
+        }
+    }
+
+    fun removePosted(batch: PostChatBatch) {
+        PostInboxHidden.hide(context, batch.id)
+        hidden = PostInboxHidden.ids(context)
+        notice = "Removed from this inbox. The post log and the batch stay in Supabase."
+    }
+
+    fun markPosted(batch: PostChatBatch, platforms: List<String>) {
+        if (working != null) return
+        working = "Marking posted..."
+        notice = null
+        scope.launch {
+            try {
+                markBatchPosted(context, batch.id, platforms) { done, total -> working = "Saving the post log $done of $total..." }
+                keep(batches.map { if (it.id == batch.id) it.copy(status = "published") else it })
+                notice = "Marked posted on " + platforms.joinToString(", ") + "."
+            } catch (e: Exception) {
+                // The status may already be Posted on the server even when the log stopped half way, so load the list again.
+                notice = e.message ?: "Could not mark the batch posted"
+                refresh()
+            } finally {
+                working = null
+            }
+        }
+    }
+
+    val visible = batches.filter { it.id !in hidden }
     val currentFolder = openFolder
     val currentSub = openSub
     BackHandler(enabled = currentFolder != null) { openFolder = null; openSub = null }
 
-    val byStatus = if (filter == "all") batches else batches.filter { it.status == filter }
+    val byStatus = if (filter == "all") visible else visible.filter { it.status == filter }
     val inFolder = when (currentFolder) {
         null -> emptyList()
         ALL_KEY -> byStatus
@@ -161,8 +229,16 @@ fun PostChatInboxScreen(onBack: () -> Unit, onOpenBatch: (PostChatBatch) -> Unit
                     item(key = "filters") {
                         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             listOf("all" to "All", "draft" to "Draft", "approved" to "Approved", "published" to "Posted").forEach { (key, label) ->
-                                val n = if (key == "all") batches.size else batches.count { it.status == key }
+                                val n = if (key == "all") visible.size else visible.count { it.status == key }
                                 FilterChip(selected = filter == key, onClick = { filter = key }, label = { Text("$label $n", fontSize = 12.sp) })
+                            }
+                        }
+                    }
+                    working?.let { text ->
+                        item(key = "working") {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                CircularProgressIndicator(Modifier.size(18.dp), color = PostPalette.Mint, strokeWidth = 2.dp)
+                                Text(text, color = PostPalette.Text, fontSize = 13.sp)
                             }
                         }
                     }
@@ -187,7 +263,7 @@ fun PostChatInboxScreen(onBack: () -> Unit, onOpenBatch: (PostChatBatch) -> Unit
                         } else if (!refreshing) {
                             item(key = "empty") {
                                 EmptyState(
-                                    if (batches.isEmpty()) "Nothing here yet" else "No batches in this filter",
+                                    if (visible.isEmpty()) "Nothing here yet" else "No batches in this filter",
                                     "Ask your AI chat for posters, for example: give me 10 posts about Freshman mistakes. They land here, in the folder of their pillar."
                                 )
                             }
@@ -212,7 +288,14 @@ fun PostChatInboxScreen(onBack: () -> Unit, onOpenBatch: (PostChatBatch) -> Unit
                             item(key = "empty") { EmptyState("No batches in this folder", "Try another filter, or pull down to refresh.") }
                         }
                         items(shown, key = { it.id }) { batch ->
-                            BatchCard(batch, busy = opening == batch.id, folderLabel = if (currentFolder == ALL_KEY) batch.folder else null) {
+                            BatchCard(
+                                batch,
+                                busy = opening == batch.id,
+                                folderLabel = if (currentFolder == ALL_KEY) batch.folder else null,
+                                onMarkPosted = { postFor = batch },
+                                onDelete = { deleteFor = batch },
+                                onRemove = { removeFor = batch }
+                            ) {
                                 if (opening != null) return@BatchCard
                                 opening = batch.id
                                 notice = null
@@ -226,6 +309,32 @@ fun PostChatInboxScreen(onBack: () -> Unit, onOpenBatch: (PostChatBatch) -> Unit
                     }
                 }
             }
+        }
+
+        postFor?.let { batch ->
+            PlatformPickerDialog(
+                batchTitle = batch.title,
+                onDismiss = { postFor = null },
+                onConfirm = { platforms -> postFor = null; markPosted(batch, platforms) }
+            )
+        }
+        deleteFor?.let { batch ->
+            ConfirmDialog(
+                title = "Delete this draft?",
+                message = "\"${batch.title}\" is deleted for good, on this phone and in Supabase. This cannot be undone.",
+                confirmLabel = "Delete",
+                onDismiss = { deleteFor = null },
+                onConfirm = { deleteFor = null; deleteDraft(batch) }
+            )
+        }
+        removeFor?.let { batch ->
+            ConfirmDialog(
+                title = "Remove from inbox?",
+                message = "\"${batch.title}\" disappears from this inbox only. It stays in Supabase and its post log rows are not changed.",
+                confirmLabel = "Remove",
+                onDismiss = { removeFor = null },
+                onConfirm = { removeFor = null; removePosted(batch) }
+            )
         }
     }
 }
@@ -276,12 +385,21 @@ private fun FolderCard(name: String, batches: Int, posts: Int, drafts: Int, onOp
 }
 
 @Composable
-private fun BatchCard(batch: PostChatBatch, busy: Boolean, folderLabel: String? = null, onOpen: () -> Unit) {
+private fun BatchCard(
+    batch: PostChatBatch,
+    busy: Boolean,
+    folderLabel: String? = null,
+    onMarkPosted: () -> Unit,
+    onDelete: () -> Unit,
+    onRemove: () -> Unit,
+    onOpen: () -> Unit
+) {
     val shape = RoundedCornerShape(16.dp)
+    var menuOpen by remember { mutableStateOf(false) }
     Row(
-        Modifier.fillMaxWidth().clip(shape).background(PostPalette.Surface)
+        Modifier.fillMaxWidth().animateContentSize().clip(shape).background(PostPalette.Surface)
             .border(BorderStroke(1.dp, PostPalette.Line), shape)
-            .clickable(onClick = onOpen).padding(12.dp),
+            .clickable(onClick = onOpen).padding(start = 12.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(
@@ -305,9 +423,40 @@ private fun BatchCard(batch: PostChatBatch, busy: Boolean, folderLabel: String? 
                 if (age.isNotEmpty()) Text(age, color = PostPalette.Muted, fontSize = 12.sp)
             }
         }
-        Spacer(Modifier.width(8.dp))
-        if (busy) CircularProgressIndicator(Modifier.size(22.dp), color = PostPalette.Mint, strokeWidth = 2.dp)
-        else Icon(Icons.Outlined.ChevronRight, contentDescription = "Open batch", tint = PostPalette.Muted)
+        if (busy) {
+            Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(Modifier.size(22.dp), color = PostPalette.Mint, strokeWidth = 2.dp)
+            }
+        } else {
+            Box {
+                IconButton(onClick = { menuOpen = true }) {
+                    Icon(Icons.Outlined.MoreVert, contentDescription = "Batch actions", tint = PostPalette.Muted)
+                }
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    if (batch.status != "published") {
+                        DropdownMenuItem(
+                            text = { Text("Mark posted") },
+                            leadingIcon = { Icon(Icons.Outlined.CheckCircle, contentDescription = null) },
+                            onClick = { menuOpen = false; onMarkPosted() }
+                        )
+                    }
+                    if (batch.status == "draft") {
+                        DropdownMenuItem(
+                            text = { Text("Delete draft") },
+                            leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null) },
+                            onClick = { menuOpen = false; onDelete() }
+                        )
+                    }
+                    if (batch.status == "published") {
+                        DropdownMenuItem(
+                            text = { Text("Remove from inbox") },
+                            leadingIcon = { Icon(Icons.Outlined.Close, contentDescription = null) },
+                            onClick = { menuOpen = false; onRemove() }
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Picture
 import android.graphics.Typeface
 import android.text.Layout
 import android.text.StaticLayout
@@ -21,7 +22,12 @@ import kotlin.math.min
  *
  * Text is never shrunk to fit the page. A block that does not fit is not drawn half-way: its slot name is returned in the
  * overflow list and drawing stops, so the review screen can show it and the sheet can be split.
- * (A table is the one block that may be drawn with the rows that fit; the slot is still reported.)
+ * (A table is the one block that may be drawn with the rows that fit; the slot is still reported, and everything after the table
+ * counts as left out, so a later row never appears above a missing table row.)
+ *
+ * Step 8 (never lose text silently): drawFit() and measure() also return a Fit: how many cells the sheet uses out of how many it
+ * has ("Lines 24 / 29"), how many rows were left out, and the first row that was left out. The review screens show that instead of
+ * the old "Text shrunk to fit" wording, which was wrong for these sheets (nothing is shrunk, rows are left out).
  *
  * Authoring markup (one line per row of the list, also used for the message):
  *   # Title, ## Topic, ### Subtopic    headings (one cell each, colored, underlined)
@@ -56,6 +62,32 @@ internal object PostStudyGrid {
 
     private val MARKS = listOf("★", "✦", "✧", "•", "✓", "✔", "☑", "☐", "→")
     private val NUMBERED = Regex("""^(\d+(?:\.\d+)*[.)])\s+(.+)$""")
+
+    /**
+     * How well a sheet fits its ruled lines (Step 8).
+     * slots: the text boxes that had something left out (the same list draw() returns).
+     * used / capacity: cells used out of cells available (29, or 28 when the footer takes the last one).
+     * leftOut: how many rows were not drawn. firstLeftOut: the first of them, as plain text, so the owner or the agent knows where to split.
+     */
+    internal class Fit(
+        val slots: List<String>,
+        val used: Int,
+        val capacity: Int,
+        val leftOut: Int,
+        val firstLeftOut: String
+    ) {
+        val fits: Boolean get() = slots.isEmpty() && leftOut == 0
+
+        /** "Lines 24 / 29". */
+        fun counter(): String = "Lines " + used + " / " + capacity
+
+        /** The warning for a sheet that does not fit; it names what was left out. */
+        fun warning(): String {
+            val more = if (leftOut > 1) " and " + (leftOut - 1) + " more" else ""
+            val where = if (firstLeftOut.isEmpty()) "" else " Left out: \"" + firstLeftOut + "\"" + more + "."
+            return "Does not fit, split this sheet." + where
+        }
+    }
 
     /** What makes one of the six variants different: marker color, default row style, title size in cells and body size. */
     private class Look(val marker: Int, val list: ListStyle, val headCells: Int, val headScale: Float, val bodyScale: Float)
@@ -146,6 +178,20 @@ internal object PostStudyGrid {
     private fun labelled(label: String, rest: String, color: Int): String =
         "[[" + hexOf(color) + ";B:" + label + "]]" + (if (rest.isEmpty()) "" else " – " + rest)
 
+    private val COLOR_MARK = Regex("\\[\\[(?:#[0-9A-Fa-f]{6}(?:[0-9A-Fa-f]{2})?(?:;[BUIH]+)?:)?")
+    private val SPACES = Regex("\\s+")
+
+    /** A row of markup as short plain text for the "Left out:" note: no tags, no list marker, at most 34 characters. */
+    private fun plainLabel(raw: String): String {
+        val noise = "*`\\\u0024"
+        val text = raw.replace(COLOR_MARK, "").replace("]]", "").replace("==", "")
+            .filterNot { it in noise }
+            .replace(SPACES, " ")
+            .trim()
+            .trimStart { it == '-' || it == ' ' || it == '•' || it == '★' || it == '✓' || it == '→' || it == '>' || it == '#' }
+        return if (text.length > 34) text.take(33).trimEnd() + "…" else text
+    }
+
     // ---- the page ----
 
     private class Page(
@@ -164,10 +210,21 @@ internal object PostStudyGrid {
         var cell = 0
         val overflow = LinkedHashSet<String>()
 
+        /** How many rows were not drawn, and the first of them (Step 8). */
+        var leftOut = 0
+        var firstLeftOut = ""
+
         fun ruleY(k: Int): Float = h * FIRST + k * step
         fun baseline(c: Int): Float = ruleY(c + 1) - step * LIFT
         fun full(): Boolean = cell > lastCell
         fun gap() { cell += 1 }
+
+        /** Records that a row (or count rows from it on) did not fit: its slot goes in the overflow list, the first one is remembered by name. */
+        fun miss(slot: String, raw: String, count: Int = 1) {
+            overflow.add(slot)
+            leftOut += max(1, count)
+            if (firstLeftOut.isEmpty()) firstLeftOut = plainLabel(raw)
+        }
 
         /** The first cell shares its line with the small logo in the top-right corner, so text there stops before it. */
         fun room(c: Int, avail: Float): Float = if (c == 0 && doc.showLogo) avail - w * 0.15f else avail
@@ -214,7 +271,7 @@ internal object PostStudyGrid {
         ) {
             if (raw.isBlank()) return
             if (cell + cells - 1 > lastCell) {
-                overflow.add(slot)
+                miss(slot, raw)
                 cell = lastCell + 1
                 return
             }
@@ -234,7 +291,7 @@ internal object PostStudyGrid {
             val lines = lay.lineCount
             val used = max(cells, lines)
             if (cell + used - 1 > lastCell) {
-                overflow.add(slot)
+                miss(slot, raw)
                 cell = lastCell + 1
                 return
             }
@@ -259,7 +316,7 @@ internal object PostStudyGrid {
          */
         fun item(slot: String, marker: String, raw: String, level: Int, markerColor: Int, ink: Int, bold: Boolean = false) {
             if (full()) {
-                overflow.add(slot)
+                miss(slot, raw)
                 return
             }
             val own = doc.slotStyles[slot]
@@ -272,7 +329,7 @@ internal object PostStudyGrid {
             val lay = layout(styled(slot, raw.ifEmpty { " " }), paint(bold, size, ink), avail.toInt())
             val need = lay.lineCount
             if (cell + need - 1 > lastCell) {
-                overflow.add(slot)
+                miss(slot, raw)
                 cell = lastCell + 1
                 return
             }
@@ -290,7 +347,7 @@ internal object PostStudyGrid {
         /** A tinted box over whole cells with a bar at the left: green for a key idea, red for a warning or exam trap. */
         fun callout(slot: String, raw: String, warn: Boolean) {
             if (full()) {
-                overflow.add(slot)
+                miss(slot, raw)
                 return
             }
             val bar = if (warn) RED else GREEN
@@ -301,7 +358,7 @@ internal object PostStudyGrid {
             val lay = layout(styled(slot, raw), paint(true, size, bodyInk), avail.toInt())
             val need = lay.lineCount
             if (cell + need - 1 > lastCell) {
-                overflow.add(slot)
+                miss(slot, raw)
                 cell = lastCell + 1
                 return
             }
@@ -324,7 +381,7 @@ internal object PostStudyGrid {
          */
         fun keyPoint(slot: String, raw: String) {
             if (full()) {
-                overflow.add(slot)
+                miss(slot, raw)
                 return
             }
             var label = "Key Point"
@@ -340,7 +397,7 @@ internal object PostStudyGrid {
             val lay = layout(styled(slot, body.ifEmpty { " " }), paint(false, size, bodyInk), avail.toInt())
             val need = 1 + lay.lineCount
             if (cell + need - 1 > lastCell) {
-                overflow.add(slot)
+                miss(slot, raw)
                 cell = lastCell + 1
                 return
             }
@@ -363,12 +420,13 @@ internal object PostStudyGrid {
         /**
          * A real table on whole cells. The first row is the header (tinted, bold). Columns share the width by how long their text is,
          * long cells wrap, and every row is as many cells high as its tallest cell, so the table lines are the notebook rules.
-         * The first column is bold and colored like a key term. Rows that do not fit are not drawn and the slot is reported as overflow.
+         * The first column is bold and colored like a key term. Rows that do not fit are not drawn and the slot is reported as overflow;
+         * after such a table the page is closed (everything that follows counts as left out), so order is never mixed up.
          */
         fun table(slot: String, rows: List<List<String>>) {
             if (rows.isEmpty()) return
             if (full()) {
-                overflow.add(slot)
+                miss(slot, rows[0].firstOrNull().orEmpty(), rows.size)
                 return
             }
             val columns = max(1, rows.maxOf { it.size })
@@ -399,10 +457,12 @@ internal object PostStudyGrid {
             }
 
             var used = 0
+            var partial = false
             val shown = ArrayList<Pair<List<StaticLayout>, Int>>()
-            for (row in laid) {
+            for ((index, row) in laid.withIndex()) {
                 if (cell + used + row.second - 1 > lastCell) {
-                    overflow.add(slot)
+                    miss(slot, rows[index].firstOrNull().orEmpty(), laid.size - index)
+                    partial = true
                     break
                 }
                 used += row.second
@@ -449,6 +509,7 @@ internal object PostStudyGrid {
                 rowCell += row.second
             }
             cell += used
+            if (partial) cell = lastCell + 1
         }
     }
 
@@ -456,7 +517,31 @@ internal object PostStudyGrid {
      * Draws the text slots of a study post on the line grid and returns the slots that did not fit (empty when everything fits).
      * slots: the text boxes the template has; text in other slots is ignored, as for every template.
      */
-    fun draw(context: Context, canvas: Canvas, doc: PostDoc, w: Int, h: Int, slots: Set<String>): List<String> {
+    fun draw(context: Context, canvas: Canvas, doc: PostDoc, w: Int, h: Int, slots: Set<String>): List<String> =
+        drawFit(context, canvas, doc, w, h, slots).slots
+
+    /**
+     * Counts how many lines a post takes without drawing it anywhere visible: the sheet is laid out onto a recording canvas.
+     * Used by the review screens to show "Lines 24 / 29" or the "Does not fit" note next to the preview.
+     */
+    fun measure(context: Context, doc: PostDoc): Fit {
+        val w = doc.size.width
+        val h = doc.size.height
+        val slots = postTemplate(doc.templateId).layout(doc.size).slots
+            .filter { it.literal == null }
+            .map { it.slot }
+            .toSet()
+        val picture = Picture()
+        val canvas = picture.beginRecording(w, h)
+        try {
+            return drawFit(context, canvas, doc, w, h, slots)
+        } finally {
+            picture.endRecording()
+        }
+    }
+
+    /** Same as draw(), and also returns the Fit of the sheet (cells used, rows left out, the first one left out). */
+    fun drawFit(context: Context, canvas: Canvas, doc: PostDoc, w: Int, h: Int, slots: Set<String>): Fit {
         val look = lookFor(doc.templateId)
         val page = Page(context, canvas, doc, w, h, look, if (doc.showFooter) LAST_CELL - 1 else LAST_CELL)
 
@@ -486,7 +571,9 @@ internal object PostStudyGrid {
                 val line = lines[i]
                 i++
                 if (page.full()) {
-                    page.overflow.add(slot)
+                    // the page is closed: this row and every row after it are left out
+                    val rest = lines.drop(i - 1).filter { it.trim() != "---" }
+                    if (rest.isNotEmpty()) page.miss(slot, rest[0], rest.size)
                     return
                 }
                 val t = line.trim()
@@ -594,6 +681,7 @@ internal object PostStudyGrid {
         val button = text(PostSlots.BUTTON)
         if (button.isNotEmpty()) page.callout(PostSlots.BUTTON, button, false)
 
-        return page.overflow.toList()
+        val capacity = page.lastCell + 1
+        return Fit(page.overflow.toList(), min(page.cell, capacity), capacity, page.leftOut, page.firstLeftOut)
     }
 }

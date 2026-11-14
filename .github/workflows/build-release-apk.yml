@@ -44,4 +44,4 @@ jobs:
         with:
           name: Wisdom-Tower-Post-RELEASE-APK
           path: Wisdom-Tower-Post-release.apk
-          retention-days: 30
+          retention-days: 1

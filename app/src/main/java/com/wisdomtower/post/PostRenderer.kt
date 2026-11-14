@@ -210,10 +210,13 @@ object PostFonts {
         }
         val mathRegex = Regex("""\$\$([\s\S]+?)\$\$|(?<!\\)\$(?!\s)([^$\n]+?)(?<!\s)\$|\\\((.+?)\\\)""")
         transform(mathRegex, true) { b,s,e,raw ->
-            val formula = when { raw.startsWith("$$") -> raw.substring(2,raw.length-2); raw.startsWith("\\(") -> raw.substring(2,raw.length-2); else -> raw.substring(1,raw.length-1) }.trim()
+            val source = when { raw.startsWith("$$") -> raw.substring(2,raw.length-2); raw.startsWith("\\(") -> raw.substring(2,raw.length-2); else -> raw.substring(1,raw.length-1) }.trim()
+            // LaTeX becomes clean one-line text (Greek letters, powers, fractions, roots): see PostMath.kt
+            val formula = PostMath.toText(source)
             b.replace(s,e,formula)
             if (formula.isNotEmpty()) {
-                b.setSpan(TypefaceSpan("serif"),s,s+formula.length,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                // handwritten study sheets keep the handwriting font for formulas; every other template keeps the serif look
+                if (!doc.templateId.startsWith("study-")) b.setSpan(TypefaceSpan("serif"),s,s+formula.length,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                 b.setSpan(StyleSpan(Typeface.ITALIC),s,s+formula.length,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                 b.setSpan(ForegroundColorSpan(Color.rgb(25,85,145)),s,s+formula.length,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             }
@@ -259,6 +262,10 @@ object PostFonts {
  * are built from the brand here, so every gradient follows a color change.
  * Text: each word box takes its color from the template's tone unless the post has a style for that box (PostDoc.slotStyles),
  * which can set its color, its English and Amharic fonts and its size. See docs/TEXT_STYLE.md.
+ *
+ * CHAPTER SUMMARIES (study-* templates, docs/CHAPTER_SUMMARIES_PLAN.md). Their text is not drawn in word boxes: PostStudyGrid lays it on the 30 ruled
+ * lines of the paper, over the whole page. Their logo is a small box in the first line at the top-right corner, and their footer is a row of small
+ * chips on the last line.
  *
  * DARK-FIRST LOOK (docs/BRAND_COLOR_PLAN.md, phase 1). When the brand's Dark color is near-black (darkFirst):
  * - pale (PostBase.LIGHT) templates are drawn on a deep dark surface with light text instead of a pale page;
@@ -388,11 +395,16 @@ object PostRenderer {
                 }
             }
 
-            drawSlots(true)
-            stop()
-            doc.cutoutUri?.let { PostEngine.drawCutout(canvas, it, doc, w, h, decodeTo) }
-            stop()
-            drawSlots(false)
+            if (doc.templateId.startsWith("study-")) {
+                // Chapter summaries: the text sits on the 30 ruled lines and uses the whole page, outside the safe band (PostStudyGrid.kt)
+                overflow.addAll(PostStudyGrid.draw(context, canvas, doc, w, h, layout.slots.filter { it.literal == null }.map { it.slot }.toSet()))
+            } else {
+                drawSlots(true)
+                stop()
+                doc.cutoutUri?.let { PostEngine.drawCutout(canvas, it, doc, w, h, decodeTo) }
+                stop()
+                drawSlots(false)
+            }
             stop()
 
             if (doc.showLogo && !layout.bare) drawLogo(context, canvas, doc, brand, colors, w, h, unit)
@@ -402,7 +414,7 @@ object PostRenderer {
             } else if (social != null) {
                 drawSocial(context, canvas, brand, social, colors, w, h, unit)
             } else if (doc.showFooter) {
-                drawFooter(context, canvas, brand, if (layout.footerLight) colors.light else colors.accent, colors, layout.footerLight, w, h, unit)
+                drawFooter(context, canvas, brand, if (layout.footerLight) colors.light else colors.accent, colors, layout.footerLight, w, h, unit, doc.templateId.startsWith("study-"))
             }
             stop()
 
@@ -1026,24 +1038,26 @@ object PostRenderer {
      * On tall posts (9:16) the box is lowered to about 8.5% of the height so Instagram and TikTok top buttons do not cover it.
      * 1:1, 4:5 and 4:3 keep it flush to the top.
      * In dark-first the box is a deep tint of the accent over the dark color, never a bright accent, so the white logo always reads.
+     * Chapter summaries (study-*) use a small box flush in the top-right corner, about one ruled line high, on every size.
      */
     private fun drawLogo(context: Context, canvas: Canvas, doc: PostDoc, brand: PostBrand, c: Colors, w: Int, h: Int, unit: Float) {
         val art = logoArt(context, brand, (unit * 0.12f).toInt()) ?: return
         val bmp = art.bitmap
         val src = art.visible
+        val study = doc.templateId.startsWith("study-")
         val aspect = src.width().toFloat() / max(1, src.height())
-        var innerH = unit * 0.056f * brand.logoScale * doc.logoSize
+        var innerH = if (study) h * 0.019f * brand.logoScale * doc.logoSize else unit * 0.056f * brand.logoScale * doc.logoSize
         var innerW = innerH * aspect
-        val maxInnerW = unit * 0.34f
+        val maxInnerW = if (study) w * 0.22f else unit * 0.34f
         if (innerW > maxInnerW) {
             innerW = maxInnerW
             innerH = innerW / max(0.01f, aspect)
         }
-        val padX = unit * 0.034f
-        val padY = unit * 0.020f
+        val padX = if (study) w * 0.016f else unit * 0.034f
+        val padY = if (study) h * 0.0070f else unit * 0.020f
         val boxW = innerW + padX * 2f
         val boxH = innerH + padY * 2f
-        val detached = h >= w * 1.5f
+        val detached = h >= w * 1.5f && !study
         val top = if (detached) h * 0.085f else 0f
         val bleed = unit * 0.03f
         // the box runs a little past the right (and, when flush, the top) edge so no outline shows there
@@ -1097,19 +1111,20 @@ object PostRenderer {
      * One centered row at the bottom: icon, then label, for each footer item. PILL puts each item in its own chip,
      * LINE draws a thin rule above the row. The row shrinks as a whole to fit the width. fg is the footer color.
      * The label text takes the color picked for the footer text on this post (c.footerText), else fg (checked by the contrast guard).
+     * study: Chapter summaries. A small row of chips centered on the last ruled line (the 29th cell, 95.9% of the height), no rule above it.
      */
     private fun drawFooter(
         context: Context, canvas: Canvas, brand: PostBrand, fg: Int, c: Colors, onDark: Boolean,
-        w: Int, h: Int, unit: Float
+        w: Int, h: Int, unit: Float, study: Boolean = false
     ) {
         val items = brand.footerItems.filter { it.label.trim().isNotEmpty() }
         if (items.isEmpty()) return
         val margin = unit * 0.06f
         val maxWidth = w - margin * 2
         val pill = brand.footerStyle == FooterStyle.PILL
-        val centerY = if (pill) h * 0.935f else h * 0.945f
+        val centerY = if (study) h * 0.9586f else if (pill) h * 0.935f else h * 0.945f
 
-        if (!pill) {
+        if (!pill && !study) {
             val line = Paint(Paint.ANTI_ALIAS_FLAG)
             line.color = withAlpha(fg, 110)
             line.strokeWidth = max(2f, unit * 0.002f)
@@ -1131,7 +1146,7 @@ object PostRenderer {
             return total + spacing * (items.size - 1)
         }
 
-        var ts = unit * 0.026f
+        var ts = if (study) h * 0.011f else unit * 0.026f
         val natural = rowWidth(ts)
         if (natural > maxWidth) ts *= maxWidth / natural
         val total = rowWidth(ts)

@@ -21,15 +21,17 @@ import kotlin.math.min
  *
  * Text is never shrunk to fit the page. A block that does not fit is not drawn half-way: its slot name is returned in the
  * overflow list and drawing stops, so the review screen can show it and the sheet can be split.
+ * (A table is the one block that may be drawn with the rows that fit; the slot is still reported.)
  *
  * Authoring markup (one line per row of the list, also used for the message):
  *   # Title, ## Topic, ### Subtopic    headings (one cell each, colored, underlined)
  *   - text, • text, ★ text, ✓ text       bullets with a marker; two leading spaces per nesting level (max 2)
  *   1. text, 1.1. text                    numbered rows (the number is kept)
- *   > text                                key idea (green box); > NB / WARNING / CAUTION / TRAP / AVOID is a red box
+ *   > text                                key idea (green bar); > NB / WARNING / CAUTION / TRAP / AVOID is a red bar
+ *   >> text, >> Label | text              Key Point box: green border, the label (default "Key Point") on its first line, then the text
  *   Term: explanation                     in ROW templates the term becomes a bold colored label
  *   ---                                   one blank line
- *   |a|b|c|                               temporary table rows (real tables come in the next slice)
+ *   |a|b|c|                               a real table: consecutive pipe rows, the first row is the header, |---|---| rows are ignored
  * Inline marks (**bold**, *italic*, ==highlight==, [[term]], #underline#, [[#HEX;B:word]], $math$) go through PostFonts.styled.
  */
 internal object PostStudyGrid {
@@ -287,6 +289,139 @@ internal object PostStudyGrid {
             drawLayout(lay, left + pad + indent, cell)
             cell += need
         }
+
+        /**
+         * The Key Point box (">> Label | text"): a rounded green border over whole cells, the label with a star on its first cell,
+         * then the text wrapped over the following cells. The box is one label cell plus the text cells high.
+         */
+        fun keyPoint(slot: String, raw: String) {
+            if (full()) {
+                overflow.add(slot)
+                return
+            }
+            var label = "Key Point"
+            var body = raw.trim()
+            val bar = body.indexOf(" | ")
+            if (bar in 1..30) {
+                label = body.substring(0, bar).trim()
+                body = body.substring(bar + 3).trim()
+            }
+            val size = step * look.bodyScale * (doc.slotStyles[slot]?.scale ?: 1f)
+            val pad = size * 0.6f
+            val avail = room(cell, width) - pad * 2
+            val lay = layout(styled(slot, body.ifEmpty { " " }), paint(false, size, bodyInk), avail.toInt())
+            val need = 1 + lay.lineCount
+            if (cell + need - 1 > lastCell) {
+                overflow.add(slot)
+                cell = lastCell + 1
+                return
+            }
+            val top = ruleY(cell) + step * 0.06f
+            val bottom = ruleY(cell + need) - step * 0.06f
+            val radius = step * 0.3f
+            val fill = Paint(Paint.ANTI_ALIAS_FLAG)
+            fill.color = Color.argb(30, Color.red(GREEN), Color.green(GREEN), Color.blue(GREEN))
+            canvas.drawRoundRect(left, top, left + width, bottom, radius, radius, fill)
+            val edge = Paint(Paint.ANTI_ALIAS_FLAG)
+            edge.style = Paint.Style.STROKE
+            edge.color = GREEN
+            edge.strokeWidth = max(2.5f, step * 0.07f)
+            canvas.drawRoundRect(left, top, left + width, bottom, radius, radius, edge)
+            canvas.drawText("★ " + label, left + pad, baseline(cell), paint(true, size, GREEN))
+            drawLayout(lay, left + pad, cell + 1)
+            cell += need
+        }
+
+        /**
+         * A real table on whole cells. The first row is the header (tinted, bold). Columns share the width by how long their text is,
+         * long cells wrap, and every row is as many cells high as its tallest cell, so the table lines are the notebook rules.
+         * The first column is bold and colored like a key term. Rows that do not fit are not drawn and the slot is reported as overflow.
+         */
+        fun table(slot: String, rows: List<List<String>>) {
+            if (rows.isEmpty()) return
+            if (full()) {
+                overflow.add(slot)
+                return
+            }
+            val columns = max(1, rows.maxOf { it.size })
+            val size = step * look.bodyScale * (doc.slotStyles[slot]?.scale ?: 1f) * 0.94f
+            val padX = size * 0.32f
+            val usable = room(cell, width)
+            val weights = FloatArray(columns) { c ->
+                val longest = rows.maxOf { r -> r.getOrElse(c) { "" }.length }
+                max(6f, min(30f, longest.toFloat()))
+            }
+            val total = weights.sum()
+            val widths = FloatArray(columns) { max(usable * 0.12f, usable * weights[it] / total) }
+            val fitScale = usable / widths.sum()
+            for (c in widths.indices) widths[c] *= fitScale
+
+            val laid = ArrayList<Pair<List<StaticLayout>, Int>>()
+            for ((r, row) in rows.withIndex()) {
+                val header = r == 0
+                val lays = (0 until columns).map { c ->
+                    val ink = if (header) NAVY else if (c == 0) look.marker else bodyInk
+                    layout(
+                        styled(slot, row.getOrElse(c) { "" }.ifEmpty { " " }),
+                        paint(header || c == 0, size, ink),
+                        max(1, (widths[c] - padX * 2).toInt())
+                    )
+                }
+                laid.add(lays to max(1, lays.maxOf { it.lineCount }))
+            }
+
+            var used = 0
+            val shown = ArrayList<Pair<List<StaticLayout>, Int>>()
+            for (row in laid) {
+                if (cell + used + row.second - 1 > lastCell) {
+                    overflow.add(slot)
+                    break
+                }
+                used += row.second
+                shown.add(row)
+            }
+            if (shown.isEmpty()) {
+                cell = lastCell + 1
+                return
+            }
+
+            val color = BLUE
+            val top = ruleY(cell)
+            val bottom = ruleY(cell + used)
+            val right = left + usable
+
+            val headFill = Paint(Paint.ANTI_ALIAS_FLAG)
+            headFill.color = Color.argb(42, Color.red(color), Color.green(color), Color.blue(color))
+            canvas.drawRect(left, top, right, ruleY(cell + shown[0].second), headFill)
+
+            val line = Paint(Paint.ANTI_ALIAS_FLAG)
+            line.color = color
+            line.strokeWidth = max(2f, step * 0.05f)
+            line.strokeCap = Paint.Cap.SQUARE
+            var rowCell = cell
+            canvas.drawLine(left, top, right, top, line)
+            for (row in shown) {
+                rowCell += row.second
+                canvas.drawLine(left, ruleY(rowCell), right, ruleY(rowCell), line)
+            }
+            var x = left
+            canvas.drawLine(x, top, x, bottom, line)
+            for (c in 0 until columns) {
+                x += widths[c]
+                canvas.drawLine(x, top, x, bottom, line)
+            }
+
+            rowCell = cell
+            for (row in shown) {
+                var cx = left
+                for (c in 0 until columns) {
+                    drawLayout(row.first[c], cx + padX, rowCell)
+                    cx += widths[c]
+                }
+                rowCell += row.second
+            }
+            cell += used
+        }
     }
 
     /**
@@ -303,17 +438,17 @@ internal object PostStudyGrid {
         fun flow(slot: String, raw: String, style: ListStyle) {
             if (raw.isEmpty()) return
             var counter = 0
-            var tableRow = 0
-            for (rawLine in raw.split('\n')) {
-                val line = rawLine.trimEnd()
-                if (line.isBlank()) continue
+            val lines = raw.split('\n').map { it.trimEnd() }.filter { it.isNotBlank() }
+            var i = 0
+            while (i < lines.size) {
+                val line = lines[i]
+                i++
                 if (page.full()) {
                     page.overflow.add(slot)
                     return
                 }
                 val t = line.trim()
                 val level = min(2, (line.length - line.trimStart().length) / 2)
-                if (!t.startsWith("|")) tableRow = 0
 
                 if (t.startsWith("### ")) {
                     page.heading(slot, t.drop(4), 0.72f, look.marker, 1, 0f)
@@ -334,6 +469,10 @@ internal object PostStudyGrid {
                     page.gap()
                     continue
                 }
+                if (t.startsWith(">>")) {
+                    page.keyPoint(slot, t.drop(2).trim())
+                    continue
+                }
                 if (t.startsWith(">")) {
                     val body = t.drop(1).trim()
                     val upper = body.uppercase()
@@ -342,14 +481,22 @@ internal object PostStudyGrid {
                     continue
                 }
                 if (t.startsWith("|")) {
-                    val cells = t.trim('|').split('|').map { it.trim() }
-                    if (cells.all { c -> c.all { ch -> ch == '-' || ch == ':' } }) continue
-                    tableRow++
-                    if (tableRow == 1) {
-                        page.item(slot, "", cells.joinToString("  |  "), 0, look.marker, NAVY, true)
-                    } else {
-                        page.item(slot, "", labelled(cells.first(), cells.drop(1).joinToString("  •  "), look.marker), 0, look.marker, page.bodyInk)
+                    // gather every pipe row that follows into one table
+                    val rows = ArrayList<List<String>>()
+                    var current = t
+                    while (true) {
+                        val cells = current.trim('|').split('|').map { it.trim() }
+                        val separator = cells.all { c -> c.isNotEmpty() && c.all { ch -> ch == '-' || ch == ':' } }
+                        if (!separator) rows.add(cells)
+                        if (i < lines.size && lines[i].trim().startsWith("|")) {
+                            current = lines[i].trim()
+                            i++
+                        } else {
+                            break
+                        }
                     }
+                    page.table(slot, rows)
+                    counter = 0
                     continue
                 }
 

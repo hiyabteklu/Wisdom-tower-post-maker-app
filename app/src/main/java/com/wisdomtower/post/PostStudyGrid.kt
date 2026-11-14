@@ -7,8 +7,12 @@ import android.graphics.Paint
 import android.graphics.Picture
 import android.graphics.Typeface
 import android.text.Layout
+import android.text.Spannable
 import android.text.StaticLayout
 import android.text.TextPaint
+import android.text.style.BackgroundColorSpan
+import android.text.style.ForegroundColorSpan
+import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.min
 
@@ -38,14 +42,23 @@ import kotlin.math.min
  *   Term: explanation                     the term becomes a bold colored label on every row style (a short label before a colon)
  *   ---                                   one blank line
  *   |a|b|c|                               a real table: consecutive pipe rows, the first row is the header, |---|---| rows are ignored
+ *   $$ ... $$, \[ ... \], \begin{pmatrix} ... \end{pmatrix}
+ *                                         a display formula on its own row (it may span several lines), typeset by PostTex:
+ *                                         stacked fractions, roots, sums and integrals with limits, matrices, aligned equations
+ *   $ ... $ alone on a row                promoted to a display formula when it needs two dimensions (frac, sqrt, sum, int, lim, left, begin)
  * Inline styling (explicit marks AND automatic styling of plain text: colored formulas, real sub and superscripts, Greek,
  * emphasis words) is done by PostStudyInline.
+ *
+ * Text size and color: the post's overall Text size (textScale) and each box's own scale multiply every size. The post's Text color
+ * is used for the body and for headings (a color set on one box wins). On a dark background (a dark solid or gradient) every
+ * ink is lifted to a light tone and the chips behind marked words are darkened, so nothing is dark on dark.
  */
 internal object PostStudyGrid {
     private const val FIRST = 0.025f
     private const val LAST = 0.975f
     private const val RULES = 30
     private const val LAST_CELL = RULES - 2
+    private const val DOLLAR = "\u0024"
 
     /** How far above its rule a baseline sits, in cells. Keeps descenders off the rule and ascenders under the rule above. */
     private const val LIFT = 0.22f
@@ -56,12 +69,21 @@ internal object PostStudyGrid {
     private val GREEN = Color.rgb(22, 128, 60)
     private val PURPLE = Color.rgb(124, 58, 237)
     private val INK = Color.rgb(37, 43, 49)
+    private val FORMULA = Color.rgb(0, 102, 153)
 
     /** Term colors, used in turn on the row styles that do not have one color of their own (checklist, numbered, bullets). */
     private val LABELS = intArrayOf(BLUE, RED, GREEN, PURPLE, NAVY)
 
     private val MARKS = listOf("★", "✦", "✧", "•", "✓", "✔", "☑", "☐", "→")
     private val NUMBERED = Regex("""^(\d+(?:\.\d+)*[.)])\s+(.+)$""")
+
+    /** A whole row that is one environment, for example \begin{pmatrix} ... \end{pmatrix}. */
+    private val BEGIN_ENV = Regex("""^\\begin\{([A-Za-z]+\*?)\}[\s\S]*\\end\{\1\}\z""")
+
+    /** LaTeX that needs two dimensions, so a row that is only such a formula is drawn as a display formula. */
+    private val NEEDS_2D = Regex(
+        """\\(?:d?frac|tfrac|cfrac|binom|sqrt|sum|prod|iint|int|oint|lim|left|begin|over(?![A-Za-z])|underbrace|overbrace|overset|underset|substack)"""
+    )
 
     /**
      * How well a sheet fits its ruled lines (Step 8).
@@ -102,6 +124,52 @@ internal object PostStudyGrid {
         else -> Look(RED, ListStyle.DOT, 2, 1.4f, 0.66f)
     }
 
+    // ---- dark backgrounds ----
+
+    /** True when the post's own solid or gradient background is dark. The template's own paper is light. */
+    private fun isDark(doc: PostDoc): Boolean {
+        if (doc.bgMode == BgMode.TEMPLATE) return false
+        val a = parseColor(doc.bgStartHex) ?: return false
+        val b = if (doc.bgMode == BgMode.GRADIENT) (parseColor(doc.bgEndHex) ?: a) else a
+        fun lum(c: Int): Double = (0.299 * Color.red(c) + 0.587 * Color.green(c) + 0.114 * Color.blue(c)) / 255.0
+        return (lum(a) + lum(b)) / 2.0 < 0.5
+    }
+
+    /** A light tone of a dark ink: same hue, softer, bright enough on a dark page. */
+    private fun lift(c: Int): Int {
+        val hsv = FloatArray(3)
+        Color.colorToHSV(c, hsv)
+        hsv[1] = min(hsv[1], 0.55f)
+        hsv[2] = max(hsv[2], 0.9f)
+        return Color.HSVToColor(Color.alpha(c), hsv)
+    }
+
+    /** A deep tone of a light chip color, so a lifted word stays readable on it. */
+    private fun deepen(c: Int): Int {
+        val hsv = FloatArray(3)
+        Color.colorToHSV(c, hsv)
+        hsv[2] = hsv[2] * 0.4f
+        return Color.HSVToColor(Color.alpha(c), hsv)
+    }
+
+    /** Lifts every text color and darkens every chip behind marked words, in place. */
+    private fun adaptSpans(text: Spannable) {
+        for (s in text.getSpans(0, text.length, ForegroundColorSpan::class.java)) {
+            val a = text.getSpanStart(s)
+            val b = text.getSpanEnd(s)
+            val f = text.getSpanFlags(s)
+            text.removeSpan(s)
+            text.setSpan(ForegroundColorSpan(lift(s.foregroundColor)), a, b, f)
+        }
+        for (s in text.getSpans(0, text.length, BackgroundColorSpan::class.java)) {
+            val a = text.getSpanStart(s)
+            val b = text.getSpanEnd(s)
+            val f = text.getSpanFlags(s)
+            text.removeSpan(s)
+            text.setSpan(BackgroundColorSpan(deepen(s.backgroundColor)), a, b, f)
+        }
+    }
+
     // ---- handwriting fonts ----
 
     private var handRegular: Typeface? = null
@@ -112,11 +180,11 @@ internal object PostStudyGrid {
     private const val BUNDLED_HAND = "fonts/english/PatrickHand-Regular.ttf"
 
     /**
-     * Handwriting fonts: the English font picked on the post wins, then any .ttf/.otf in assets/fonts/hand/
-     * (a file with "bold" in its name is the bold face), then the bundled Patrick Hand, then the phone's own casual font.
+     * Handwriting fonts: the font picked on this box (own) wins, then the English font picked on the post, then any .ttf/.otf in
+     * assets/fonts/hand/ (a file with "bold" in its name is the bold face), then the bundled Patrick Hand, then the phone's own casual font.
      */
-    private fun hand(context: Context, doc: PostDoc, bold: Boolean): Typeface {
-        PostFonts.typeface(context, doc.fontEnglish)?.let { return it }
+    private fun hand(context: Context, doc: PostDoc, bold: Boolean, own: String? = null): Typeface {
+        PostFonts.typeface(context, own ?: doc.fontEnglish)?.let { return it }
         synchronized(this) {
             if (!handLoaded) {
                 handLoaded = true
@@ -192,6 +260,74 @@ internal object PostStudyGrid {
         return if (text.length > 34) text.take(33).trimEnd() + "…" else text
     }
 
+    // ---- display formulas ----
+
+    /** The LaTeX of a row that is a display formula, or null when the row is ordinary text. */
+    private fun displayLatex(t: String): String? {
+        if (t.length > 4 && t.startsWith(DOLLAR + DOLLAR) && t.endsWith(DOLLAR + DOLLAR)) return t.substring(2, t.length - 2).trim()
+        if (t.length > 4 && t.startsWith("\\[") && t.endsWith("\\]")) return t.substring(2, t.length - 2).trim()
+        if (BEGIN_ENV.matches(t)) return t
+        if (t.length > 2 && t.startsWith(DOLLAR) && t.endsWith(DOLLAR) && t.indexOf(DOLLAR, 1) == t.length - 1) {
+            val inner = t.substring(1, t.length - 1).trim()
+            if (NEEDS_2D.containsMatchIn(inner)) return inner
+        }
+        return null
+    }
+
+    /** How a multi-line display formula starts: "$$", "\[" or "\begin{...}". Null for any other row. */
+    private fun opener(t: String): String? = when {
+        t.startsWith(DOLLAR + DOLLAR) -> DOLLAR + DOLLAR
+        t.startsWith("\\[") -> "\\["
+        t.startsWith("\\begin{") -> "\\begin"
+        else -> null
+    }
+
+    private fun isClosed(text: String, opener: String): Boolean = when (opener) {
+        DOLLAR + DOLLAR -> text.length > 4 && text.endsWith(DOLLAR + DOLLAR)
+        "\\[" -> text.length > 3 && text.endsWith("\\]")
+        else -> BEGIN_ENV.matches(text)
+    }
+
+    /**
+     * Joins the rows of a display formula that was written over several lines into one row (so a matrix or an aligned block
+     * typed on separate lines is one formula). A formula that never closes within 40 rows is left as it was typed.
+     */
+    private fun mergeMath(src: List<String>): List<String> {
+        val out = ArrayList<String>()
+        var i = 0
+        while (i < src.size) {
+            val t = src[i].trim()
+            val open = opener(t)
+            val hasClose = when (open) {
+                null -> true
+                DOLLAR + DOLLAR -> t.indexOf(DOLLAR + DOLLAR, 2) >= 0
+                "\\[" -> t.contains("\\]")
+                else -> t.contains("\\end{")
+            }
+            if (open != null && !hasClose) {
+                val sb = StringBuilder(t)
+                var j = i + 1
+                var done = false
+                while (j < src.size && j < i + 40) {
+                    sb.append(' ').append(src[j].trim())
+                    if (isClosed(sb.toString(), open)) {
+                        done = true
+                        break
+                    }
+                    j++
+                }
+                if (done) {
+                    out.add(sb.toString())
+                    i = j + 1
+                    continue
+                }
+            }
+            out.add(src[i])
+            i++
+        }
+        return out
+    }
+
     // ---- the page ----
 
     private class Page(
@@ -206,13 +342,24 @@ internal object PostStudyGrid {
         val step: Float = h * (LAST - FIRST) / (RULES - 1)
         val left: Float = w * 0.065f
         val width: Float = w * 0.91f
-        val bodyInk: Int = parseColor(doc.textHex) ?: INK
+
+        /** A dark background lifts every ink (see isDark). */
+        val dark: Boolean = isDark(doc)
+
+        /** The post's Text color, if one was picked. It colors the body and the headings. */
+        val userInk: Int? = parseColor(doc.textHex)
+        val bodyInk: Int = userInk ?: tone(INK)
         var cell = 0
         val overflow = LinkedHashSet<String>()
 
         /** How many rows were not drawn, and the first of them (Step 8). */
         var leftOut = 0
         var firstLeftOut = ""
+
+        fun tone(c: Int): Int = if (dark) lift(c) else c
+
+        /** The post's overall Text size times this box's own size. */
+        fun scaleOf(slot: String): Float = doc.textScale.coerceIn(0.6f, 1.8f) * (doc.slotStyles[slot]?.scale ?: 1f)
 
         fun ruleY(k: Int): Float = h * FIRST + k * step
         fun baseline(c: Int): Float = ruleY(c + 1) - step * LIFT
@@ -229,17 +376,20 @@ internal object PostStudyGrid {
         /** The first cell shares its line with the small logo in the top-right corner, so text there stops before it. */
         fun room(c: Int, avail: Float): Float = if (c == 0 && doc.showLogo) avail - w * 0.15f else avail
 
-        fun paint(bold: Boolean, size: Float, color: Int): TextPaint {
+        fun paint(bold: Boolean, size: Float, color: Int, slot: String = ""): TextPaint {
             val p = TextPaint(Paint.ANTI_ALIAS_FLAG)
-            p.typeface = hand(context, doc, bold)
+            p.typeface = hand(context, doc, bold, doc.slotStyles[slot]?.fontEn)
             p.textSize = size
             p.color = color
             return p
         }
 
         /** auto: false for titles, so only the explicit marks are applied there (see PostStudyInline). */
-        fun styled(slot: String, raw: String, auto: Boolean = true): CharSequence =
-            PostStudyInline.render(context, raw, doc, doc.slotStyles[slot]?.fontAm, auto)
+        fun styled(slot: String, raw: String, auto: Boolean = true): CharSequence {
+            val out = PostStudyInline.render(context, raw, doc, doc.slotStyles[slot]?.fontAm, auto)
+            if (dark && out is Spannable) adaptSpans(out)
+            return out
+        }
 
         fun layout(text: CharSequence, paint: TextPaint, width: Int): StaticLayout =
             StaticLayout.Builder.obtain(text, 0, text.length, paint, max(1, width))
@@ -276,11 +426,11 @@ internal object PostStudyGrid {
                 return
             }
             val own = doc.slotStyles[slot]
-            val ink = parseColor(own?.colorHex) ?: color
-            var size = step * scale * (own?.scale ?: 1f)
+            val ink = parseColor(own?.colorHex) ?: userInk ?: tone(color)
+            var size = step * scale * scaleOf(slot)
             val text = styled(slot, if (caps) raw.uppercase() else raw, false)
             val avail = room(cell, width)
-            val p = paint(true, size, ink)
+            val p = paint(true, size, ink, slot)
             p.letterSpacing = spacing
             val minSize = size * 0.45f
             while (p.measureText(text, 0, text.length) > avail && size > minSize) {
@@ -299,7 +449,7 @@ internal object PostStudyGrid {
             drawLayout(lay, left, first)
             if (underline > 0f) {
                 val u = Paint(Paint.ANTI_ALIAS_FLAG)
-                u.color = underlineColor ?: ink
+                u.color = underlineColor?.let { tone(it) } ?: ink
                 u.alpha = 215
                 u.strokeWidth = step * underline
                 u.strokeCap = Paint.Cap.ROUND
@@ -319,14 +469,13 @@ internal object PostStudyGrid {
                 miss(slot, raw)
                 return
             }
-            val own = doc.slotStyles[slot]
-            val size = step * look.bodyScale * (own?.scale ?: 1f)
+            val size = step * look.bodyScale * scaleOf(slot)
             val nest = level * size * 0.9f
             val x0 = left + nest
             val digits = marker.firstOrNull()?.isDigit() == true
             val indent = if (marker.isEmpty()) 0f else if (digits) size * 1.95f else size * 1.2f
             val avail = room(cell, width - nest) - indent
-            val lay = layout(styled(slot, raw.ifEmpty { " " }), paint(bold, size, ink), avail.toInt())
+            val lay = layout(styled(slot, raw.ifEmpty { " " }), paint(bold, size, ink, slot), avail.toInt())
             val need = lay.lineCount
             if (cell + need - 1 > lastCell) {
                 miss(slot, raw)
@@ -335,10 +484,10 @@ internal object PostStudyGrid {
             }
             if (marker == "•") {
                 val dot = Paint(Paint.ANTI_ALIAS_FLAG)
-                dot.color = markerColor
+                dot.color = tone(markerColor)
                 canvas.drawCircle(x0 + size * 0.3f, baseline(cell) - size * 0.3f, size * 0.13f, dot)
             } else if (marker.isNotEmpty()) {
-                canvas.drawText(marker, x0, baseline(cell), paint(true, size, markerColor))
+                canvas.drawText(marker, x0, baseline(cell), paint(true, size, tone(markerColor), slot))
             }
             drawLayout(lay, x0 + indent, cell)
             cell += need
@@ -350,12 +499,12 @@ internal object PostStudyGrid {
                 miss(slot, raw)
                 return
             }
-            val bar = if (warn) RED else GREEN
-            val size = step * look.bodyScale * (doc.slotStyles[slot]?.scale ?: 1f)
+            val bar = tone(if (warn) RED else GREEN)
+            val size = step * look.bodyScale * scaleOf(slot)
             val pad = size * 0.55f
             val indent = size * 1.4f
             val avail = room(cell, width) - pad - indent - size * 0.2f
-            val lay = layout(styled(slot, raw), paint(true, size, bodyInk), avail.toInt())
+            val lay = layout(styled(slot, raw), paint(true, size, bodyInk, slot), avail.toInt())
             val need = lay.lineCount
             if (cell + need - 1 > lastCell) {
                 miss(slot, raw)
@@ -370,7 +519,7 @@ internal object PostStudyGrid {
             val edge = Paint(Paint.ANTI_ALIAS_FLAG)
             edge.color = bar
             canvas.drawRect(left, top, left + size * 0.14f, bottom, edge)
-            canvas.drawText(if (warn) "!" else "★", left + pad, baseline(cell), paint(true, size, bar))
+            canvas.drawText(if (warn) "!" else "★", left + pad, baseline(cell), paint(true, size, bar, slot))
             drawLayout(lay, left + pad + indent, cell)
             cell += need
         }
@@ -391,10 +540,11 @@ internal object PostStudyGrid {
                 label = body.substring(0, bar).trim()
                 body = body.substring(bar + 3).trim()
             }
-            val size = step * look.bodyScale * (doc.slotStyles[slot]?.scale ?: 1f)
+            val green = tone(GREEN)
+            val size = step * look.bodyScale * scaleOf(slot)
             val pad = size * 0.6f
             val avail = room(cell, width) - pad * 2
-            val lay = layout(styled(slot, body.ifEmpty { " " }), paint(false, size, bodyInk), avail.toInt())
+            val lay = layout(styled(slot, body.ifEmpty { " " }), paint(false, size, bodyInk, slot), avail.toInt())
             val need = 1 + lay.lineCount
             if (cell + need - 1 > lastCell) {
                 miss(slot, raw)
@@ -405,15 +555,72 @@ internal object PostStudyGrid {
             val bottom = ruleY(cell + need) - step * 0.06f
             val radius = step * 0.3f
             val fill = Paint(Paint.ANTI_ALIAS_FLAG)
-            fill.color = Color.argb(30, Color.red(GREEN), Color.green(GREEN), Color.blue(GREEN))
+            fill.color = Color.argb(30, Color.red(green), Color.green(green), Color.blue(green))
             canvas.drawRoundRect(left, top, left + width, bottom, radius, radius, fill)
             val edge = Paint(Paint.ANTI_ALIAS_FLAG)
             edge.style = Paint.Style.STROKE
-            edge.color = GREEN
+            edge.color = green
             edge.strokeWidth = max(2.5f, step * 0.07f)
             canvas.drawRoundRect(left, top, left + width, bottom, radius, radius, edge)
-            canvas.drawText("★ " + label, left + pad, baseline(cell), paint(true, size, GREEN))
+            canvas.drawText("★ " + label, left + pad, baseline(cell), paint(true, size, green, slot))
             drawLayout(lay, left + pad, cell + 1)
+            cell += need
+        }
+
+        /**
+         * A display formula on whole cells (Step B). PostTex typesets the LaTeX; a formula wider than the page is split at its relations
+         * and operators into several lines, and only a single huge block (a big matrix) is scaled down to the width. The block is centred
+         * on the page and vertically in its cells, over a soft panel, so the rules behind it do not cut through the fraction bars.
+         * LaTeX PostTex cannot read is drawn as a one-line inline formula instead, so words are never lost.
+         */
+        fun math(slot: String, latex: String) {
+            if (full()) {
+                miss(slot, "formula " + latex)
+                return
+            }
+            val own = doc.slotStyles[slot]
+            val size = step * look.bodyScale * scaleOf(slot) * 1.18f
+            val ink = parseColor(own?.colorHex) ?: tone(FORMULA)
+            val usable = room(cell, width)
+            val avail = max(usable - size * 0.9f, size * 4f)
+            val boxes = PostTex.typeset(latex, size, ink, avail)
+            if (boxes == null || boxes.isEmpty()) {
+                item(slot, "", DOLLAR + latex.replace('\n', ' ').trim() + DOLLAR, 0, look.marker, bodyInk)
+                return
+            }
+            val scales = ArrayList<Float>()
+            val heights = ArrayList<Int>()
+            var need = 0
+            for (b in boxes) {
+                val k = if (b.w > avail && b.w > 0f) avail / b.w else 1f
+                val cells = max(1, ceil(((b.asc + b.desc) * k + step * 0.2f) / step).toInt())
+                scales.add(k)
+                heights.add(cells)
+                need += cells
+            }
+            if (cell + need - 1 > lastCell) {
+                miss(slot, "formula " + latex)
+                cell = lastCell + 1
+                return
+            }
+            val panel = Paint(Paint.ANTI_ALIAS_FLAG)
+            panel.color = Color.argb(24, Color.red(ink), Color.green(ink), Color.blue(ink))
+            val radius = step * 0.3f
+            canvas.drawRoundRect(left, ruleY(cell) + step * 0.06f, left + usable, ruleY(cell + need) - step * 0.06f, radius, radius, panel)
+            var c0 = cell
+            for ((n, b) in boxes.withIndex()) {
+                val k = scales[n]
+                val cells = heights[n]
+                val mid = (ruleY(c0) + ruleY(c0 + cells)) / 2f
+                val base = mid + (b.asc - b.desc) * k / 2f
+                val x = left + (usable - b.w * k) / 2f
+                canvas.save()
+                canvas.translate(x, base)
+                canvas.scale(k, k)
+                b.draw(canvas, 0f, 0f)
+                canvas.restore()
+                c0 += cells
+            }
             cell += need
         }
 
@@ -430,7 +637,7 @@ internal object PostStudyGrid {
                 return
             }
             val columns = max(1, rows.maxOf { it.size })
-            val size = step * look.bodyScale * (doc.slotStyles[slot]?.scale ?: 1f) * 0.94f
+            val size = step * look.bodyScale * scaleOf(slot) * 0.94f
             val padX = size * 0.32f
             val usable = room(cell, width)
             val weights = FloatArray(columns) { c ->
@@ -442,14 +649,15 @@ internal object PostStudyGrid {
             val fitScale = usable / widths.sum()
             for (c in widths.indices) widths[c] *= fitScale
 
+            val color = tone(BLUE)
             val laid = ArrayList<Pair<List<StaticLayout>, Int>>()
             for ((r, row) in rows.withIndex()) {
                 val header = r == 0
                 val lays = (0 until columns).map { c ->
-                    val ink = if (header) NAVY else if (c == 0) look.marker else bodyInk
+                    val ink = if (header) tone(NAVY) else if (c == 0) tone(look.marker) else bodyInk
                     layout(
                         styled(slot, row.getOrElse(c) { "" }.ifEmpty { " " }),
-                        paint(header || c == 0, size, ink),
+                        paint(header || c == 0, size, ink, slot),
                         max(1, (widths[c] - padX * 2).toInt())
                     )
                 }
@@ -473,7 +681,6 @@ internal object PostStudyGrid {
                 return
             }
 
-            val color = BLUE
             val top = ruleY(cell)
             val bottom = ruleY(cell + used)
             val right = left + usable
@@ -565,7 +772,7 @@ internal object PostStudyGrid {
         fun flow(slot: String, raw: String, style: ListStyle) {
             if (raw.isEmpty()) return
             var counter = 0
-            val lines = raw.split('\n').map { it.trimEnd() }.filter { it.isNotBlank() }
+            val lines = mergeMath(raw.split('\n').map { it.trimEnd() }.filter { it.isNotBlank() })
             var i = 0
             while (i < lines.size) {
                 val line = lines[i]
@@ -579,6 +786,11 @@ internal object PostStudyGrid {
                 val t = line.trim()
                 val level = min(2, (line.length - line.trimStart().length) / 2)
 
+                val tex = displayLatex(t)
+                if (tex != null) {
+                    page.math(slot, tex)
+                    continue
+                }
                 if (t.startsWith("### ")) {
                     page.heading(slot, t.drop(4), 0.72f, look.marker, 1, 0f)
                     counter = 0

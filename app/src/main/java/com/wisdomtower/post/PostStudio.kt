@@ -645,6 +645,8 @@ private fun PreviewPane(
     val context = LocalContext.current
     var preview by remember { mutableStateOf<Bitmap?>(null) }
     var overflow by remember { mutableStateOf<List<String>>(emptyList()) }
+    // Chapter summaries only: how many ruled lines the sheet uses and what was left out (PostStudyGrid.Fit). Null for every other template.
+    var fit by remember { mutableStateOf<PostStudyGrid.Fit?>(null) }
     val lastChange = remember { longArrayOf(0L) }
 
     // Two speeds. Changes that follow each other fast (dragging an icon or the logo, moving a slider) draw a small version at once,
@@ -668,6 +670,11 @@ private fun PreviewPane(
         }
         preview = sharp.bitmap
         overflow = sharp.overflow
+        fit = if (doc.templateId.startsWith("study-")) {
+            withContext(Dispatchers.Default) { runCatching { PostStudyGrid.measure(context, doc) }.getOrNull() }
+        } else {
+            null
+        }
     }
 
     Box(modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), contentAlignment = Alignment.Center) {
@@ -810,9 +817,23 @@ private fun PreviewPane(
                             }
                         }
                 )
-                if (overflow.isNotEmpty()) {
+                val isStudy = doc.templateId.startsWith("study-")
+                val studyFit = fit
+                if (isStudy && studyFit != null) {
+                    // Chapter summaries never shrink text: the chip shows how many ruled lines are used, or what was left out.
                     Text(
-                        "Text shrunk to fit: " + overflow.joinToString { PostSlots.label(it) },
+                        if (studyFit.fits) studyFit.counter() else studyFit.warning(),
+                        fontSize = 10.sp,
+                        color = PostPalette.Ink,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(6.dp)
+                            .background(if (studyFit.fits) PostPalette.Mint else PostPalette.Gold, RoundedCornerShape(8.dp))
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    )
+                } else if (overflow.isNotEmpty()) {
+                    Text(
+                        (if (isStudy) "Does not fit, split this sheet: " else "Text shrunk to fit: ") + overflow.joinToString { PostSlots.label(it) },
                         fontSize = 10.sp,
                         color = PostPalette.Ink,
                         modifier = Modifier.padding(6.dp).background(PostPalette.Gold, RoundedCornerShape(8.dp)).padding(horizontal = 8.dp, vertical = 2.dp)
@@ -851,8 +872,10 @@ private fun SaveDialog(doc: PostDoc, brand: PostBrand, onDismiss: () -> Unit) {
             if (saved == null) {
                 status = "Export failed: " + (outcome.exceptionOrNull()?.localizedMessage ?: "unknown error")
             } else {
+                val study = doc.templateId.startsWith("study-")
                 val warn = saved.overflow.entries.joinToString("\n") { (s, names) ->
-                    s.label + ": text had to shrink in " + names.joinToString { PostSlots.label(it) }
+                    if (study) s.label + ": does not fit, split this sheet (" + names.joinToString { PostSlots.label(it) } + ")"
+                    else s.label + ": text had to shrink in " + names.joinToString { PostSlots.label(it) }
                 }
                 status = "Saved " + saved.uris.size + " file(s) to Pictures/Wisdom Tower Post" + (if (warn.isEmpty()) "" else "\n" + warn)
                 if (share) {

@@ -1,10 +1,13 @@
 package com.wisdomtower.post
 
 /**
- * Study-note templates: six distinct white-paper, notebook-inspired layouts.
- * The paper, ruled lines, red margin and handwritten-style hierarchy are the design,
- * not banners/cards over a dark social background. All dimensions are canvas fractions.
+ * Chapter summaries (family CHAPTER_FAMILY): six notebook-paper study sheets, docs/CHAPTER_SUMMARIES_PLAN.md.
+ * The paper (30 ruled lines and the red margin) is the only decoration. All the text, headings, tables and boxes are laid on the
+ * rules by PostStudyGrid.kt, so the slot boxes below only say WHICH words a variant has, not where they go.
  */
+
+/** The family name. The editor's template strip shows only this family for a chapter-summaries draft, and never shows it for a poster draft. */
+internal const val CHAPTER_FAMILY = "Chapter summaries"
 
 private const val STU = 1080f
 private val ST_BACKDROP = Backdrop(PostTone.PAPER, PostTone.PAPER, 90f)
@@ -16,7 +19,7 @@ private fun stTemplate(
     name: String,
     samples: Map<String, String>,
     build: (PostSize) -> TemplateLayout
-) = PostTemplateSpec(id, name, "Study", samples, null) { size -> build(size).copy(clean = true) }
+) = PostTemplateSpec(id, name, CHAPTER_FAMILY, samples, null) { size -> build(size).copy(clean = true) }
 
 private fun stText(
     slot: String, x: Float, y: Float, w: Float, h: Float, size: Float, font: PostFont, tone: PostTone,
@@ -55,8 +58,12 @@ private fun stPaper(size: PostSize, marginX: Float = .04f): List<DecorBox> {
 private fun stInkUnderline(size: PostSize, x: Float, y: Float, w: Float, tone: PostTone = PostTone.RED) =
     stRule(size, x, y, w, tone, 5f, 235)
 
-private fun stPaperLayout(size: PostSize, decor: List<DecorBox>, slots: List<SlotBox>) =
-    TemplateLayout(PostBase.LIGHT, stPaper(size) + decor, slots, footerLight = false, backdrop = ST_BACKDROP)
+/**
+ * The paper only. The decor list the variants still pass is ignored on purpose: those underlines and rules sat at fixed heights
+ * and would now cut through the text that PostStudyGrid lays on the rules (it draws its own underlines, tables and boxes).
+ */
+private fun stPaperLayout(size: PostSize, @Suppress("UNUSED_PARAMETER") decor: List<DecorBox>, slots: List<SlotBox>) =
+    TemplateLayout(PostBase.LIGHT, stPaper(size), slots, footerLight = false, backdrop = ST_BACKDROP)
 
 internal val StudyTemplates: List<PostTemplateSpec> = listOf(
     stTemplate("study-cover", "Notebook cover", mapOf(
@@ -88,7 +95,7 @@ internal val StudyTemplates: List<PostTemplateSpec> = listOf(
     stTemplate("study-table", "Handwritten notes table", mapOf(
         PostSlots.EYEBROW to "GEOGRAPHY • ETHIOPIA",
         PostSlots.HEADLINE to "Climatic zones",
-        PostSlots.LIST to "Dega: above 2,500 m, cool\nWoina Dega: 1,500–2,500 m, moderate\nKolla: 1,000–1,500 m, hot\nBereha: 500–1,000 m, very hot\nWurch: below 500 m, extremely hot"
+        PostSlots.LIST to "|Zone|Altitude|Climate|\n|Dega|Above 2,500 m|Cool|\n|Woina Dega|1,500–2,500 m|Moderate|\n|Kolla|1,000–1,500 m|Hot|\n|Bereha|500–1,000 m|Very hot|\n|Wurch|Below 500 m|Extremely hot|\n>> Key Point | Altitude decides the zone more than latitude does."
     ), ::stTableLayout),
 
     stTemplate("study-mnemonic", "Mnemonic study sheet", mapOf(

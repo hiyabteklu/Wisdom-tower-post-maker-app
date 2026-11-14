@@ -35,6 +35,17 @@ This is the current operating contract for every AI agent/automation creating Wi
 
 One poster is one batch with one post and one caption (a deck of related posters may be one batch). One batch uses one template. Maximum 50 posts. The backend stores structured text and captions, not the final poster bitmap.
 
+## Chapter summaries (handwritten dense notes)
+
+Template ids `study-cover`, `study-list`, `study-define`, `study-checklist`, `study-table`, `study-mnemonic` are the **Chapter summaries** family (spec: `CHAPTER_SUMMARIES_PLAN.md`, status: `CHAPTER_SUMMARIES_PROGRESS.md`). They are delivered exactly like any other batch (same `save_batch`, same rules above), with these differences:
+
+- **One batch, one variant.** A chapter split into sheets that use different variants is several batches, one per variant, all with the same `pillar` (normally Academic Mastery) and the same `subfolder` (for example `Physics Ch 4`) so the sheets sit together in the inbox. Number the sheets in `eyebrow` (`PHYSICS CH 4 · 2/5`).
+- **The `list` box carries the dense page.** One array item = one line of the study markup (headings, bullets, numbered points, table rows, Key Point box). The page holds about 29 text lines, and a wrapped line costs one more. Plan the content per sheet to fit; if it does not fit, split it into more sheets. The app never shrinks text: what does not fit is not drawn.
+- **Markup in `list` items** (the app draws these, so unlike other templates a leading `-`, `★`, `1.` is allowed): `## Topic`, `### Subtopic`, `- bullet`, `★ / ✓ / → text`, `1. numbered`, `> key idea`, `> WARNING text` (red), `>> Label | text` (Key Point box), `Term: explanation`, `|a|b|c|` table rows (first row is the header), `---` (blank line). Inline: `**bold**`, `==highlight==`, `[[key term]]`, `[[#D11A26;B:word]]`, `$formula$` (shown as clean text, never raw LaTeX).
+- **Backend limits for these six** (`wt_post.template_boxes`, changed 14 Nov 2026): `list` takes 1 to 40 items of up to 320 characters each. The bullet/letter/number refusal in `wt_post.check_batch` is skipped for `study-%` templates only; every other template is checked as before. The other boxes keep their old limits (eyebrow 40, headline 60 (study-cover 64), message 120 on study-cover and 220 on study-define, button 60 to 80, number 16 on study-mnemonic). Every box the variant has must still be written.
+- **Where the dense content goes per variant:** `study-list`, `study-checklist`, `study-table`, `study-mnemonic` take it in `list`. `study-cover` and `study-define` have no `list` box, so they hold a title and one short paragraph only; use them as the opener of a chapter, not for dense content.
+- Brand Kit `rules/TEMPLATES.md` does not describe these six yet. Until it does, this section is the reference for them.
+
 ## Inbox folders
 
 The Poster inbox shows folders, not one long list. Folder list first, then the batches of the folder you open, newest first. When a folder holds more than one subfolder, chips filter them. The status chips (All, Draft, Approved, Posted) work on both levels.

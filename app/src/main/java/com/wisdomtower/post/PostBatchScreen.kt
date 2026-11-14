@@ -632,7 +632,11 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
     }
 }
 
-/** One swipeable page: the preview of one post and its Edit button. Fixed height so swiping never jumps. */
+/**
+ * One swipeable page: the preview of one post and its Edit button. Fixed height so swiping never jumps.
+ * Chapter summaries (study-*) never shrink their text, so the chip on those pages shows "Lines n / 29" when the sheet fits, or
+ * "Does not fit, split this sheet. Left out: ..." naming the first row that was left out (PostStudyGrid.Fit).
+ */
 @Composable
 private fun BatchPostPage(
     postDoc: PostDoc,
@@ -645,12 +649,18 @@ private fun BatchPostPage(
     val context = LocalContext.current
     var bitmap by remember { mutableStateOf<Bitmap?>(null) }
     var overflow by remember { mutableStateOf<List<String>>(emptyList()) }
+    var fit by remember { mutableStateOf<PostStudyGrid.Fit?>(null) }
     LaunchedEffect(postDoc, brand) {
         val result = withContext(Dispatchers.Default) {
             PostRenderer.preview(context, postDoc, brand, 540) { !isActive }
         }
         bitmap = result.bitmap
         overflow = result.overflow
+        fit = if (postDoc.templateId.startsWith("study-")) {
+            withContext(Dispatchers.Default) { runCatching { PostStudyGrid.measure(context, postDoc) }.getOrNull() }
+        } else {
+            null
+        }
     }
     Column(Modifier.fillMaxWidth()) {
         Box(
@@ -680,9 +690,25 @@ private fun BatchPostPage(
                         .padding(horizontal = 8.dp, vertical = 3.dp)
                 )
             }
-            if (overflow.isNotEmpty()) {
+            val isStudy = postDoc.templateId.startsWith("study-")
+            val studyFit = fit
+            if (isStudy && studyFit != null) {
                 Text(
-                    "Text shrunk to fit",
+                    if (studyFit.fits) studyFit.counter() else studyFit.warning(),
+                    color = PostPalette.Ink,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 3,
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(8.dp)
+                        .then(if (studyFit.fits) Modifier else Modifier.fillMaxWidth(0.8f))
+                        .background(if (studyFit.fits) PostPalette.Mint else PostPalette.Gold, RoundedCornerShape(6.dp))
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                )
+            } else if (overflow.isNotEmpty()) {
+                Text(
+                    if (isStudy) "Does not fit, split this sheet" else "Text shrunk to fit",
                     color = PostPalette.Ink,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,

@@ -86,8 +86,9 @@ import java.util.Locale
 /**
  * Batch posts, in two steps.
  * Step 1 (write): paste the list, pick the fill box, add photos.
- * Step 2 (review): swipe through a preview of every post, edit the words of any post,
- * then press Save to gallery. Nothing is saved until that button is pressed.
+ * Step 2 (review): swipe through a preview of every post, change the design of one page or of the whole batch (Design panel,
+ * PostBatchDesign.kt), edit the words of any post, then press Save to gallery. Nothing is saved to the gallery until that button is pressed.
+ * Designs of an inbox batch are remembered on this phone (PostDesignStore), so they are still there when the batch is reopened.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -121,7 +122,13 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
     var originalItems by remember { mutableStateOf<List<BatchItem>>(emptyList()) }
     var editingIndex by remember { mutableStateOf<Int?>(null) }
     var editingDoc by remember { mutableStateOf<PostDoc?>(null) }
-    val editedDesigns = remember { mutableStateMapOf<Int, PostDoc>() }
+    // Designs of an inbox batch come back from this phone: the design of the whole batch, and the own design of every page edited on its own.
+    val savedDesigns = remember(initialBatch?.id) { PostDesignStore.load(context, initialBatch?.id) }
+    // null = the batch still uses the open post's design (doc).
+    var batchDesign by remember(initialBatch?.id) { mutableStateOf<PostDoc?>(savedDesigns.batch) }
+    // The Design panel scope: true changes every post, false changes only the post on screen.
+    var entireBatch by remember(initialBatch?.id) { mutableStateOf(true) }
+    val editedDesigns = remember(initialBatch?.id) { mutableStateMapOf<Int, PostDoc>().apply { putAll(savedDesigns.pages) } }
     // Captions belong to the inbox batch, not to the poster design. Keep edits locally on this phone
     // so they survive leaving and reopening the batch; the current wt-mcp API has no caption-update tool.
     val captionDrafts = remember(initialBatch?.id) {
@@ -202,13 +209,39 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
     // Phone mockups are image-driven: one imported screenshot creates one review/export item.
     val items = if (mockupBatch) batchPhotos.mapIndexed { index, _ -> BatchItem(index + 1, emptyMap(), emptyList()) } else parsed.items
 
+    // A page's design: its own (edited alone or in the editor), else the design of the whole batch, else the open post.
     fun pageDoc(item: BatchItem): PostDoc {
-        val design = editedDesigns[item.number] ?: doc
+        val design = editedDesigns[item.number] ?: batchDesign ?: doc
         val batchPhoto = batchPhotos.getOrNull(item.number - 1)
         return PostBatch.apply(design, item).let { page ->
             val withSize = page.copy(size = batchSize)
             if (item.number !in editedDesigns && batchPhoto != null) withSize.copy(photoUri = batchPhoto) else withSize
         }
+    }
+
+    // Keeps the designs of an inbox batch on this phone. Only inbox batches have an id to keep them under.
+    fun persistDesigns() {
+        val id = initialBatch?.id ?: return
+        PostDesignStore.save(context, id, batchDesign ?: doc, editedDesigns.toMap())
+    }
+
+    // The Design panel calls this. change only touches look fields (see PostBatchDesign.kt), so words are never read or replaced here.
+    // Entire batch: the batch design and every page that has its own design get the same change.
+    // This page: only that page gets its own design (a copy of the batch design with the change), and keeps its own photo.
+    fun changeDesign(pageNumber: Int, change: (PostDoc) -> PostDoc) {
+        if (entireBatch) {
+            batchDesign = change(batchDesign ?: doc)
+            editedDesigns.keys.toList().forEach { number ->
+                editedDesigns[number]?.let { editedDesigns[number] = change(it) }
+            }
+        } else {
+            val first = editedDesigns[pageNumber] == null
+            val current = editedDesigns[pageNumber] ?: batchDesign ?: doc
+            val changed = change(current)
+            val ownPhoto = batchPhotos.getOrNull(pageNumber - 1)
+            editedDesigns[pageNumber] = if (first && ownPhoto != null) changed.copy(photoUri = ownPhoto) else changed
+        }
+        persistDesigns()
     }
 
     // Words that came from the inbox are not stored as the template's own batch draft.
@@ -514,6 +547,25 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
                             Icon(Icons.Outlined.ArrowForward, contentDescription = "Next")
                         }
                     }
+                    // Design panel: This page / Entire batch (docs/MATH_AND_TEMPLATES_PLAN.md, Step D).
+                    val designPage = reviewItems.getOrNull(pagerState.currentPage)
+                    if (!running && designPage != null) {
+                        Box(
+                            Modifier.fillMaxWidth()
+                                .background(PostPalette.Surface, RoundedCornerShape(12.dp))
+                                .padding(12.dp)
+                        ) {
+                            BatchDesignPanel(
+                                postCount = reviewItems.size,
+                                pageNumber = designPage.number,
+                                entireBatch = entireBatch,
+                                onScope = { entireBatch = it },
+                                design = editedDesigns[designPage.number] ?: batchDesign ?: doc,
+                                brand = currentBrand,
+                                onChange = { change -> changeDesign(designPage.number, change) }
+                            )
+                        }
+                    }
                     // Save options + actions
                     Text("Save options", color = PostPalette.Text, fontWeight = FontWeight.Bold)
                     // (save options UI continues...)
@@ -587,7 +639,7 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
         val item = index?.let { reviewItems.getOrNull(it) }
         val activeEditorDoc = editingDoc
         if (index != null && item != null && activeEditorDoc != null) {
-            BackHandler { editingIndex = null; editingDoc = null }
+            BackHandler { persistDesigns(); editingIndex = null; editingDoc = null }
             Box(
                 Modifier.fillMaxSize().background(PostPalette.Ink)
                     // Swallow touches so nothing under the editor can be tapped through it.
@@ -622,9 +674,10 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
                                 editedDesigns[target.number] = source.copy(texts = doc.texts)
                             }
                         }
+                        persistDesigns()
                         backendMessage = "Design applied to all ${reviewItems.size} posts"
                     },
-                    onHeaderDone = { editingIndex = null; editingDoc = null }
+                    onHeaderDone = { persistDesigns(); editingIndex = null; editingDoc = null }
                 )
             }
         }

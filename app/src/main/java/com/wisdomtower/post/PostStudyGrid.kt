@@ -72,9 +72,12 @@ internal object PostStudyGrid {
     private var handBold: Typeface? = null
     private var handLoaded = false
 
+    /** The handwriting font that ships in assets/fonts/english/ (Patrick Hand has only a regular face, bold is drawn from it). */
+    private const val BUNDLED_HAND = "fonts/english/PatrickHand-Regular.ttf"
+
     /**
      * Handwriting fonts: the English font picked on the post wins, then any .ttf/.otf in assets/fonts/hand/
-     * (a file with "bold" in its name is the bold face), then the phone's own casual handwriting-style font.
+     * (a file with "bold" in its name is the bold face), then the bundled Patrick Hand, then the phone's own casual font.
      */
     private fun hand(context: Context, doc: PostDoc, bold: Boolean): Typeface {
         PostFonts.typeface(context, doc.fontEnglish)?.let { return it }
@@ -84,12 +87,12 @@ internal object PostStudyGrid {
                 val names = (runCatching { context.assets.list("fonts/hand") }.getOrNull() ?: emptyArray<String>())
                     .filter { it.endsWith(".ttf", true) || it.endsWith(".otf", true) }
                     .sorted()
-                fun load(name: String): Typeface? =
-                    runCatching { Typeface.createFromAsset(context.assets, "fonts/hand/" + name) }.getOrNull()
+                fun load(path: String): Typeface? =
+                    runCatching { Typeface.createFromAsset(context.assets, path) }.getOrNull()
                 val boldName = names.firstOrNull { it.contains("bold", true) }
                 val regularName = names.firstOrNull { !it.contains("bold", true) } ?: names.firstOrNull()
-                handRegular = regularName?.let { load(it) }
-                handBold = boldName?.let { load(it) } ?: handRegular?.let { Typeface.create(it, Typeface.BOLD) }
+                handRegular = regularName?.let { load("fonts/hand/" + it) } ?: load(BUNDLED_HAND)
+                handBold = boldName?.let { load("fonts/hand/" + it) } ?: handRegular?.let { Typeface.create(it, Typeface.BOLD) }
             }
         }
         val found = if (bold) handBold else handRegular

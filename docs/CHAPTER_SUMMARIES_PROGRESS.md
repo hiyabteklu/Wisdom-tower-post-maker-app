@@ -1,6 +1,6 @@
 # Chapter Summaries: progress log
 
-Companion to `CHAPTER_SUMMARIES_PLAN.md` (the plan stays the spec). Updated 2026-11-14 (late evening). The assistant cannot compile or run the app: everything marked "pushed" has been written but not compiled. Only the owner's first phone test (section "First phone test") has exercised the engine, and the new text engine (`PostStudyInline.kt`, see "Implemented after the first test") has not been built at all.
+Companion to `CHAPTER_SUMMARIES_PLAN.md` (the plan stays the spec). Updated 2026-11-14 (night). The assistant cannot compile or run the app: everything marked "pushed" has been written but not compiled. Only the owner's first phone test (section "First phone test") has exercised the engine; the new text engine (`PostStudyInline.kt`) and the Step 8 fit counter (below) have not been built at all.
 
 ## START HERE (next agent)
 
@@ -13,9 +13,37 @@ Reasons the page was flat (diagnosed from the code and the screenshots):
 4. Row-style sheets had no bullet mark.
 5. Formulas were plain text (and typed without `$...$`), so they got no styling and no real subscripts.
 
-Order of work now: **(1) build and test what was just pushed**, (2) the overflow warning, (3) real math layout (stacked fractions, root bars), (4) the rest of the list below.
+Order of work now: **(1) build and test everything pushed since the first phone test** (the new text engine, and the Step 8 "Lines n / 29" chip), (2) real math layout (stacked fractions, root bars), (3) the raw-tag bug in `PostFonts.styled`, (4) the rest of the list below.
 
 Before editing: read the latest `main`, work on `main` only (see `CLAUDE.md`), and tell the owner after each change that it has not been compiled.
+
+## Implemented after the first test, part 2 (pushed, NOT compiled, NOT run): Step 8, never lose text silently
+
+Commits "PostStudyGrid: Fit ...", "PostStudio: Chapter summaries chip ...", "PostBatchScreen: Chapter summaries page chip ...", and a docs commit for `AI_CONTENT_DELIVERY.md`.
+
+- `PostStudyGrid.Fit` (new): cells used out of cells available, how many rows were left out, and the first row left out as short plain text (tags and list markers stripped, at most 34 characters). `fits` is true when nothing was left out. `counter()` gives `Lines 24 / 29` (29 cells, or 28 when the footer chips are on). `warning()` gives `Does not fit, split this sheet. Left out: "..." and N more.`
+- `PostStudyGrid.drawFit()` is the old `draw()` plus the `Fit`; `draw()` still returns the slot list, so `PostRenderer.kt` and every other caller are unchanged.
+- `PostStudyGrid.measure(context, doc)` lays the sheet out onto a recording `Picture` canvas (nothing visible is drawn) and returns the `Fit`. The review screens call it right after the preview render; it runs the layout a second time, which should be cheap.
+- Every place that used to say `overflow.add(slot)` now calls `Page.miss(slot, raw, count)`, which also counts the rows and remembers the first one. When the page is full, the rest of the list is counted as left out (blank `---` rows excluded).
+- Behavior change: a table that only partly fits is still drawn with the rows that fit, but the page is then closed, so rows after the table are reported as left out instead of being drawn above a missing table row.
+- UI wording: `PostStudio.kt` preview chip and `PostBatchScreen.kt` (`BatchPostPage`) show the green `Lines n / 29` chip when a Chapter summaries sheet fits and a gold `Does not fit, split this sheet. Left out: ...` chip when it does not. Other templates keep "Text shrunk to fit". The Save dialog says "does not fit, split this sheet" for study templates. If `measure` fails for any reason the old chip appears with the study wording.
+- The batch chip sits at the bottom-left of the preview card (the top-right is the "Edited" tag and the top-left would cover the title).
+- Not changed: the batch save summary (`shrunk` list in `startBatch`) still names slots with the old wording; it is not shown anywhere in the screen today.
+
+Things to check when it is first built:
+- Compile: `Picture` import in `PostStudyGrid.kt`; `Modifier.then(...)` and `fillMaxWidth(0.8f)` in `BatchPostPage`; the new `fit` state in the two preview composables.
+- `measure` must give the same count as the real render (the sheet that showed the 11th and 12th rows missing should now say "Left out: ..." with the right first row). If the numbers disagree, the cause is the recording canvas, not the layout code.
+- The counter is 29 for a 9:16 sheet with the footer off and 28 with it on; check that matches the chip count you see.
+- A long warning wraps to two or three lines inside the preview; check that it does not hide the sheet title.
+
+## Static review of `PostStudyInline.kt` (read in full, 2026-11-14 night, nothing compiled)
+
+Read line by line for compile errors and found none. Points to watch when it is first built:
+- `open` and `double` are used as local names in `parse()`; both are legal (soft keyword and plain name).
+- `ScriptSpan` shifts with `p.baselineShift` (negative is up, same as Android's `SuperscriptSpan`). The per-line clip in `PostStudyGrid.drawLayout` starts at the line top, so a raised superscript may lose its top pixels on a tall line: if it does, widen the clip upward by about half a cell.
+- `SCRIPT` also matches `snake_case` words (`_case` becomes a subscript) and any single letter followed by `max`, `min`, `rms`, `avg`. Rare in prose, but if a word is broken, tighten the regex.
+- Greek letters use `RelativeSizeSpan(1.12f)`, which can make that line a few pixels taller; the baseline is still pinned to the rule.
+- `FORMULA` treats any token with `=` as a formula, so `x = 5 cm` prose gets formula ink. Intended; tune if it looks too eager.
 
 ## Implemented after the first test (pushed, NOT compiled, NOT run)
 
@@ -56,7 +84,7 @@ What was wrong (the new commit addresses the first four, see above):
 - Black ink everywhere except markers and the title: no colored terms on checklist or numbered sheets, no bold, italic or highlight anywhere, no bullets on row sheets.
 - Formulas as flat text: `vmax=Aω`, `amax=ω²A` (no subscripts), `ω=2πf=2π/T` (slash fraction), `T=2π√(L/g)` and `f=(1/2π)√(g/L)` (root has no bar).
 - Greek letters pasted from another font (Patrick Hand has no Greek).
-- **Rows lost without any warning.** Mnemonic sheet: the last two rows (small-angle pendulum, spring energy) missing; table-notes sheet: the 12th row missing. A row that does not fit is skipped whole (by design, "never shrink"), but the badge still says "Text shrunk to fit", which is the wrong wording and does not say what was left out. NOT fixed yet.
+- **Rows lost without any warning.** Mnemonic sheet: the last two rows (small-angle pendulum, spring energy) missing; table-notes sheet: the 12th row missing. A row that does not fit is skipped whole (by design, "never shrink"), but the badge still said "Text shrunk to fit", which was the wrong wording and did not say what was left out. FIXED in the code (Step 8 above), waiting for a build.
 - Cover sheet is mostly empty (title, one intro line, one key box). Expected for a cover; it cannot hold dense text.
 
 ## Done earlier (pushed to main, built once by the owner)
@@ -74,16 +102,16 @@ What was wrong (the new commit addresses the first four, see above):
 
 ### P0
 
-- [ ] **Build and test the new text engine** (see "Things to check"). Send the owner's screenshots of 9:16, 4:3, 16:9 back for tuning.
-- [ ] **Never lose text silently (Step 8).** Replace the badge wording for `study-*` ("Text shrunk to fit: ..." in `PostStudio.kt` preview, the Save dialog and `PostBatchScreen.kt`) with "Does not fit, split this sheet" naming the first row left out. Add a "lines used / 30" counter (`PostStudyGrid` knows `page.cell`; return it next to the overflow list). Agents need a way to ask how many lines a draft takes so they split chapters correctly (budget: about 29 cells, a wrapped line costs one cell; the test page held 11 to 12 two-line statements).
+- [ ] **Build and test** the new text engine and the Step 8 chip (see both "Things to check" lists). Send the owner's screenshots of 9:16, 4:3, 16:9 back for tuning.
+- [x] **Never lose text silently (Step 8).** Done in the code, not compiled (section above). Still open inside it: agents have no way to ask the app for the line count before saving; today they read the chip through the owner, or budget about 24 to 27 lines per sheet (rule written in `AI_CONTENT_DELIVERY.md`). A line counter an agent can call (for example a small pure-Kotlin `estimateLines(text)` or a count kept in the batch notes) is a later idea.
 - [ ] **Real math layout (Step 6 rework).** The new engine fixes glyph mismatch and subscripts/superscripts. Still missing:
   1. roots drawn with a bar over the radicand;
   2. fractions as a small stacked fraction inside one cell (numerator and denominator at about 55 percent, a bar between), via a `ReplacementSpan`;
   3. `$$...$$` display math as its own block 2 to 3 cells high (full-size stacked fraction, centered), counted by the grid like a table;
   4. if that is still not enough, render complex formulas with a Kotlin LaTeX renderer to a bitmap that snaps to whole cells.
-  Keep every slice inside the grid rule (nothing crosses a rule, baselines stay on the rules).
+  Keep every slice inside the grid rule (nothing crosses a rule, baselines stay on the rules). Do this after the first successful build, not before: it changes how the line count works, and `Fit` has to be rechecked against it.
 - [ ] **Original raw-tag bug in `PostFonts.styled` (`PostRenderer.kt`) is still unexplained.** Study sheets bypass it now, but every other template still uses it. `styled` wraps everything in `runCatching { ... }.getOrElse { text }`, so any exception in `styledUnsafe` returns the raw string with all tags and hides the error. Log the exception, add a JVM unit test for `[[#7C3AED;B:SHM definition]] – x`, and confirm the phone runs the latest `main`.
-- [ ] **Content agents must wrap formulas in `$...$`** (example: `$v_{max}=A\omega$`, `$T=2\pi\sqrt{m/k}$`) and may use the explicit marks; with the new engine plain text is also styled automatically, but explicit marks give better results. Add this to `AI_CONTENT_DELIVERY.md`, section "Chapter summaries".
+- [x] **Content agents must wrap formulas in `$...$`.** Written in `AI_CONTENT_DELIVERY.md`, section "Chapter summaries" (formulas, Greek as LaTeX commands, always color and style the page, how to read the `Lines n / 29` chip).
 
 ### P1
 
@@ -111,4 +139,4 @@ Term: explanation  (the term becomes a colored bold label on every row style)
 ```
 
 Inline: `**bold**`, `*italic*`, `==highlight==`, `[[key term]]`, `#underline#`, `[[#D11A26;B:word]]`, `$math$`.
-Budget about 29 text lines per sheet (the footer takes the last one). A wrapped line costs one line.
+Budget about 29 text lines per sheet (the footer takes the last one). A wrapped line costs one line. Aim for 24 to 27.

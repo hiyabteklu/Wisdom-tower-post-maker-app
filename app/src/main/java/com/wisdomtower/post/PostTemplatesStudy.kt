@@ -4,6 +4,9 @@ package com.wisdomtower.post
  * Chapter summaries (family CHAPTER_FAMILY): six notebook-paper study sheets, docs/CHAPTER_SUMMARIES_PLAN.md.
  * The paper (30 ruled lines and the red margin) is the only decoration. All the text, headings, tables and boxes are laid on the
  * rules by PostStudyGrid.kt, so the slot boxes below only say WHICH words a variant has, not where they go.
+ *
+ * Every variant declares EVERY text box (stPaperLayout adds the ones a variant does not use itself, after its own). The grid engine
+ * ignores box positions and draws whatever words exist, so switching variants never hides content (docs/MATH_AND_TEMPLATES_PLAN.md).
  */
 
 /** The family name. The editor's template strip shows only this family for a chapter-summaries draft, and never shows it for a poster draft. */
@@ -59,11 +62,30 @@ private fun stInkUnderline(size: PostSize, x: Float, y: Float, w: Float, tone: P
     stRule(size, x, y, w, tone, 5f, 235)
 
 /**
+ * The order in which the boxes a variant does not declare itself are added. LIST comes first so that, when a batch is pasted as plain
+ * lines, every extra line lands in the list.
+ */
+private val ST_SLOT_ORDER = listOf(
+    PostSlots.EYEBROW, PostSlots.HEADLINE, PostSlots.LIST, PostSlots.BODY, PostSlots.BUTTON, PostSlots.NUMBER
+)
+
+/** A box for a text slot the variant does not use itself. Its position and size are never read by PostStudyGrid. */
+private fun stSpareSlot(slot: String): SlotBox =
+    if (slot == PostSlots.LIST) {
+        stList(slot, .065f, .30f, .91f, .50f, .035f, PostFont.REGULAR, PostTone.TEXT, ListStyle.NONE)
+    } else {
+        stText(slot, .055f, .30f, .92f, .10f, .035f, PostFont.REGULAR, PostTone.TEXT)
+    }
+
+/**
  * The paper only. The decor list the variants still pass is ignored on purpose: those underlines and rules sat at fixed heights
  * and would now cut through the text that PostStudyGrid lays on the rules (it draws its own underlines, tables and boxes).
+ * Text boxes the variant does not declare are appended, so the six variants all accept the same words.
  */
-private fun stPaperLayout(size: PostSize, @Suppress("UNUSED_PARAMETER") decor: List<DecorBox>, slots: List<SlotBox>) =
-    TemplateLayout(PostBase.LIGHT, stPaper(size), slots, footerLight = false, backdrop = ST_BACKDROP)
+private fun stPaperLayout(size: PostSize, @Suppress("UNUSED_PARAMETER") decor: List<DecorBox>, slots: List<SlotBox>): TemplateLayout {
+    val spare = ST_SLOT_ORDER.filter { name -> slots.none { it.slot == name } }.map { stSpareSlot(it) }
+    return TemplateLayout(PostBase.LIGHT, stPaper(size), slots + spare, footerLight = false, backdrop = ST_BACKDROP)
+}
 
 internal val StudyTemplates: List<PostTemplateSpec> = listOf(
     stTemplate("study-cover", "Notebook cover", mapOf(

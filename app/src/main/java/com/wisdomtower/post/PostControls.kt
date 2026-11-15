@@ -3,23 +3,19 @@ package com.wisdomtower.post
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,34 +26,36 @@ import androidx.compose.ui.unit.sp
 
 /** Small shared controls used by the studio, the brand screen and the footer editor. */
 
-private val SharedHex = Regex("^#[0-9A-F]{6}$")
+/** The colors offered by every color control. Tap a circle; there is no hex code box any more. */
+private val PickerColors = listOf(
+    "#FFFFFF", "#F3F4F6", "#9CA3AF", "#374151", "#111827", "#000000",
+    "#EF4444", "#D11A26", "#F97316", "#FACC15", "#FFD84D", "#22C55E",
+    "#14B8A6", "#22D3EE", "#3B82F6", "#176BCE", "#6366F1", "#8B5CF6", "#EC4899"
+)
 
 @Composable
 internal fun PostSmallLabel(text: String) {
     Text(text, fontSize = 12.sp, color = PostPalette.Muted)
 }
 
-/** A color field that only reports a value once it is a full #RRGGBB code. */
+/**
+ * A color control made of tappable color circles (no hex code box). It keeps its old name and parameters so every screen that used the
+ * hex box now shows circles. The current color is shown first (and selected) even when it is not in the standard list, so a brand color
+ * is never lost. Tapping a circle reports the color as #RRGGBB.
+ */
 @Composable
 internal fun PostHexField(label: String, value: String, modifier: Modifier = Modifier, onValid: (String) -> Unit) {
-    var text by remember(value) { mutableStateOf(value) }
-    val swatch = runCatching { Color(android.graphics.Color.parseColor(value)) }.getOrDefault(Color.Gray)
-    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Box(
-            Modifier.size(36.dp).clip(RoundedCornerShape(8.dp)).background(swatch)
-                .border(1.dp, PostPalette.Line, RoundedCornerShape(8.dp))
-        )
-        OutlinedTextField(
-            value = text,
-            onValueChange = { typed ->
-                val upper = typed.uppercase()
-                text = upper
-                if (SharedHex.matches(upper)) onValid(upper)
-            },
-            label = { Text(label) },
-            singleLine = true,
-            modifier = Modifier.weight(1f)
-        )
+    val current = value.uppercase()
+    val choices = (listOf(current).filter { it.matches(Regex("^#[0-9A-F]{6}$")) } + PickerColors).distinct()
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        PostSmallLabel(label)
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            choices.forEach { hex -> PostSwatch(hex, hex.equals(current, ignoreCase = true)) { onValid(hex) } }
+        }
     }
 }
 

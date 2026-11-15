@@ -112,7 +112,7 @@ class SlotBox(
     val y: Float,
     val w: Float,
     val h: Float,
-    rawSize: Float,
+    size: Float,
     val font: PostFont,
     val tone: PostTone,
     val centered: Boolean = false,
@@ -134,10 +134,10 @@ class SlotBox(
 ) {
     /**
      * Normalized fraction of min(width, height).
-     * When rawSize > 2f (passed in 1080p pixels), converts to fraction and enforces PostDesignRules minimums.
+     * When the size passed in is > 2f (given in 1080p pixels), converts to a fraction and enforces PostDesignRules minimums.
      */
-    val size: Float = if (rawSize > 2.0f) {
-        val frac = rawSize / 1080f
+    val size: Float = if (size > 2.0f) {
+        val frac = size / 1080f
         when (slot) {
             PostSlots.HEADLINE -> maxOf(frac, 0.053f)
             PostSlots.BODY, PostSlots.LIST -> maxOf(frac, 0.032f)
@@ -145,7 +145,7 @@ class SlotBox(
             else -> frac
         }
     } else {
-        rawSize
+        size
     }
 
     constructor(
@@ -179,7 +179,7 @@ class SlotBox(
         y = y,
         w = w,
         h = h,
-        rawSize = size,
+        size = size,
         font = font,
         tone = tone,
         centered = centered,

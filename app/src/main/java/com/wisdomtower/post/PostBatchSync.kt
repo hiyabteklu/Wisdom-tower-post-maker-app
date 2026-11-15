@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -37,6 +38,8 @@ import org.json.JSONObject
  * Saving edits of an inbox batch back to Supabase (docs/URGENT_PLAN.md item 3, slices 3a and 3b).
  * Uses the wt-mcp v5 tool `update_batch` (live since 15 Nov 2026): replaces posts and/or captions of a DRAFT or APPROVED batch.
  * A published batch is refused by the server. Status, folder and the post log are never touched.
+ * Also uses the wt-mcp v6 tool `remove_post` (live since 15 Nov 2026): removes ONE post (and its caption) of a DRAFT or APPROVED batch
+ * (docs/URGENT_PLAN.md item 1, BatchRemovePostBar below).
  * Kept in its own file so PostChat.kt (which holds the built-in key) did not have to be rewritten.
  */
 object PostBatchSync {
@@ -47,6 +50,50 @@ object PostBatchSync {
         if (captions != null) args.put("captions", captions)
         if (title != null) args.put("title", title)
         callTool(context, "update_batch", args)
+    }
+
+    /**
+     * Removes the post at [index] (0-based) from the cloud copy. [expectedCount] is the number of posts the phone believes the batch has;
+     * the server refuses when it differs, so a stale phone can never remove the wrong post. The post log is never touched.
+     */
+    suspend fun removePost(context: Context, id: String, index: Int, expectedCount: Int) {
+        val args = JSONObject().put("id", id).put("index", index).put("expected_count", expectedCount)
+        callTool(context, "remove_post", args)
+    }
+
+    /**
+     * After the cloud removed post number [removedNumber] (1-based) of a batch that had [oldCount] posts, the numbers above it move down by one.
+     * The captions and the designs kept on this phone are keyed by post number, so they are moved down too (and the removed post's own go away).
+     * Failures here are swallowed: the cloud copy is already right, and worst case a design or caption sits one place off on this phone.
+     */
+    fun shiftLocalAfterRemove(context: Context, batchId: String, removedNumber: Int, oldCount: Int) {
+        runCatching {
+            val prefs = context.getSharedPreferences("wt_post_captions", 0)
+            val values = (1..oldCount).associateWith { prefs.getString("$batchId:$it", null) }
+            val edit = prefs.edit()
+            for (n in 1..oldCount) edit.remove("$batchId:$n")
+            for ((n, value) in values) {
+                if (value == null || n == removedNumber) continue
+                edit.putString("$batchId:${if (n > removedNumber) n - 1 else n}", value)
+            }
+            edit.apply()
+        }
+        runCatching {
+            // Same preferences file and JSON layout as PostDesignStore (PostBatchDesign.kt): {"batch": ..., "pages": {"<number>": ...}}
+            val prefs = context.getSharedPreferences("wt_post_designs", Context.MODE_PRIVATE)
+            val raw = prefs.getString(batchId, null) ?: return@runCatching
+            val json = JSONObject(raw)
+            val pages = json.optJSONObject("pages") ?: return@runCatching
+            val moved = JSONObject()
+            val keys = pages.keys().asSequence().toList()
+            for (key in keys) {
+                val n = key.toIntOrNull() ?: continue
+                if (n == removedNumber) continue
+                moved.put((if (n > removedNumber) n - 1 else n).toString(), pages.getString(key))
+            }
+            json.put("pages", moved)
+            prefs.edit().putString(batchId, json.toString()).apply()
+        }
     }
 
     private suspend fun callTool(context: Context, tool: String, args: JSONObject): String = withContext(Dispatchers.IO) {
@@ -247,6 +294,85 @@ fun BatchSaveBar(
             text = { Text("This batch is approved (planned). Your changes will replace the words and captions saved in the cloud. The old version is not kept.") },
             confirmButton = { TextButton(onClick = { confirmApproved = false; doSave() }) { Text("Save changes") } },
             dismissButton = { TextButton(onClick = { confirmApproved = false }) { Text("Cancel") } }
+        )
+    }
+}
+
+/**
+ * "Remove post N from this batch" (docs/URGENT_PLAN.md item 1), under the save bar of the review step.
+ * Asks first, then calls wt-mcp v6 `remove_post` for the post on screen (0-based [pageIndex]) with the phone's post count, so the server can refuse
+ * when the phone is out of date. On success the captions and designs kept on this phone move down with the posts, and [onRemoved] closes the
+ * review screen so the batch is reopened from the cloud copy (the Poster inbox list should be reloaded when it comes back; check this on the phone).
+ * Only for DRAFT and APPROVED batches, only when the phone and the cloud agree on the post count, never for the last post of a batch.
+ * Unsaved edits of OTHER posts are lost when the screen closes: a draft saves itself 2 seconds after the last edit, so wait for "Saved" first.
+ * The post log is never touched. Not compiled when written.
+ */
+@Composable
+fun BatchRemovePostBar(
+    batch: PostChatBatch,
+    pageIndex: Int,
+    reviewCount: Int,
+    backendStatus: String,
+    onRemoved: () -> Unit
+) {
+    if (backendStatus == "published") return
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var confirm by remember(batch.id) { mutableStateOf(false) }
+    var busy by remember(batch.id) { mutableStateOf(false) }
+    var message by remember(batch.id) { mutableStateOf<String?>(null) }
+    val cloudCount = batch.posts.length()
+    val matches = reviewCount == cloudCount
+    val number = pageIndex + 1
+
+    Column(
+        Modifier.fillMaxWidth().background(PostPalette.Surface, RoundedCornerShape(12.dp)).padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text("Remove one post", color = PostPalette.Text, fontWeight = FontWeight.Bold)
+        if (cloudCount < 2) {
+            Text("This batch has only one post. To get rid of it, delete the draft from the Poster inbox.", color = PostPalette.Muted, fontSize = 12.sp)
+        } else if (!matches) {
+            Text("The phone and the cloud disagree on the number of posts, so a post cannot be removed safely here.", color = PostPalette.Gold, fontSize = 12.sp)
+        }
+        message?.let { Text(it, color = PostPalette.Gold, fontSize = 12.sp) }
+        OutlinedButton(
+            onClick = { confirm = true },
+            enabled = matches && cloudCount >= 2 && !busy && pageIndex in 0 until cloudCount,
+            modifier = Modifier.fillMaxWidth().height(48.dp)
+        ) { Text(if (busy) "Removing..." else "Remove post $number from this batch") }
+    }
+
+    if (confirm) {
+        AlertDialog(
+            onDismissRequest = { confirm = false },
+            title = { Text("Remove post $number?") },
+            text = {
+                Text(
+                    "Post $number and its caption are removed from the cloud copy of this batch for good. " +
+                        "The other posts move up by one number. The post log is not touched. " +
+                        "This screen closes afterwards; open the batch again from the Poster inbox."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirm = false
+                    busy = true
+                    message = null
+                    scope.launch {
+                        try {
+                            PostBatchSync.removePost(context, batch.id, pageIndex, cloudCount)
+                            PostBatchSync.shiftLocalAfterRemove(context, batch.id, number, cloudCount)
+                            onRemoved()
+                        } catch (e: Exception) {
+                            message = e.message ?: "Could not remove the post"
+                        } finally {
+                            busy = false
+                        }
+                    }
+                }) { Text("Remove post") }
+            },
+            dismissButton = { TextButton(onClick = { confirm = false }) { Text("Cancel") } }
         )
     }
 }

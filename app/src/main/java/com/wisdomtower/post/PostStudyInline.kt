@@ -243,7 +243,11 @@ internal object PostStudyInline {
         }
     }
 
-    /** Top-level ^ and _ become real raised or lowered text; everything else goes through PostMath (one-line Unicode text). */
+    /**
+     * Top-level ^ and _ become real raised or lowered text; everything else goes through PostMath (one-line Unicode text).
+     * A \sqrt{...} is opened up first (written as √( ... )) so the powers and indices INSIDE it also become real raised or lowered
+     * text. Left whole, PostMath turned A_x^2 into Aₓ² but A_y^2 into a literal "A_y" (Unicode has no subscript y or z).
+     */
     private fun appendMath(latex: String, out: SpannableStringBuilder) {
         val seg = StringBuilder()
         var depth = 0
@@ -256,6 +260,29 @@ internal object PostStudyInline {
         }
         while (i < latex.length) {
             val c = latex[i]
+            if (depth == 0 && c == '\\' && latex.startsWith("\\sqrt{", i)) {
+                val open = i + 5
+                var level = 0
+                var j = open
+                while (j < latex.length) {
+                    if (latex[j] == '{') level++
+                    if (latex[j] == '}') {
+                        level--
+                        if (level == 0) break
+                    }
+                    j++
+                }
+                if (j < latex.length) {
+                    flushSeg()
+                    val inner = latex.substring(open + 1, j)
+                    val wrap = inner.trim().length > 1
+                    out.append(if (wrap) "√(" else "√")
+                    appendMath(inner.trim(), out)
+                    if (wrap) out.append(")")
+                    i = j + 1
+                    continue
+                }
+            }
             if (c == '{') {
                 depth++
                 seg.append(c)

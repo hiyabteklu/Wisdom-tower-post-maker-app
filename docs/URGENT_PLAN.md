@@ -7,7 +7,7 @@ Code comments in `PostInboxActions.kt`, `PostChatInboxScreen.kt` and `PostBatchS
 
 | # | Item | Status |
 |---|------|--------|
-| 1 | Delete single or batch drafts, and their Supabase copy | WRITTEN (single delete and multi-select, not compiled); "also delete the log" needs the owner's decision; deleting one post inside a batch: SERVER READY (`wt-mcp` v6 `remove_post`, live 15 Nov), app button NOT written |
+| 1 | Delete single or batch drafts, and their Supabase copy | WRITTEN (single delete, multi-select, and removing one post inside a batch; none compiled); "also delete the log" needs the owner's decision |
 | 2 | Mark as posted with platform selector, in-app notification | PARTLY: picker used in inbox AND review screen (written); notification NOT done |
 | 3 | Clear edit and save UI, edits synced to Supabase | PARTLY: `update_batch` is LIVE on wt-mcp (v5); autosave for drafts, confirm for approved, one state line, offline retry (slices 3a and 3b, written, not compiled); words not kept across an app restart, clearer edit flow and keeping the last version NOT done |
 | 4 | No hex field, only tappable color circles | Written by an earlier agent; check on the phone |
@@ -23,9 +23,11 @@ Written (15 Nov, not compiled): multi-select in `PostChatInboxScreen.kt`. Long-p
 
 Server, LIVE (15 Nov 2026, `wt-mcp` v6, owner approved "all is to do"): tool `remove_post` with `id`, `index` (0-based) and optional `expected_count`. It removes ONE post from a DRAFT or APPROVED batch, and the caption at the same position when captions line up. One atomic statement; refuses a published batch, an index out of range, a batch with only one post left (use `delete_batch` for a draft), and a stale `expected_count` (the phone's post count no longer matches the cloud). It never touches status, folder or the post log. Nothing else in `wt-mcp` changed from v5.
 
+Written (15 Nov, not compiled): removing one post in the app. `PostBatchSync.removePost` (the wt-mcp call), `PostBatchSync.shiftLocalAfterRemove` (moves the captions in `wt_post_captions` and the page designs in `wt_post_designs` down by one for the posts above the removed one) and the composable `BatchRemovePostBar`, shown under the save bar in the review step of `PostBatchScreen.kt`: "Remove post N from this batch", confirm dialog, then the screen closes (`onBack`) so the batch is reopened from the cloud copy. Hidden for a posted batch; disabled when the batch has one post, or when the phone and the cloud disagree on the post count.
+
 To do:
 - [ ] Decide with the owner what "also delete the log" means. Today the post log is kept on purpose so posted history is never lost. Option: deleting a DRAFT removes its log rows too (there should be none), deleting a POSTED batch asks a second, stronger confirm and removes the log rows as well. Do not change this without the owner's yes.
-- [ ] App side of `remove_post`: add `removePost(batchId, index, expectedCount)` next to `updateBatch` in `PostBatchSync.kt`, a "Remove this post" action in the sheet menu of the review screen with a confirm, then drop the item from the review list and the phone's caption list at the same index. On the stale-count error, tell the user to reopen the batch.
+- [ ] Check on the phone after building: after removing a post, the Poster inbox must show the new post count when it comes back (it may show the cached list until it refreshes: if so, refresh the inbox list on return in `PostApp.kt`/`PostChatInboxScreen.kt`). Unsaved edits of other posts are lost when the screen closes (drafts save 2 s after the last edit); check that the captions and designs of the posts above the removed one still match their posters.
 
 ## 2. Mark as posted
 
@@ -88,5 +90,5 @@ To do (one family at a time, each reviewed on the phone before the next):
 ## Suggested order
 
 1. Build and fix compile errors (everything above is untested).
-2. Finish the written items (item 1 remove-post button, item 2 notification, item 3 leftovers, item 6 templates).
+2. Finish the written items (item 2 notification, item 3 leftovers, item 6 templates).
 3. Test items 1 to 5 on the phone, then item 6 one family at a time.

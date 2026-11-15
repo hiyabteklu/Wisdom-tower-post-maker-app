@@ -3,17 +3,18 @@
 The assistant cannot build the app. Everything marked "written" is NOT compiled and NOT tested on the phone. Build first, fix compile errors, then test each item. The owner tests at the end, after the written items are done.
 The owner leaves design decisions to the assistant ("you are the designer here, do what is best"); decisions taken are listed under "Decisions" below.
 Code comments in `PostInboxActions.kt`, `PostChatInboxScreen.kt`, `PostBatchSync.kt` and `PostWordsStore.kt` point here.
+LESSON (15 Nov): an earlier agent's note said item 4 (color circles) was done. It was NOT: the hex code box was still in the app. Never mark an item done from a note; open the code and check it.
 
 ## Status at a glance
 
 | # | Item | Status |
 |---|------|--------|
-| 1 | Delete single or batch drafts, and their Supabase copy | WRITTEN (single delete, multi-select, removing one post inside a batch; none compiled). Log question DECIDED, see Decisions |
+| 1 | Delete single or batch drafts, and their Supabase copy | WRITTEN, none compiled: bin button on every draft card, "Clean up" button in the inbox top bar, multi-select, card menu, and "Remove post N from this batch" in the review screen. Log question DECIDED, see Decisions |
 | 2 | Mark as posted with platform selector, in-app notification | PARTLY: picker used in inbox AND review screen (written); the inbox dot also lights for approved-not-posted batches; a real notification is NOT done (not needed for now, see Decisions) |
 | 3 | Clear edit and save UI, edits synced to Supabase | PARTLY: `update_batch` LIVE (wt-mcp v5); autosave for drafts, confirm for approved, one state line, offline retry (slices 3a, 3b); words now kept across an app restart (`PostWordsStore.kt`, written); clearer edit flow and keeping the last version NOT done |
-| 4 | No hex field, only tappable color circles | Written by an earlier agent; check on the phone |
+| 4 | No hex field, only tappable color circles | WRITTEN 15 Nov, not compiled: `PostHexField` (PostControls.kt) now shows color circles and `WordBox` (PostTextStyle.kt) word-ink color is circles. Check the phone for any other hex box |
 | 5 | Logo header | REVERTED (15 Nov): the thin fading bar looked bad on the phone, the original corner box is back. Not compiled |
-| 6 | Redesign the other poster templates (bold, creative, photo posters) | NOT DONE |
+| 6 | Redesign the other poster templates (bold, creative, photo posters) | NOT DONE. No detailed plan exists yet: write `docs/TEMPLATE_REDESIGN_PLAN.md` from the real template code first |
 
 ## Decisions (taken by the assistant as designer, 15 Nov 2026, owner delegated)
 
@@ -21,6 +22,7 @@ Code comments in `PostInboxActions.kt`, `PostChatInboxScreen.kt`, `PostBatchSync
 - Notification for "not marked posted": the inbox dot (drafts to review plus approved batches not posted) is enough for now. Add a real Android notification only if the owner asks, because it needs a notification permission and a background job.
 - Removing one post inside a batch is allowed only for DRAFT and APPROVED batches and never for the last post.
 - Logo header: the owner rejected the thin fading bar (it looked like a swoosh cutting across the poster and the logo had no clear box). The rule now: do NOT change the logo header design again without the owner's explicit yes; small refinements only (size, padding, corner radius), never a new shape.
+- Color controls: never a hex code text box anywhere in the app; always tappable circles.
 
 ## 1. Delete drafts (and the Supabase copy)
 
@@ -29,12 +31,17 @@ Files: `PostInboxActions.kt`, `PostChatInboxScreen.kt`, `PostChat.kt` (`PostChat
 
 Written (15 Nov, not compiled): multi-select in `PostChatInboxScreen.kt`. Long-press a DRAFT card to start selecting, tap more drafts to add or remove, "select all drafts in this list" and the bin sit in the top bar, one confirm, then one `delete_batch` call per draft. It stops at the first error and leaves the undeleted ones selected. Only drafts can be selected. Close icon or Back leaves selecting.
 
+Written (15 Nov, after the owner could not find any delete or clean-up button, not compiled): everything is now visible without a menu.
+- A bin button on every DRAFT card (confirm, then delete in Supabase too).
+- A "Clean up" button (broom-bin icon) always in the inbox top bar: "Select all N drafts to delete" (then the bin in the top bar, one confirm) and "Hide all N posted batches" (phone only; Supabase and the post log are not touched).
+
 Server, LIVE (15 Nov 2026, `wt-mcp` v6): tool `remove_post` with `id`, `index` (0-based) and optional `expected_count`. It removes ONE post from a DRAFT or APPROVED batch, and the caption at the same position when captions line up. One atomic statement; refuses a published batch, an index out of range, a batch with only one post left (use `delete_batch` for a draft), and a stale `expected_count` (the phone's post count no longer matches the cloud). It never touches status, folder or the post log. Nothing else in `wt-mcp` changed from v5.
 
-Written (15 Nov, not compiled): removing one post in the app. `PostBatchSync.removePost`, `PostBatchSync.shiftLocalAfterRemove` (moves the captions in `wt_post_captions` and the page designs in `wt_post_designs` down by one for the posts above the removed one) and the composable `BatchRemovePostBar`, shown under the save bar in the review step of `PostBatchScreen.kt`: "Remove post N from this batch", confirm dialog, then the screen closes (`onBack`) so the batch is reopened from the cloud copy. Hidden for a posted batch; disabled when the batch has one post, or when the phone and the cloud disagree on the post count. Kept words (`wt_post_words`) need no shifting: the removed post changes the cloud word signature, so the old entry is ignored and dropped.
+Written (15 Nov, not compiled): removing one post in the app. `PostBatchSync.removePost`, `PostBatchSync.shiftLocalAfterRemove` (moves the captions in `wt_post_captions` and the page designs in `wt_post_designs` down by one for the posts above the removed one) and the composable `BatchRemovePostBar`, shown under the save bar in the review step of `PostBatchScreen.kt` (scroll down in the review screen): "Remove post N from this batch", confirm dialog, then the screen closes (`onBack`) so the batch is reopened from the cloud copy. Hidden for a posted batch; disabled when the batch has one post, or when the phone and the cloud disagree on the post count. Kept words (`wt_post_words`) need no shifting: the removed post changes the cloud word signature, so the old entry is ignored and dropped.
 
 To do:
 - [ ] Check on the phone after building: after removing a post, the Poster inbox must show the new post count when it comes back (it may show the cached list until it refreshes: if so, refresh the inbox list on return in `PostApp.kt`/`PostChatInboxScreen.kt`). Unsaved edits of other posts are lost when the screen closes (drafts save 2 s after the last edit); check that the captions and designs of the posts above the removed one still match their posters.
+- [ ] If the owner wants the remove-post button higher up (near the poster instead of below the save bar), move `BatchRemovePostBar` in `PostBatchScreen.kt`.
 
 ## 2. Mark as posted
 
@@ -65,7 +72,12 @@ To do:
 
 ## 4. Color circles instead of hex code
 
-Replaced by an earlier agent with tappable swatches (shown in the commit history). Check on the phone: no hex text field anywhere (editor tabs, batch Design panel), circles show the real color, tap changes it. Check icon colors too.
+NOT done before 15 Nov despite an earlier note (see LESSON at the top). Written 15 Nov, not compiled:
+- `PostControls.kt`: `PostHexField` keeps its name and parameters but now draws a scrolling row of tappable color circles (the current color first and selected, then 19 standard colors). Every screen that used the hex box (editor tabs, Brand screen, batch Design panel, backgrounds) gets circles at once.
+- `PostTextStyle.kt`: the "Word ink HEX" box is replaced by circles (brand colors plus 14 ink colors); tapping a circle colors the selected word at once.
+
+To do:
+- [ ] On the phone, look through every tab and the Brand screen for any remaining hex text box. A custom color the owner needs that is not in the circles: add it to `PickerColors` in `PostControls.kt` or to the Brand colors.
 
 ## 5. Logo header: REVERTED to the corner box (15 Nov 2026)
 
@@ -77,9 +89,11 @@ To do:
 
 ## 6. Redesign the other poster templates
 
+NO DETAILED PLAN EXISTS YET. The list below is only a direction. Before any template code is changed: read the real template files, write `docs/TEMPLATE_REDESIGN_PLAN.md` (for each template family: what it is now, the new layout with positions, fonts and sizes, the sample text it must survive, how long real text behaves), then build one family per push.
+
 Now: mostly flat gradients and text boxes, so the templates look the same. The photo posters are weak.
 
-To do (one family at a time, each reviewed on the phone before the next):
+Direction (one family at a time, each reviewed on the phone before the next):
 - [ ] Look at all current templates side by side (Template QA screen) and list which ones to keep.
 - [ ] Typography-led posters: one giant letter, one oversized word, extra-bold weights, stacked words, outlined or cut-out letters, a stylized first letter used as a graphic.
 - [ ] Photo posters: big cut-out subject over huge type, duotone or color-block photo, photo in a bold shape (arch, circle, torn edge), text overlapping the photo edge, caption chip.
@@ -95,5 +109,5 @@ To do (one family at a time, each reviewed on the phone before the next):
 ## Suggested order
 
 1. Build and fix compile errors (everything above is untested).
-2. Item 6 templates (needs the Template QA screen on the phone first), item 3 leftovers.
+2. Write `docs/TEMPLATE_REDESIGN_PLAN.md`, then item 6 one family per push, item 3 leftovers.
 3. Test items 1 to 5 on the phone, then item 6 one family at a time.

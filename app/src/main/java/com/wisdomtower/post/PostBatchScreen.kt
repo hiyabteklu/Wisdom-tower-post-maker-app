@@ -90,7 +90,8 @@ import java.util.Locale
  * PostBatchDesign.kt), edit the words of any post, then press Save to gallery. Nothing is saved to the gallery until that button is pressed.
  * Designs of an inbox batch are remembered on this phone (PostDesignStore), so they are still there when the batch is reopened.
  * Words and captions of an inbox batch reach Supabase only when "Save changes to cloud" is pressed (BatchSaveBar in PostBatchSync.kt,
- * wt-mcp v5 update_batch; docs/URGENT_PLAN.md item 3).
+ * wt-mcp v5 update_batch; docs/URGENT_PLAN.md item 3). Edited words are also kept on this phone (PostWordsStore.kt), so they survive
+ * closing the app before they reached the cloud.
  * One post of an inbox batch can be removed (BatchRemovePostBar in PostBatchSync.kt, wt-mcp v6 remove_post; docs/URGENT_PLAN.md item 1).
  * "Mark posted" (inbox batches) uses the same platform picker and post log as the inbox card menu (PostInboxActions.kt).
  */
@@ -262,6 +263,14 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
     LaunchedEffect(mode) { if (initialBatch == null) PostBatchStore.saveMode(context, mode) }
     LaunchedEffect(fill, doc.templateId) { PostBatchStore.saveFill(context, doc.templateId, fill) }
     LaunchedEffect(running) { view.keepScreenOn = running }
+    // Edited words of an inbox batch are kept on this phone (PostWordsStore.kt); the entry goes away when the words equal the cloud words again.
+    val wordsSignature = PostBatchSync.textSignature(reviewItems.toList())
+    LaunchedEffect(initialBatch?.id, reviewing, wordsSignature) {
+        val id = initialBatch?.id ?: return@LaunchedEffect
+        if (!reviewing || reviewItems.isEmpty() || originalItems.isEmpty()) return@LaunchedEffect
+        delay(300)
+        PostWordsStore.sync(context, id, originalItems, reviewItems.toList())
+    }
     val latestJob by rememberUpdatedState(runJob)
     DisposableEffect(Unit) {
         onDispose {
@@ -278,7 +287,9 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
     fun startReview() {
         if (items.isEmpty() || running) return
         reviewItems.clear()
-        reviewItems.addAll(items)
+        // An inbox batch gets back the words that were edited on this phone but never reached the cloud; they then show as unsaved changes.
+        val restored = initialBatch?.let { PostWordsStore.restore(context, it.id, items) }
+        reviewItems.addAll(restored ?: items)
         originalItems = items
         status = null
         fitResults = emptyList()

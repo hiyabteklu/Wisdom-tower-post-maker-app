@@ -7,7 +7,7 @@ Code comments in `PostInboxActions.kt`, `PostChatInboxScreen.kt` and `PostBatchS
 
 | # | Item | Status |
 |---|------|--------|
-| 1 | Delete single or batch drafts, and their Supabase copy | WRITTEN (single delete and multi-select, not compiled); "also delete the log" needs the owner's decision; deleting one post inside a batch NOT done |
+| 1 | Delete single or batch drafts, and their Supabase copy | WRITTEN (single delete and multi-select, not compiled); "also delete the log" needs the owner's decision; deleting one post inside a batch: SERVER READY (`wt-mcp` v6 `remove_post`, live 15 Nov), app button NOT written |
 | 2 | Mark as posted with platform selector, in-app notification | PARTLY: picker used in inbox AND review screen (written); notification NOT done |
 | 3 | Clear edit and save UI, edits synced to Supabase | PARTLY: `update_batch` is LIVE on wt-mcp (v5); autosave for drafts, confirm for approved, one state line, offline retry (slices 3a and 3b, written, not compiled); words not kept across an app restart, clearer edit flow and keeping the last version NOT done |
 | 4 | No hex field, only tappable color circles | Written by an earlier agent; check on the phone |
@@ -21,21 +21,23 @@ Files: `PostInboxActions.kt`, `PostChatInboxScreen.kt`, `PostChat.kt` (`PostChat
 
 Written (15 Nov, not compiled): multi-select in `PostChatInboxScreen.kt`. Long-press a DRAFT card to start selecting, tap more drafts to add or remove, "select all drafts in this list" and the bin sit in the top bar, one confirm, then one `delete_batch` call per draft. It stops at the first error and leaves the undeleted ones selected. Only drafts can be selected. Close icon or Back leaves selecting.
 
+Server, LIVE (15 Nov 2026, `wt-mcp` v6, owner approved "all is to do"): tool `remove_post` with `id`, `index` (0-based) and optional `expected_count`. It removes ONE post from a DRAFT or APPROVED batch, and the caption at the same position when captions line up. One atomic statement; refuses a published batch, an index out of range, a batch with only one post left (use `delete_batch` for a draft), and a stale `expected_count` (the phone's post count no longer matches the cloud). It never touches status, folder or the post log. Nothing else in `wt-mcp` changed from v5.
+
 To do:
 - [ ] Decide with the owner what "also delete the log" means. Today the post log is kept on purpose so posted history is never lost. Option: deleting a DRAFT removes its log rows too (there should be none), deleting a POSTED batch asks a second, stronger confirm and removes the log rows as well. Do not change this without the owner's yes.
-- [ ] Deleting one post (sheet) inside a batch is not built.
+- [ ] App side of `remove_post`: add `removePost(batchId, index, expectedCount)` next to `updateBatch` in `PostBatchSync.kt`, a "Remove this post" action in the sheet menu of the review screen with a confirm, then drop the item from the review list and the phone's caption list at the same index. On the stale-count error, tell the user to reopen the batch.
 
 ## 2. Mark as posted
 
 Written (U1): "Mark posted" asks for every platform used (Telegram, TikTok, LinkedIn, Instagram, Facebook), sets the batch to `published`, then saves one `wt_post.post_log` row per post and platform. The review screen (`PostBatchScreen.kt`) now uses the same picker and `markBatchPosted` (written 15 Nov, not compiled).
 
 To do:
-- [ ] In-app notification: a reminder when a planned or approved batch has not been marked posted (dot on the Inbox icon already exists for drafts; extend it, or add a notification).
+- [ ] In-app notification: a reminder when a planned or approved batch has not been marked posted (dot on the Inbox icon already exists for drafts and now also lights for approved batches not marked posted, `PostInboxState.countsFrom`; add a real notification if the owner wants one).
 - [ ] Review screen: the old chips and the old "Mark published" button are gone; check on the phone that nothing of them is left.
 
 ## 3. Edit and save, synced to Supabase
 
-Backend: `wt-mcp` v5 is deployed and live (verified 15 Nov 2026, version 5, `update_batch` present). It replaces the posts and/or captions and/or title of a DRAFT or APPROVED batch, refuses a PUBLISHED batch, and never touches status, folder or the post log. It was deployed by an earlier agent; the owner should know it is live.
+Backend: `wt-mcp` v5 added `update_batch` (still live inside v6). It replaces the posts and/or captions and/or title of a DRAFT or APPROVED batch, refuses a PUBLISHED batch, and never touches status, folder or the post log.
 
 Written (slices 3a and 3b, 15 Nov, NOT compiled): `PostBatchSync.kt` holds `updateBatch` (the wt-mcp call, in its own file so `PostChat.kt` with the built-in key was not rewritten), `mergePosts` (edited words laid over the cloud posts, every other field kept; the app's `body` box is `message` on the server) and the composable `BatchSaveBar`. `PostBatchScreen.kt` shows the bar under the caption box in the review step.
 - One clear state line: "Saved: same as the cloud copy", "Unsaved changes", "Saving...", "Waiting for internet", or the server's error.
@@ -86,5 +88,5 @@ To do (one family at a time, each reviewed on the phone before the next):
 ## Suggested order
 
 1. Build and fix compile errors (everything above is untested).
-2. Finish the written items (item 2 notification, item 3 leftovers, item 6 templates).
+2. Finish the written items (item 1 remove-post button, item 2 notification, item 3 leftovers, item 6 templates).
 3. Test items 1 to 5 on the phone, then item 6 one family at a time.

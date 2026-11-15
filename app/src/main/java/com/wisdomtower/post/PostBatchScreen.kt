@@ -91,6 +91,7 @@ import java.util.Locale
  * Designs of an inbox batch are remembered on this phone (PostDesignStore), so they are still there when the batch is reopened.
  * Words and captions of an inbox batch reach Supabase only when "Save changes to cloud" is pressed (BatchSaveBar in PostBatchSync.kt,
  * wt-mcp v5 update_batch; docs/URGENT_PLAN.md item 3).
+ * One post of an inbox batch can be removed (BatchRemovePostBar in PostBatchSync.kt, wt-mcp v6 remove_post; docs/URGENT_PLAN.md item 1).
  * "Mark posted" (inbox batches) uses the same platform picker and post log as the inbox card menu (PostInboxActions.kt).
  */
 @OptIn(ExperimentalFoundationApi::class)
@@ -550,6 +551,14 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
                             originalItems = originalItems,
                             captions = captionDrafts,
                             backendStatus = backendStatus
+                        )
+                        // Remove the post on screen from the cloud copy of the batch (wt-mcp v6 remove_post, docs/URGENT_PLAN.md item 1).
+                        BatchRemovePostBar(
+                            batch = initialBatch,
+                            pageIndex = pagerState.currentPage,
+                            reviewCount = reviewItems.size,
+                            backendStatus = backendStatus,
+                            onRemoved = onBack
                         )
                     }
                     Row(

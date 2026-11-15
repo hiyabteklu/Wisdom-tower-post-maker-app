@@ -107,6 +107,12 @@ private fun StyleFontPicker(style: SlotStyle, onChange: (SlotStyle) -> Unit) {
     }
 }
 
+/** The colors offered for ink on a selected word. Tap a circle; there is no hex code box. */
+private val InlineInkColors = listOf(
+    "#D11A26", "#EF4444", "#F97316", "#FACC15", "#22C55E", "#14B8A6",
+    "#22D3EE", "#3B82F6", "#176BCE", "#6366F1", "#8B5CF6", "#EC4899", "#111827", "#FFFFFF"
+)
+
 /**
  * One word box: the text field, then three chips (Color, Font, Size) that open one small panel at a time.
  * Nothing is set until a chip is used, so the template keeps its own look by default. Reset clears this box only.
@@ -115,7 +121,6 @@ private fun StyleFontPicker(style: SlotStyle, onChange: (SlotStyle) -> Unit) {
 internal fun WordBox(slot: String, doc: PostDoc, onDoc: (PostDoc) -> Unit, brand: PostBrand) {
     var panel by remember(slot) { mutableStateOf("") }
     var field by remember(slot) { mutableStateOf(TextFieldValue(doc.texts[slot].orEmpty())) }
-    var inlineHex by remember(slot) { mutableStateOf("#D11A26") }
     LaunchedEffect(doc.texts[slot]) {
         val external = doc.texts[slot].orEmpty()
         if (field.text != external) field = TextFieldValue(external, TextRange(external.length))
@@ -159,18 +164,16 @@ internal fun WordBox(slot: String, doc: PostDoc, onDoc: (PostDoc) -> Unit, brand
             FilterChip(selected = false, onClick = { applyInline("\u0024", "\u0024", "formula") }, label = { Text("Formula") })
             FilterChip(selected = false, onClick = { applyInline("\u0024\u0024", "\u0024\u0024", "display formula") }, label = { Text("Display math") })
         }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(
-                value = inlineHex,
-                onValueChange = { inlineHex = it },
-                label = { Text("Word ink HEX") },
-                singleLine = true,
-                modifier = Modifier.weight(1f)
-            )
-            TextButton(onClick = {
-                val hex = inlineHex.trim().uppercase().let { if (it.startsWith("#")) it else "#$it" }
-                if (hex.matches(Regex("#[0-9A-F]{6}([0-9A-F]{2})?"))) applyInline("[[$hex:", "]]", "colored word")
-            }) { Text("Apply color") }
+        // Color of the selected word: tap a circle, the color is applied to the selection at once (no hex code box).
+        PostSmallLabel("Color of the selected word")
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            (listOf(brand.primaryHex, brand.secondaryHex) + InlineInkColors).distinct().forEach { hex ->
+                PostSwatch(hex, false) { applyInline("[[${hex.uppercase()}:", "]]", "colored word") }
+            }
         }
         Row(
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),

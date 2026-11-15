@@ -3,9 +3,11 @@ package com.wisdomtower.post
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,6 +34,7 @@ import androidx.compose.material.icons.outlined.FactCheck
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.SelectAll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -86,6 +89,10 @@ private const val ALL_KEY = "__all__"
  *   one post log row per post and platform is saved in Supabase.
  * - Delete draft (draft batch only): deleted on this phone and in Supabase.
  * - Remove from inbox (posted batch): hidden on this phone only. The batch and the post log stay in Supabase.
+ *
+ * Select several drafts (docs/URGENT_PLAN.md item 1): long-press a DRAFT card to start selecting, tap more drafts to add or remove them,
+ * then press the bin in the top bar. One confirm, then one delete_batch call per draft. Only drafts can be selected; the server
+ * refuses everything else anyway. The close icon or Back leaves selecting. The top bar also has "select all drafts in this list".
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -103,6 +110,8 @@ fun PostChatInboxScreen(onBack: () -> Unit, onOpenBatch: (PostChatBatch) -> Unit
     var postFor by remember { mutableStateOf<PostChatBatch?>(null) }
     var deleteFor by remember { mutableStateOf<PostChatBatch?>(null) }
     var removeFor by remember { mutableStateOf<PostChatBatch?>(null) }
+    var selected by remember { mutableStateOf(setOf<String>()) }
+    var deleteManyFor by remember { mutableStateOf(false) }
     var filter by rememberSaveable { mutableStateOf("all") }
     var openFolder by rememberSaveable { mutableStateOf<String?>(null) }
     var openSub by rememberSaveable { mutableStateOf<String?>(null) }
@@ -150,6 +159,33 @@ fun PostChatInboxScreen(onBack: () -> Unit, onOpenBatch: (PostChatBatch) -> Unit
         }
     }
 
+    /** Deletes the selected drafts one after the other. Stops at the first error; the ones not deleted stay selected. */
+    fun deleteSelected(targets: List<PostChatBatch>) {
+        if (working != null || targets.isEmpty()) return
+        notice = null
+        scope.launch {
+            val deleted = mutableSetOf<String>()
+            var failure: String? = null
+            try {
+                for ((index, batch) in targets.withIndex()) {
+                    working = "Deleting draft ${index + 1} of ${targets.size}..."
+                    try {
+                        PostChatApi.deleteBatch(context, batch.id)
+                        deleted.add(batch.id)
+                    } catch (e: Exception) {
+                        failure = e.message ?: "Could not delete"
+                        break
+                    }
+                }
+            } finally {
+                if (deleted.isNotEmpty()) keep(batches.filter { it.id !in deleted })
+                selected = selected - deleted
+                notice = "Deleted ${deleted.size} of ${targets.size} drafts, here and in Supabase." + (failure?.let { " Stopped: $it" } ?: "")
+                working = null
+            }
+        }
+    }
+
     fun removePosted(batch: PostChatBatch) {
         PostInboxHidden.hide(context, batch.id)
         hidden = PostInboxHidden.ids(context)
@@ -179,6 +215,8 @@ fun PostChatInboxScreen(onBack: () -> Unit, onOpenBatch: (PostChatBatch) -> Unit
     val currentFolder = openFolder
     val currentSub = openSub
     BackHandler(enabled = currentFolder != null) { openFolder = null; openSub = null }
+    // Declared after the folder handler, so it runs first: Back leaves selecting before it leaves the folder.
+    BackHandler(enabled = selected.isNotEmpty()) { selected = emptySet() }
 
     val byStatus = if (filter == "all") visible else visible.filter { it.status == filter }
     val inFolder = when (currentFolder) {
@@ -190,6 +228,8 @@ fun PostChatInboxScreen(onBack: () -> Unit, onOpenBatch: (PostChatBatch) -> Unit
     val shown = if (currentSub == null) inFolder else inFolder.filter { it.subfolder == currentSub }
     val folderNames = (FOLDER_ORDER + byStatus.map { it.folder }.distinct().filter { it !in FOLDER_ORDER })
         .filter { name -> byStatus.any { it.folder == name } }
+    val selecting = selected.isNotEmpty()
+    val selectedDrafts = visible.filter { it.id in selected && it.status == "draft" }
 
     PostTheme {
         Scaffold(
@@ -197,20 +237,33 @@ fun PostChatInboxScreen(onBack: () -> Unit, onOpenBatch: (PostChatBatch) -> Unit
                 TopAppBar(
                     title = {
                         Text(
-                            when (currentFolder) { null -> "Poster inbox"; ALL_KEY -> "All batches"; else -> currentFolder },
+                            if (selecting) "${selected.size} selected" else when (currentFolder) { null -> "Poster inbox"; ALL_KEY -> "All batches"; else -> currentFolder },
                             fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis
                         )
                     },
                     navigationIcon = {
-                        IconButton(onClick = { if (currentFolder != null) { openFolder = null; openSub = null } else onBack() }) {
-                            Icon(Icons.Outlined.ArrowBack, contentDescription = "Back")
+                        IconButton(onClick = {
+                            if (selecting) selected = emptySet()
+                            else if (currentFolder != null) { openFolder = null; openSub = null }
+                            else onBack()
+                        }) {
+                            Icon(if (selecting) Icons.Outlined.Close else Icons.Outlined.ArrowBack, contentDescription = if (selecting) "Stop selecting" else "Back")
                         }
                     },
                     actions = {
-                        if (onOpenQa != null) {
-                            IconButton(onClick = onOpenQa) { Icon(Icons.Outlined.FactCheck, contentDescription = "Template QA: check every template") }
+                        if (selecting) {
+                            IconButton(onClick = { selected = selected + shown.filter { it.status == "draft" }.map { it.id } }) {
+                                Icon(Icons.Outlined.SelectAll, contentDescription = "Select all drafts in this list")
+                            }
+                            IconButton(onClick = { deleteManyFor = true }, enabled = working == null && selectedDrafts.isNotEmpty()) {
+                                Icon(Icons.Outlined.Delete, contentDescription = "Delete selected drafts")
+                            }
+                        } else {
+                            if (onOpenQa != null) {
+                                IconButton(onClick = onOpenQa) { Icon(Icons.Outlined.FactCheck, contentDescription = "Template QA: check every template") }
+                            }
+                            IconButton(onClick = { refresh() }, enabled = !refreshing) { Icon(Icons.Outlined.Refresh, contentDescription = "Refresh") }
                         }
-                        IconButton(onClick = { refresh() }, enabled = !refreshing) { Icon(Icons.Outlined.Refresh, contentDescription = "Refresh") }
                     }
                 )
             },
@@ -292,6 +345,15 @@ fun PostChatInboxScreen(onBack: () -> Unit, onOpenBatch: (PostChatBatch) -> Unit
                                 batch,
                                 busy = opening == batch.id,
                                 folderLabel = if (currentFolder == ALL_KEY) batch.folder else null,
+                                selecting = selecting,
+                                selected = batch.id in selected,
+                                onSelect = {
+                                    if (batch.status != "draft") {
+                                        notice = "Only drafts can be selected for deleting."
+                                    } else {
+                                        selected = if (batch.id in selected) selected - batch.id else selected + batch.id
+                                    }
+                                },
                                 onMarkPosted = { postFor = batch },
                                 onDelete = { deleteFor = batch },
                                 onRemove = { removeFor = batch }
@@ -325,6 +387,15 @@ fun PostChatInboxScreen(onBack: () -> Unit, onOpenBatch: (PostChatBatch) -> Unit
                 confirmLabel = "Delete",
                 onDismiss = { deleteFor = null },
                 onConfirm = { deleteFor = null; deleteDraft(batch) }
+            )
+        }
+        if (deleteManyFor) {
+            ConfirmDialog(
+                title = "Delete ${selectedDrafts.size} drafts?",
+                message = "They are deleted for good, on this phone and in Supabase. Approved and posted batches are never deleted here. This cannot be undone.",
+                confirmLabel = "Delete",
+                onDismiss = { deleteManyFor = false },
+                onConfirm = { deleteManyFor = false; deleteSelected(selectedDrafts) }
             )
         }
         removeFor?.let { batch ->
@@ -384,11 +455,19 @@ private fun FolderCard(name: String, batches: Int, posts: Int, drafts: Int, onOp
     }
 }
 
+/**
+ * One batch card. Tap opens the batch, or (while selecting) adds or removes it from the selection. Long-press starts selecting.
+ * A selected card has a mint border and a tick; while selecting, the three-dot menu is hidden.
+ */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun BatchCard(
     batch: PostChatBatch,
     busy: Boolean,
     folderLabel: String? = null,
+    selecting: Boolean,
+    selected: Boolean,
+    onSelect: () -> Unit,
     onMarkPosted: () -> Unit,
     onDelete: () -> Unit,
     onRemove: () -> Unit,
@@ -398,8 +477,9 @@ private fun BatchCard(
     var menuOpen by remember { mutableStateOf(false) }
     Row(
         Modifier.fillMaxWidth().animateContentSize().clip(shape).background(PostPalette.Surface)
-            .border(BorderStroke(1.dp, PostPalette.Line), shape)
-            .clickable(onClick = onOpen).padding(start = 12.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
+            .border(if (selected) BorderStroke(2.dp, PostPalette.Mint) else BorderStroke(1.dp, PostPalette.Line), shape)
+            .combinedClickable(onClick = { if (selecting) onSelect() else onOpen() }, onLongClick = onSelect)
+            .padding(start = 12.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(
@@ -426,6 +506,14 @@ private fun BatchCard(
         if (busy) {
             Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(Modifier.size(22.dp), color = PostPalette.Mint, strokeWidth = 2.dp)
+            }
+        } else if (selecting) {
+            Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                Icon(
+                    Icons.Outlined.CheckCircle,
+                    contentDescription = if (selected) "Selected" else "Not selected",
+                    tint = if (selected) PostPalette.Mint else PostPalette.Muted.copy(alpha = 0.4f)
+                )
             }
         } else {
             Box {

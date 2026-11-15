@@ -60,18 +60,29 @@ enum class EditorTool(val label: String, val icon: ImageVector, val iconOn: Imag
 }
 
 /**
- * What the Inbox knows, kept in memory so the Inbox opens at once and the editor can show a dot when drafts are waiting.
+ * What the Inbox knows, kept in memory so the Inbox opens at once and the editor can show a dot when something is waiting.
  * The list is also cached on disk by PostChatStore, so it survives a restart.
+ *
+ * `drafts` is the number that decides the dot on the editor's Inbox icon (PostStudio): batches WAITING for the owner, that is
+ * drafts still to review PLUS approved (planned) batches that are not marked posted yet (docs/URGENT_PLAN.md item 2). The name is kept
+ * so PostStudio.kt did not have to change. `approved` is the approved part alone; the Inbox shows it as a reminder card.
  */
 object PostInboxState {
     var drafts by mutableStateOf(0)
+    var approved by mutableStateOf(0)
     var batches: List<PostChatBatch> = emptyList()
     var loadedAt: Long = 0L
+
+    /** Sets the counts only (for example from the list cached on disk at start-up). Does not mark the list as freshly loaded. */
+    fun countsFrom(list: List<PostChatBatch>) {
+        approved = list.count { it.status == "approved" }
+        drafts = list.count { it.status == "draft" } + approved
+    }
 
     fun update(list: List<PostChatBatch>) {
         batches = list
         loadedAt = System.currentTimeMillis()
-        drafts = list.count { it.status == "draft" }
+        countsFrom(list)
     }
 }
 

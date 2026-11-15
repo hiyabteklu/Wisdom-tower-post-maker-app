@@ -38,8 +38,9 @@ import kotlinx.coroutines.yield
  * The app opens on the template you edited last; the Library is one tap away (grid button in the editor).
  * The old layer studio has been removed.
  * The "qa" screen (Template QA, docs/APP_QUALITY_ROADMAP.md slice Q1) is opened from the Poster inbox and goes back to it.
- * After start-up two things happen quietly in the background: the Inbox count is refreshed (dot on the editor's Inbox icon),
- * and the Library thumbnails are drawn once (they are cached on disk), so the Library opens at once.
+ * After start-up two things happen quietly in the background: the Inbox count is refreshed (dot on the editor's Inbox icon: drafts to
+ * review plus approved batches not marked posted yet, see PostInboxState), and the Library thumbnails are drawn once (they are cached
+ * on disk), so the Library opens at once.
  */
 @Composable
 fun PostApp() {
@@ -72,9 +73,9 @@ fun PostApp() {
         persisted[0] = snapshot
     }
 
-    // Inbox dot: show the cached count at once, then refresh quietly. A failure (offline) changes nothing.
+    // Inbox dot: show the cached count at once (drafts plus approved batches not posted yet), then refresh quietly. A failure (offline) changes nothing.
     LaunchedEffect(Unit) {
-        PostInboxState.drafts = PostChatStore.loadCachedBatches(context).count { it.status == "draft" }
+        PostInboxState.countsFrom(PostChatStore.loadCachedBatches(context))
         delay(1200)
         runCatching { PostInboxState.update(PostChatApi.listBatches(context)) }
     }

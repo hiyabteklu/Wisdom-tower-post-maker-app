@@ -14,7 +14,7 @@ LESSON (15 Nov): an earlier agent's note said item 4 (color circles) was done. I
 | 3 | Clear edit and save UI, edits synced to Supabase | PARTLY: `update_batch` LIVE (wt-mcp v5); autosave for drafts, confirm for approved, one state line, offline retry (slices 3a, 3b); words now kept across an app restart (`PostWordsStore.kt`, written); clearer edit flow and keeping the last version NOT done |
 | 4 | No hex field, only tappable color circles | WRITTEN 15 Nov, not compiled: `PostHexField` (PostControls.kt) now shows color circles and `WordBox` (PostTextStyle.kt) word-ink color is circles. Check the phone for any other hex box |
 | 5 | Logo header | REVERTED (15 Nov): the thin fading bar looked bad on the phone, the original corner box is back. Not compiled |
-| 6 | Redesign the other poster templates (bold, creative, photo posters) | NOT DONE. No detailed plan exists yet: write `docs/TEMPLATE_REDESIGN_PLAN.md` from the real template code first |
+| 6 | Redesign the other poster templates (bold, creative, photo posters) | PLAN WRITTEN 15 Nov: `docs/TEMPLATE_REDESIGN_PLAN.md` (engine: working size, text shadow HUD, background photo on every template, letter and word boxes, typographic effects; 33 new designs in 5 families). Owner decision: Google AI Studio builds the WHOLE plan in one run, no slicing. NOTHING written in code yet |
 
 ## Decisions (taken by the assistant as designer, 15 Nov 2026, owner delegated)
 
@@ -23,6 +23,7 @@ LESSON (15 Nov): an earlier agent's note said item 4 (color circles) was done. I
 - Removing one post inside a batch is allowed only for DRAFT and APPROVED batches and never for the last post.
 - Logo header: the owner rejected the thin fading bar (it looked like a swoosh cutting across the poster and the logo had no clear box). The rule now: do NOT change the logo header design again without the owner's explicit yes; small refinements only (size, padding, corner radius), never a new shape.
 - Color controls: never a hex code text box anywhere in the app; always tappable circles.
+- Template redesign (15 Nov, owner): one run by Google AI Studio for the whole plan instead of one family per push; the owner and Claude review quality afterwards. The Chapter summaries (`study-*`) are NOT part of it.
 
 ## 1. Delete drafts (and the Supabase copy)
 
@@ -89,16 +90,16 @@ To do:
 
 ## 6. Redesign the other poster templates
 
-NO DETAILED PLAN EXISTS YET. The list below is only a direction. Before any template code is changed: read the real template files, write `docs/TEMPLATE_REDESIGN_PLAN.md` (for each template family: what it is now, the new layout with positions, fonts and sizes, the sample text it must survive, how long real text behaves), then build one family per push.
+PLAN WRITTEN (15 Nov 2026): **`docs/TEMPLATE_REDESIGN_PLAN.md`**. It was written from the real template and renderer code and the owner's requirements: background photo with opacity on every template, a text shadow slider/HUD, a size control that really works (automatic fill for short and long text, exact manual size, pinch), a letter in its own giant box and a giant word, advanced typography effects (outline, gradient, photo-filled letters, echo, extrude, justified stacks, chips, tiles, tickers), 33 new unique designs in five families (Letter, Type, Photo, Information, Marketing), clones removed, old ids mapped. The Chapter summaries are not part of it.
 
-Now: mostly flat gradients and text boxes, so the templates look the same. The photo posters are weak.
+Owner decision: Google AI Studio builds the **whole plan in one run** (no slicing, no stopping after a family); quality is reviewed afterwards by the owner and Claude. The older per-family direction list that stood here is replaced by that plan.
 
-Direction (one family at a time, each reviewed on the phone before the next):
-- [ ] Look at all current templates side by side (Template QA screen) and list which ones to keep.
-- [ ] Typography-led posters: one giant letter, one oversized word, extra-bold weights, stacked words, outlined or cut-out letters, a stylized first letter used as a graphic.
-- [ ] Photo posters: big cut-out subject over huge type, duotone or color-block photo, photo in a bold shape (arch, circle, torn edge), text overlapping the photo edge, caption chip.
-- [ ] Different structures, not only different colors: split screens, bold borders, stickers, number badges, ticket and label shapes.
-- [ ] Every template must work with real batch text of any length (no sample words, see below).
+Status:
+- [x] Plan written.
+- [ ] Code: NOT written yet.
+- [ ] Build, compile fixes, owner phone test (test matrix in the plan, section 8).
+- [ ] Backend rows for the new template ids and Brand Kit docs (plan section 7), after the build.
+- [ ] Owner adds the font files (plan section 9).
 
 ## Fixed on 14 to 15 Nov (written, not compiled)
 
@@ -109,5 +110,5 @@ Direction (one family at a time, each reviewed on the phone before the next):
 ## Suggested order
 
 1. Build and fix compile errors (everything above is untested).
-2. Write `docs/TEMPLATE_REDESIGN_PLAN.md`, then item 6 one family per push, item 3 leftovers.
-3. Test items 1 to 5 on the phone, then item 6 one family at a time.
+2. Template redesign: Google AI Studio builds `docs/TEMPLATE_REDESIGN_PLAN.md` in one run, then build and fix; item 3 leftovers.
+3. Test items 1 to 5 on the phone, then the template redesign with the plan's test matrix.

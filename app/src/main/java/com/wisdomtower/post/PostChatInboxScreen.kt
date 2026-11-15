@@ -30,11 +30,13 @@ import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.FactCheck
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.SelectAll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -44,6 +46,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
@@ -84,6 +87,10 @@ private const val ALL_KEY = "__all__"
  * It opens at once from the list kept in memory (or the one saved on disk) and refreshes quietly behind it, so there is no blank wait.
  * Pull down or tap the arrow to refresh. Tap a card to open the batch.
  *
+ * Clean up (the broom-bin icon in the top bar, always visible): "Select all drafts" starts selecting every draft so one tap on the bin deletes them,
+ * "Hide all posted batches" removes every posted batch from this inbox (phone only; Supabase and the post log are not touched).
+ * A draft card also has its own bin button, so a single draft can be deleted without opening the menu.
+ *
  * Card menu (the three dots, docs/URGENT_PLAN.md U1):
  * - Mark posted (draft or approved batch): pick the platforms (Telegram, TikTok, LinkedIn, Instagram, Facebook); the batch becomes Posted and
  *   one post log row per post and platform is saved in Supabase.
@@ -112,6 +119,7 @@ fun PostChatInboxScreen(onBack: () -> Unit, onOpenBatch: (PostChatBatch) -> Unit
     var removeFor by remember { mutableStateOf<PostChatBatch?>(null) }
     var selected by remember { mutableStateOf(setOf<String>()) }
     var deleteManyFor by remember { mutableStateOf(false) }
+    var cleanUp by remember { mutableStateOf(false) }
     var filter by rememberSaveable { mutableStateOf("all") }
     var openFolder by rememberSaveable { mutableStateOf<String?>(null) }
     var openSub by rememberSaveable { mutableStateOf<String?>(null) }
@@ -230,6 +238,8 @@ fun PostChatInboxScreen(onBack: () -> Unit, onOpenBatch: (PostChatBatch) -> Unit
         .filter { name -> byStatus.any { it.folder == name } }
     val selecting = selected.isNotEmpty()
     val selectedDrafts = visible.filter { it.id in selected && it.status == "draft" }
+    val allDrafts = visible.filter { it.status == "draft" }
+    val allPosted = visible.filter { it.status == "published" }
 
     PostTheme {
         Scaffold(
@@ -259,6 +269,9 @@ fun PostChatInboxScreen(onBack: () -> Unit, onOpenBatch: (PostChatBatch) -> Unit
                                 Icon(Icons.Outlined.Delete, contentDescription = "Delete selected drafts")
                             }
                         } else {
+                            IconButton(onClick = { cleanUp = true }) {
+                                Icon(Icons.Outlined.DeleteSweep, contentDescription = "Clean up the inbox")
+                            }
                             if (onOpenQa != null) {
                                 IconButton(onClick = onOpenQa) { Icon(Icons.Outlined.FactCheck, contentDescription = "Template QA: check every template") }
                             }
@@ -373,6 +386,39 @@ fun PostChatInboxScreen(onBack: () -> Unit, onOpenBatch: (PostChatBatch) -> Unit
             }
         }
 
+        if (cleanUp) {
+            AlertDialog(
+                onDismissRequest = { cleanUp = false },
+                title = { Text("Clean up the inbox") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("Drafts: ${allDrafts.size}. Posted: ${allPosted.size}.")
+                        TextButton(
+                            enabled = allDrafts.isNotEmpty(),
+                            onClick = {
+                                cleanUp = false
+                                // Select every draft, then tap the bin in the top bar to delete them (one confirm).
+                                selected = allDrafts.map { it.id }.toSet()
+                            }
+                        ) { Text("Select all ${allDrafts.size} drafts to delete") }
+                        TextButton(
+                            enabled = allPosted.isNotEmpty(),
+                            onClick = {
+                                cleanUp = false
+                                allPosted.forEach { PostInboxHidden.hide(context, it.id) }
+                                hidden = PostInboxHidden.ids(context)
+                                notice = "Hid ${allPosted.size} posted batches from this inbox. They stay in Supabase with their post log."
+                            }
+                        ) { Text("Hide all ${allPosted.size} posted batches") }
+                        Text(
+                            "Hiding posted batches only cleans this phone. Nothing is deleted in Supabase and the post log is never touched.",
+                            color = PostPalette.Muted, fontSize = 12.sp
+                        )
+                    }
+                },
+                confirmButton = { TextButton(onClick = { cleanUp = false }) { Text("Close") } }
+            )
+        }
         postFor?.let { batch ->
             PlatformPickerDialog(
                 batchTitle = batch.title,
@@ -457,7 +503,8 @@ private fun FolderCard(name: String, batches: Int, posts: Int, drafts: Int, onOp
 
 /**
  * One batch card. Tap opens the batch, or (while selecting) adds or removes it from the selection. Long-press starts selecting.
- * A selected card has a mint border and a tick; while selecting, the three-dot menu is hidden.
+ * A selected card has a mint border and a tick; while selecting, the buttons on the right are hidden.
+ * A draft card has its own bin button (delete this draft) next to the three-dot menu.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -516,6 +563,11 @@ private fun BatchCard(
                 )
             }
         } else {
+            if (batch.status == "draft") {
+                IconButton(onClick = onDelete) {
+                    Icon(Icons.Outlined.Delete, contentDescription = "Delete this draft", tint = PostPalette.Gold)
+                }
+            }
             Box {
                 IconButton(onClick = { menuOpen = true }) {
                     Icon(Icons.Outlined.MoreVert, contentDescription = "Batch actions", tint = PostPalette.Muted)

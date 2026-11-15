@@ -7,7 +7,7 @@ Code comments in `PostInboxActions.kt`, `PostChatInboxScreen.kt` and `PostBatchS
 
 | # | Item | Status |
 |---|------|--------|
-| 1 | Delete single or batch drafts, and their Supabase copy | PARTLY: single draft delete written; multi-select NOT done |
+| 1 | Delete single or batch drafts, and their Supabase copy | WRITTEN (single delete and multi-select, not compiled); "also delete the log" needs the owner's decision; deleting one post inside a batch NOT done |
 | 2 | Mark as posted with platform selector, in-app notification | PARTLY: picker used in inbox AND review screen (written); notification NOT done |
 | 3 | Clear edit and save UI, edits synced to Supabase | PARTLY: `update_batch` is LIVE on wt-mcp (v5); autosave for drafts, confirm for approved, one state line, offline retry (slices 3a and 3b, written, not compiled); words not kept across an app restart, clearer edit flow and keeping the last version NOT done |
 | 4 | No hex field, only tappable color circles | Written by an earlier agent; check on the phone |
@@ -19,8 +19,9 @@ Code comments in `PostInboxActions.kt`, `PostChatInboxScreen.kt` and `PostBatchS
 Written (U1): card menu in the Poster inbox, "Delete draft" on a draft batch: confirm dialog, then `wt-mcp` `delete_batch` (v4). The server refuses approved and posted batches and does not touch `wt_post.post_log`.
 Files: `PostInboxActions.kt`, `PostChatInboxScreen.kt`, `PostChat.kt` (`PostChatApi.deleteBatch`).
 
+Written (15 Nov, not compiled): multi-select in `PostChatInboxScreen.kt`. Long-press a DRAFT card to start selecting, tap more drafts to add or remove, "select all drafts in this list" and the bin sit in the top bar, one confirm, then one `delete_batch` call per draft. It stops at the first error and leaves the undeleted ones selected. Only drafts can be selected. Close icon or Back leaves selecting.
+
 To do:
-- [ ] Multi-select in the inbox: long-press a card, tick several, one "Delete selected" button (drafts only, one confirm, one call per batch).
 - [ ] Decide with the owner what "also delete the log" means. Today the post log is kept on purpose so posted history is never lost. Option: deleting a DRAFT removes its log rows too (there should be none), deleting a POSTED batch asks a second, stronger confirm and removes the log rows as well. Do not change this without the owner's yes.
 - [ ] Deleting one post (sheet) inside a batch is not built.
 
@@ -85,5 +86,5 @@ To do (one family at a time, each reviewed on the phone before the next):
 ## Suggested order
 
 1. Build and fix compile errors (everything above is untested).
-2. Finish the written items (item 1 multi-select, item 2 notification, item 3 leftovers, item 6 templates).
+2. Finish the written items (item 2 notification, item 3 leftovers, item 6 templates).
 3. Test items 1 to 5 on the phone, then item 6 one family at a time.

@@ -1,21 +1,80 @@
-# Urgent plan
+# Urgent plan (owner's list, 15 Nov 2026)
 
-Status: U1 CODE WRITTEN, NOT COMPILED (14 Nov 2026). Code comments in `PostInboxActions.kt` and `PostChatInboxScreen.kt` point here.
-The assistant cannot build the app. Build and test before anything depends on this. Expect small compile errors (a missing import, a renamed helper); fix those first.
+The assistant cannot build the app. Everything marked "written" is NOT compiled and NOT tested on the phone. Build first, fix compile errors, then test each item.
+Code comments in `PostInboxActions.kt` and `PostChatInboxScreen.kt` point here.
 
-## U1: Poster inbox actions
+## Status at a glance
 
-Card menu (three dots) on every batch card in the Poster inbox:
+| # | Item | Status |
+|---|------|--------|
+| 1 | Delete single or batch drafts, and their Supabase copy | PARTLY: single draft delete written; multi-select NOT done |
+| 2 | Mark as posted with platform selector, in-app notification | PARTLY: platform picker written; notification NOT done |
+| 3 | Clear edit and save UI, edits synced to Supabase | NOT DONE |
+| 4 | No hex field, only tappable color circles | Written by an earlier agent; check on the phone |
+| 5 | Logo as a thin fading header instead of a corner box | NOT DONE |
+| 6 | Redesign the other poster templates (bold, creative, photo posters) | NOT DONE |
 
-- **Mark posted** (draft or approved batch): a dialog asks for every platform used (Telegram, TikTok, LinkedIn, Instagram, Facebook). The batch status becomes `published` in Supabase, then one `wt_post.post_log` row is saved per post and platform (`PostChatApi.logPost`). The status is set first; if the log stops half way, the message says how many rows were saved and the inbox reloads.
-- **Delete draft** (draft batch only): confirm dialog, then `wt-mcp` `delete_batch` (v4). The server refuses approved and posted batches and never touches the post log.
-- **Remove from inbox** (posted batch only): hidden on this phone only (SharedPreferences `wt_post_inbox_hidden`). The batch and its post log rows stay in Supabase.
+## 1. Delete drafts (and the Supabase copy)
 
-Files: `PostInboxActions.kt` (picker dialog, confirm dialog, `markBatchPosted`, `PostInboxHidden`), `PostChatInboxScreen.kt` (menu and wiring), `PostChat.kt` (`PostChatApi.deleteBatch`).
+Written (U1): card menu in the Poster inbox, "Delete draft" on a draft batch: confirm dialog, then `wt-mcp` `delete_batch` (v4). The server refuses approved and posted batches and does not touch `wt_post.post_log`.
+Files: `PostInboxActions.kt`, `PostChatInboxScreen.kt`, `PostChat.kt` (`PostChatApi.deleteBatch`).
 
-Progress:
+To do:
+- [ ] Multi-select in the inbox: long-press a card, tick several, one "Delete selected" button (drafts only, one confirm, one call per batch).
+- [ ] Decide with the owner what "also delete the log" means. Today the post log is kept on purpose so posted history is never lost. Option: deleting a DRAFT removes its log rows too (there should be none), deleting a POSTED batch asks a second, stronger confirm and removes the log rows as well. Do not change this without the owner's yes.
+- [ ] Deleting one post (sheet) inside a batch is not built.
 
-- [x] wt-mcp v4 with `delete_batch` deployed (per the previous session; not re-checked)
-- [x] App code pushed, not compiled
-- [ ] Build, fix compile errors
-- [ ] Test on the phone: Mark posted with one and with several platforms (check `wt_post.post_log`), Delete draft (draft disappears here and in Supabase; an approved batch is refused), Remove from inbox (posted batch disappears and the post log stays), kill and reopen the app (hidden batches stay hidden)
+## 2. Mark as posted
+
+Written (U1): "Mark posted" asks for every platform used (Telegram, TikTok, LinkedIn, Instagram, Facebook), sets the batch to `published`, then saves one `wt_post.post_log` row per post and platform.
+
+To do:
+- [ ] In-app notification: a reminder when a planned or approved batch has not been marked posted (dot on the Inbox icon already exists for drafts; extend it, or add a notification).
+- [ ] Check that the picker really lists all five platforms (the review screen still has its own chips: Telegram, Instagram, Facebook, TikTok, no LinkedIn). Make both use the one shared picker.
+
+## 3. Edit and save, synced to Supabase
+
+Today edits live only on the phone: designs in `PostDesignStore`, captions in the `wt_post_captions` preferences. The review screen autosaves silently, so it is unclear what is saved. The `wt-mcp` function has no tool to update the words or captions of a batch.
+
+To do:
+- [ ] New `wt-mcp` tool `update_batch` (posts, captions, title) and call it from the app. Tell the owner before deploying; wt-mcp is shared and live.
+- [ ] Inbox draft: every edit saves to Supabase when online, and is queued on the phone and sent later when offline. Show one clear state on the batch: "Saved", "Saving...", "Waiting for internet".
+- [ ] One clear editing flow: tap a sheet, edit, "Done" saves that sheet; "Apply design to all" is a separate, clearly named button. No hidden autosave.
+- [ ] Planned (approved) posts must not change by accident: ask before saving over an approved batch, and keep the last version.
+
+## 4. Color circles instead of hex code
+
+Replaced by an earlier agent with tappable swatches (shown in the commit history). Check on the phone: no hex text field anywhere (editor tabs, batch Design panel), circles show the real color, tap changes it. Check icon colors too.
+
+## 5. Logo placement: thin fading header
+
+Now: a rounded rectangle in the top right corner. Wanted: a slim bar across the top edge that starts thin at the top left, widens toward the top right to fit the logo, and fades out toward the left.
+
+To do:
+- [ ] New logo style "Fade header" in the brand screen (keep the old corner box as an option).
+- [ ] Draw in `PostRenderer` (and the study sheets, which have their own paper layout): gradient bar in the brand color, alpha fading to 0 on the left, tapered height, logo inside on the right. Never covers the eyebrow or headline.
+- [ ] Preview in the Library and batch review.
+
+## 6. Redesign the other poster templates
+
+Now: mostly flat gradients and text boxes, so the templates look the same. The photo posters are weak.
+
+To do (one family at a time, each reviewed on the phone before the next):
+- [ ] Look at all current templates side by side (Template QA screen) and list which ones to keep.
+- [ ] Typography-led posters: one giant letter, one oversized word, extra-bold weights, stacked words, outlined or cut-out letters, a stylized first letter used as a graphic.
+- [ ] Photo posters: big cut-out subject over huge type, duotone or color-block photo, photo in a bold shape (arch, circle, torn edge), text overlapping the photo edge, caption chip.
+- [ ] Different structures, not only different colors: split screens, bold borders, stickers, number badges, ticket and label shapes.
+- [ ] Every template must work with real batch text of any length (no sample words, see below).
+
+## Fixed on 14 to 15 Nov (written, not compiled)
+
+- Inbox batch pages no longer show the template's SAMPLE words (the old "SQ3R" and five-step line on the EMF sheets). `PostBatchScreen.pageDoc`.
+- Powers and indices inside `\sqrt{...}` (A_y², A_z²) now draw as real sub and superscripts. `PostStudyInline.appendMath`.
+- Known, not fixed: the study sheets draw all text in capitals (the chosen font), so `a_x` and `A_x` look the same. Pick a font with lowercase letters in the Design panel, or add a lowercase option.
+
+## Suggested order
+
+1. Build and fix compile errors (everything above is untested).
+2. Test items 1, 2 and 4 on the phone.
+3. Item 3 (sync) next: it protects the planned posts.
+4. Item 5 (logo header), then item 6 (templates), one family per round.

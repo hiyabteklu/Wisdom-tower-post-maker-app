@@ -1,6 +1,6 @@
 # Urgent plan (owner's list, 15 Nov 2026)
 
-The assistant cannot build the app. Everything marked "written" is NOT compiled and NOT tested on the phone. Build first, fix compile errors, then test each item.
+The assistant cannot build the app. Everything marked "written" is NOT compiled and NOT tested on the phone. Build first, fix compile errors, then test each item. The owner tests at the end, after the written items are done.
 Code comments in `PostInboxActions.kt`, `PostChatInboxScreen.kt` and `PostBatchSync.kt` point here.
 
 ## Status at a glance
@@ -9,7 +9,7 @@ Code comments in `PostInboxActions.kt`, `PostChatInboxScreen.kt` and `PostBatchS
 |---|------|--------|
 | 1 | Delete single or batch drafts, and their Supabase copy | PARTLY: single draft delete written; multi-select NOT done |
 | 2 | Mark as posted with platform selector, in-app notification | PARTLY: picker used in inbox AND review screen (written); notification NOT done |
-| 3 | Clear edit and save UI, edits synced to Supabase | PARTLY: `update_batch` is LIVE on wt-mcp (v5); Save button and state line written (slice 3a, not compiled); offline queue and clearer edit flow NOT done |
+| 3 | Clear edit and save UI, edits synced to Supabase | PARTLY: `update_batch` is LIVE on wt-mcp (v5); autosave for drafts, confirm for approved, one state line, offline retry (slices 3a and 3b, written, not compiled); words not kept across an app restart, clearer edit flow and keeping the last version NOT done |
 | 4 | No hex field, only tappable color circles | Written by an earlier agent; check on the phone |
 | 5 | Logo as a thin fading header instead of a corner box | WRITTEN (15 Nov), not compiled: needs a look on the phone |
 | 6 | Redesign the other poster templates (bold, creative, photo posters) | NOT DONE |
@@ -36,18 +36,20 @@ To do:
 
 Backend: `wt-mcp` v5 is deployed and live (verified 15 Nov 2026, version 5, `update_batch` present). It replaces the posts and/or captions and/or title of a DRAFT or APPROVED batch, refuses a PUBLISHED batch, and never touches status, folder or the post log. It was deployed by an earlier agent; the owner should know it is live.
 
-Written (slice 3a, 15 Nov, NOT compiled): `PostBatchSync.kt` holds `updateBatch` (the wt-mcp call, in its own file so `PostChat.kt` with the built-in key was not rewritten), `mergePosts` (edited words laid over the cloud posts, every other field kept; the app's `body` box is `message` on the server) and the composable `BatchSaveBar`. `PostBatchScreen.kt` shows the bar under the caption box in the review step.
+Written (slices 3a and 3b, 15 Nov, NOT compiled): `PostBatchSync.kt` holds `updateBatch` (the wt-mcp call, in its own file so `PostChat.kt` with the built-in key was not rewritten), `mergePosts` (edited words laid over the cloud posts, every other field kept; the app's `body` box is `message` on the server) and the composable `BatchSaveBar`. `PostBatchScreen.kt` shows the bar under the caption box in the review step.
 - One clear state line: "Saved: same as the cloud copy", "Unsaved changes", "Saving...", "Waiting for internet", or the server's error.
-- Nothing is sent until "Save changes to cloud" is pressed. Captions are still also kept on the phone while typing (`wt_post_captions` preferences), as before.
-- An approved batch asks before it is overwritten. A published batch shows "cannot be edited online".
+- DRAFT batches save themselves about 2 seconds after the last edit; the state line shows it. "Save now" saves at once.
+- Offline: the unsent edits are retried every 15 seconds while the batch is open. A server error (for example a rejected post) is NOT retried; press Save now after fixing it.
+- APPROVED (planned) batches never save by themselves: Save now asks first. A published batch shows "cannot be edited online".
+- Captions typed on the phone are also kept in the `wt_post_captions` preferences, so after a restart they are found again and sent when the batch is reopened.
 - Words are only written when the phone and the cloud agree on the number of posts; otherwise only captions are saved and a line says so.
 
 To do:
-- [ ] Build, then test: edit a caption, Save, reopen the batch from the inbox, check the caption came back from Supabase. Same for a word edited in the editor. Test an approved batch (dialog) and airplane mode ("Waiting for internet").
+- [ ] Words edited in the editor are NOT kept across an app restart (only designs and captions are). If the owner edits words offline and closes the app, they are lost. Fix: keep the edited words per batch in preferences and reload them into the review items.
 - [ ] Possible bug to check: in Full blocks mode a `---` line splits a post. A Chapter summaries list item that is only `---` (blank line) would then split a sheet in two on the phone, so the post count differs and words are not synced for that batch (captions still save). Check on a real study batch; if it happens, parse inbox batches from the JSON posts instead of from text.
-- [ ] Offline queue: remember unsent edits on the phone and send them later automatically (today the owner presses Save again when online).
 - [ ] One clear editing flow: tap a sheet, edit, "Done" saves that sheet; "Apply design to all" is a separate, clearly named button. Designs are still phone-only (`PostDesignStore`); only words and captions sync.
 - [ ] Keep the last version before overwriting an approved batch (needs a small wt-mcp change or a column; tell the owner before deploying, wt-mcp is shared and live).
+- [ ] Test (owner, at the end): edit a caption, wait, reopen the batch from the inbox, check it came back from Supabase. Same for a word edited in the editor. Approved batch (dialog), airplane mode ("Waiting for internet", then back online).
 
 ## 4. Color circles instead of hex code
 
@@ -83,6 +85,5 @@ To do (one family at a time, each reviewed on the phone before the next):
 ## Suggested order
 
 1. Build and fix compile errors (everything above is untested).
-2. Test items 1, 2, 4 and 5 on the phone.
-3. Test item 3 slice 3a (Save to cloud), then the offline queue and the clearer edit flow.
-4. Item 6 (templates), one family per round.
+2. Finish the written items (item 1 multi-select, item 2 notification, item 3 leftovers, item 6 templates).
+3. Test items 1 to 5 on the phone, then item 6 one family at a time.

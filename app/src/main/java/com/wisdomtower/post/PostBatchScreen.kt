@@ -89,6 +89,7 @@ import java.util.Locale
  * Step 2 (review): swipe through a preview of every post, change the design of one page or of the whole batch (Design panel,
  * PostBatchDesign.kt), edit the words of any post, then press Save to gallery. Nothing is saved to the gallery until that button is pressed.
  * Designs of an inbox batch are remembered on this phone (PostDesignStore), so they are still there when the batch is reopened.
+ * "Mark posted" (inbox batches) uses the same platform picker and post log as the inbox card menu (PostInboxActions.kt).
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -114,7 +115,8 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
     var batchSize by remember(initialBatch?.id) { mutableStateOf(doc.size) }
     var backendStatus by remember(initialBatch?.id) { mutableStateOf(initialBatch?.status.orEmpty()) }
     var backendMessage by remember(initialBatch?.id) { mutableStateOf<String?>(null) }
-    var platform by remember(initialBatch?.id) { mutableStateOf("Telegram") }
+    var showPostedPicker by remember(initialBatch?.id) { mutableStateOf(false) }
+    var postingBusy by remember(initialBatch?.id) { mutableStateOf(false) }
 
     // Review step
     var reviewing by remember { mutableStateOf(false) }
@@ -595,11 +597,6 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
                     status?.takeIf { it != "All posts fit" }?.let { Text(it, color = PostPalette.Text, fontSize = 13.sp) }
                     if (resultUris.isNotEmpty() && !running && initialBatch != null) {
                         Text("Backend status: $backendStatus", color = PostPalette.Muted, fontSize = 12.sp)
-                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            listOf("Telegram", "Instagram", "Facebook", "TikTok").forEach { item ->
-                                FilterChip(selected = platform == item, onClick = { platform = item }, label = { Text(item) })
-                            }
-                        }
                         OutlinedButton(onClick = {
                             scope.launch {
                                 try {
@@ -609,16 +606,12 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
                                 } catch (e: Exception) { backendMessage = e.message ?: "Status update failed" }
                             }
                         }, modifier = Modifier.fillMaxWidth(), enabled = backendStatus != "approved" && backendStatus != "published") { Text("Mark approved") }
-                        Button(onClick = {
-                            scope.launch {
-                                try {
-                                    PostChatApi.setBatchStatus(context, initialBatch.id, "published")
-                                    backendStatus = "published"
-                                    val postedOn = LocalDate.now().toString()
-                                    backendMessage = "Marked published on $postedOn"
-                                } catch (e: Exception) { backendMessage = e.message ?: "Status update failed" }
-                            }
-                        }, modifier = Modifier.fillMaxWidth(), enabled = backendStatus != "published") { Text("Mark published") }
+                        // Same picker and post log as the inbox card menu: every platform used, one log row per post and platform.
+                        Button(
+                            onClick = { showPostedPicker = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = backendStatus != "published" && !postingBusy
+                        ) { Text(if (postingBusy) "Marking posted..." else "Mark posted (choose platforms)") }
                     }
                     if (resultUris.isNotEmpty() && resultUris.size <= 30) {
                         OutlinedButton(onClick = { shareResults() }, modifier = Modifier.fillMaxWidth()) {
@@ -629,6 +622,31 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
                     }
                 }
             }
+        }
+
+        if (showPostedPicker && initialBatch != null) {
+            PlatformPickerDialog(
+                batchTitle = initialBatch.title,
+                onDismiss = { showPostedPicker = false },
+                onConfirm = { platforms ->
+                    showPostedPicker = false
+                    postingBusy = true
+                    scope.launch {
+                        try {
+                            val rows = markBatchPosted(context, initialBatch.id, platforms) { _, _ -> }
+                            backendStatus = "published"
+                            backendMessage = "Marked posted on " + platforms.joinToString(", ") + " ($rows log rows saved)"
+                        } catch (e: Exception) {
+                            val message = e.message ?: "Could not mark posted"
+                            // markBatchPosted sets the status first, so a half-written log still means the batch is published
+                            if (message.startsWith("Marked posted")) backendStatus = "published"
+                            backendMessage = message
+                        } finally {
+                            postingBusy = false
+                        }
+                    }
+                }
+            )
         }
 
         // The editor for one post in the batch.

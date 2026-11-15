@@ -14,7 +14,7 @@ LESSON (15 Nov): an earlier agent's note said item 4 (color circles) was done. I
 | 3 | Clear edit and save UI, edits synced to Supabase | PARTLY: `update_batch` LIVE (wt-mcp v5); autosave for drafts, confirm for approved, one state line, offline retry (slices 3a, 3b); words now kept across an app restart (`PostWordsStore.kt`, written); clearer edit flow and keeping the last version NOT done |
 | 4 | No hex field, only tappable color circles | WRITTEN 15 Nov, not compiled: `PostHexField` (PostControls.kt) now shows color circles and `WordBox` (PostTextStyle.kt) word-ink color is circles. Check the phone for any other hex box |
 | 5 | Logo header | REVERTED (15 Nov): the thin fading bar looked bad on the phone, the original corner box is back. Not compiled |
-| 6 | Redesign the other poster templates (bold, creative, photo posters) | PLAN WRITTEN 15 Nov: `docs/TEMPLATE_REDESIGN_PLAN.md` (engine: working size, text shadow HUD, background photo on every template, letter and word boxes, typographic effects; 33 new designs in 5 families). Owner decision: Google AI Studio builds the WHOLE plan in one run, no slicing. NOTHING written in code yet |
+| 6 | Redesign the other poster templates (bold, creative, photo posters) | WRITTEN 15 Nov, not compiled: full `docs/TEMPLATE_REDESIGN_PLAN.md` built in one run (engine `FitMode`/`VAnchor`/`TextShadow`/`TextFx`/`PhotoFrame`, floating HUD, background photo dim/blur/panels, `letter` & `word` derivation, 33 new designs + 6 kept across 5 families, clones removed & mapped in `LegacyTemplateIds`, `PostQaScreen` upgraded) |
 
 ## Decisions (taken by the assistant as designer, 15 Nov 2026, owner delegated)
 
@@ -96,7 +96,7 @@ Owner decision: Google AI Studio builds the **whole plan in one run** (no slicin
 
 Status:
 - [x] Plan written.
-- [ ] Code: NOT written yet.
+- [x] Code: WRITTEN (not compiled) in one run across `PostImageCache.kt`, `PostModel.kt`, `PostTemplates.kt`, `PostEngine.kt`, `PostRenderer.kt`, `PostTextStyle.kt`, `PostEditorTabs.kt`, `PostStudio.kt`, `PostTemplatesLetter.kt`, `PostTemplatesType.kt`, `PostTemplatesPhoto.kt`, `PostTemplatesInfo.kt`, `PostTemplatesMarketing.kt`, `PostTemplatesDevice.kt`, `PostLibraryScreen.kt`, `PostDrafts.kt`, `PostBatch.kt`, `PostBatchScreen.kt`, `PostChat.kt`, `PostBatchSync.kt`, `PostQaScreen.kt` (and removed `PostTemplatesSplit.kt` & `PostTemplatesPhoto2.kt`). Every touched file re-read for compile errors.
 - [ ] Build, compile fixes, owner phone test (test matrix in the plan, section 8).
 - [ ] Backend rows for the new template ids and Brand Kit docs (plan section 7), after the build.
 - [ ] Owner adds the font files (plan section 9).

@@ -1,257 +1,503 @@
 package com.wisdomtower.post
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.TextRange
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.exp
+import kotlin.math.ln
+import kotlin.math.min
+import kotlin.math.roundToInt
 
 /**
- * Per-box text styling (docs/TEXT_STYLE.md). Every word box of a template gets its own Color, Font and Size,
- * stored in PostDoc.slotStyles under the slot name. Two extra keys cover text that is not a word box:
- * PostSlots.MARKS (fixed marks such as the quote mark, the ANSWER label and badge letters) and PostSlots.FOOTER
- * (the footer and social text). A style with nothing set is removed, so a post with no overrides stays "not edited".
+ * Per-slot text editor and style controls (TEXT_STYLE.md + TEMPLATE_REDESIGN_PLAN.md sections 3.1, 3.2, 3.3).
+ * Uses color circles only (no hex code input boxes anywhere).
  */
 
-/** Changes the style stored under key. A style that ends up with nothing set is dropped from the map. */
-internal fun PostDoc.withSlotStyle(key: String, edit: (SlotStyle) -> SlotStyle): PostDoc {
-    val next = edit(slotStyles[key] ?: SlotStyle())
-    return copy(slotStyles = if (next.isDefault) slotStyles - key else slotStyles + (key to next))
-}
-
-private fun PostDoc.withColorOnAll(slots: List<String>, hex: String?): PostDoc =
-    slots.fold(this) { d, s -> d.withSlotStyle(s) { it.copy(colorHex = hex) } }
-
-/** "Montserrat_Black.ttf" or ".../Montserrat_Black.ttf" becomes "Montserrat Black". */
-private fun fontShort(path: String?): String {
-    if (path == null) return "Font"
-    return path.substringAfterLast('/').substringBeforeLast('.').replace('_', ' ').replace('-', ' ').trim().ifEmpty { "Font" }
-}
-
-@Composable
-private fun ColorDot(hex: String?) {
-    val c = remember(hex) { hex?.let { h -> runCatching { Color(android.graphics.Color.parseColor(h)) }.getOrNull() } } ?: Color.Gray
-    Box(Modifier.size(14.dp).clip(CircleShape).background(c))
-}
-
-/** One strip of colors: A (the template's own color), the four Brand colors, then the shared palette. */
-@Composable
-private fun StyleColorPicker(selected: String?, brand: PostBrand, onPick: (String?) -> Unit) {
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
-            PostCircle(null, selected == null, "A") { onPick(null) }
-            listOf(brand.primaryHex, brand.secondaryHex, brand.lightHex, brand.darkHex).forEach { hex ->
-                PostCircle(hex, selected.equals(hex, ignoreCase = true)) { onPick(hex) }
-            }
-        }
-        PaletteStrip(selected, null, false, onPick)
-    }
-}
-
-/** A font chip drawn in its own font, so the choice can be seen before it is tapped. */
-@Composable
-private fun FontChip(f: PostFonts.FontChoice, selected: Boolean, onClick: () -> Unit) {
-    val context = LocalContext.current
-    val family = remember(f.path) { PostFonts.typeface(context, f.path)?.let { FontFamily(it) } }
-    FilterChip(selected = selected, onClick = onClick, label = { Text(f.label, fontFamily = family, fontSize = 15.sp) })
-}
-
-/** English fonts change the Latin letters of the box, Amharic fonts change the Ethiopic letters of the box. */
-@Composable
-private fun StyleFontPicker(style: SlotStyle, onChange: (SlotStyle) -> Unit) {
-    val context = LocalContext.current
-    val english = remember { PostFonts.list(context, PostFonts.ENGLISH) }
-    val amharic = remember { PostFonts.list(context, PostFonts.AMHARIC) }
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        PostSmallLabel("English letters")
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(selected = style.fontEn == null, onClick = { onChange(style.copy(fontEn = null)) }, label = { Text("Template font") })
-            english.forEach { f -> FontChip(f, style.fontEn == f.path) { onChange(style.copy(fontEn = f.path)) } }
-        }
-        if (amharic.isNotEmpty()) {
-            PostSmallLabel("Amharic letters")
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = style.fontAm == null, onClick = { onChange(style.copy(fontAm = null)) }, label = { Text("Default") })
-                amharic.forEach { f -> FontChip(f, style.fontAm == f.path) { onChange(style.copy(fontAm = f.path)) } }
-            }
-        }
-        if (english.isEmpty() && amharic.isEmpty()) {
-            PostSmallLabel("No fonts yet. Add .ttf or .otf files in the Fonts section.")
-        }
-    }
-}
-
-/** The colors offered for ink on a selected word. Tap a circle; there is no hex code box. */
-private val InlineInkColors = listOf(
-    "#D11A26", "#EF4444", "#F97316", "#FACC15", "#22C55E", "#14B8A6",
-    "#22D3EE", "#3B82F6", "#176BCE", "#6366F1", "#8B5CF6", "#EC4899", "#111827", "#FFFFFF"
+private val StyleSwatches = listOf(
+    "#FFFFFF", "#F8FAFC", "#CBD5E1", "#475569", "#0F172A", "#000000",
+    "#EF4444", "#F97316", "#FACC15", "#FFD84D", "#22C55E", "#10B981",
+    "#14B8A6", "#06B6D4", "#3B82F6", "#6366F1", "#8B5CF6", "#EC4899"
 )
 
-/**
- * One word box: the text field, then three chips (Color, Font, Size) that open one small panel at a time.
- * Nothing is set until a chip is used, so the template keeps its own look by default. Reset clears this box only.
- */
+internal fun unitToLogSlider(u: Float): Float {
+    val clamped = u.coerceIn(0.015f, 1.6f)
+    val lo = ln(0.015f)
+    val hi = ln(1.6f)
+    return ((ln(clamped) - lo) / (hi - lo)).coerceIn(0f, 1f)
+}
+
+internal fun logSliderToUnit(t: Float): Float {
+    val lo = ln(0.015f)
+    val hi = ln(1.6f)
+    return exp(lo + t.coerceIn(0f, 1f) * (hi - lo)).coerceIn(0.015f, 1.6f)
+}
+
 @Composable
-internal fun WordBox(slot: String, doc: PostDoc, onDoc: (PostDoc) -> Unit, brand: PostBrand) {
-    var panel by remember(slot) { mutableStateOf("") }
-    var field by remember(slot) { mutableStateOf(TextFieldValue(doc.texts[slot].orEmpty())) }
-    LaunchedEffect(doc.texts[slot]) {
-        val external = doc.texts[slot].orEmpty()
-        if (field.text != external) field = TextFieldValue(external, TextRange(external.length))
-    }
-    fun applyInline(open: String, close: String, placeholder: String = "text") {
-        val value = field
-        val start = minOf(value.selection.start, value.selection.end).coerceIn(0, value.text.length)
-        val end = maxOf(value.selection.start, value.selection.end).coerceIn(0, value.text.length)
-        val chosen = value.text.substring(start, end).ifEmpty { placeholder }
-        val replacement = open + chosen + close
-        val next = value.text.substring(0, start) + replacement + value.text.substring(end)
-        val cursor = if (start == end) start + open.length + chosen.length else start + replacement.length
-        field = TextFieldValue(next, TextRange(cursor))
-        onDoc(doc.withText(slot, next))
-    }
+internal fun WordBox(
+    slot: String,
+    doc: PostDoc,
+    onDoc: (PostDoc) -> Unit,
+    brand: PostBrand,
+    selectedOnCanvas: Boolean = false,
+    onSelectOnCanvas: (() -> Unit)? = null
+) {
+    var styleOpen by rememberSaveable(slot) { mutableStateOf(false) }
+    val text = doc.texts[slot].orEmpty()
     val style = doc.slotStyles[slot] ?: SlotStyle()
-    val boxes = remember(doc.templateId, doc.size) {
-        postTemplate(doc.templateId).layout(doc.size).slots.filter { it.literal == null }.map { it.slot }.distinct()
-    }
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        OutlinedTextField(
-            value = field,
-            onValueChange = { field = it; onDoc(doc.withText(slot, it.text)) },
-            placeholder = { Text(PostSlots.label(slot)) },
-            minLines = 1,
-            maxLines = if (slot == PostSlots.LIST) 8 else 5,
-            modifier = Modifier.fillMaxWidth()
-        )
-        PostSmallLabel("Select a word or phrase above, then tap a formatting control. With no selection, a placeholder is inserted at the cursor.")
+    val hasCustomStyle = !style.isDefault
+    val multiline = slot == PostSlots.BODY || slot == PostSlots.LIST || slot == PostSlots.HEADLINE
+
+    val shape = RoundedCornerShape(12.dp)
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(PostPalette.Surface)
+            .border(
+                width = if (selectedOnCanvas) 2.dp else 1.dp,
+                color = if (selectedOnCanvas) PostPalette.Mint else PostPalette.Line,
+                shape = shape
+            )
+            .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
         Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            FilterChip(selected = false, onClick = { applyInline("**", "**", "bold") }, label = { Text("Bold") })
-            FilterChip(selected = false, onClick = { applyInline("*", "*", "italic") }, label = { Text("Italic") })
-            FilterChip(selected = false, onClick = { applyInline("==", "==", "highlight") }, label = { Text("Highlight") })
-            FilterChip(selected = false, onClick = { applyInline("[[", "]]", "key term") }, label = { Text("Key term") })
-            FilterChip(selected = false, onClick = { applyInline("#", "#", "underline") }, label = { Text("Underline") })
-            FilterChip(selected = false, onClick = { applyInline("\\box{", "}", "important note") }, label = { Text("Note box") })
-            FilterChip(selected = false, onClick = { applyInline("\u0024", "\u0024", "formula") }, label = { Text("Formula") })
-            FilterChip(selected = false, onClick = { applyInline("\u0024\u0024", "\u0024\u0024", "display formula") }, label = { Text("Display math") })
-        }
-        // Color of the selected word: tap a circle, the color is applied to the selection at once (no hex code box).
-        PostSmallLabel("Color of the selected word")
-        Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            (listOf(brand.primaryHex, brand.secondaryHex) + InlineInkColors).distinct().forEach { hex ->
-                PostSwatch(hex, false) { applyInline("[[${hex.uppercase()}:", "]]", "colored word") }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.clickable(enabled = onSelectOnCanvas != null) { onSelectOnCanvas?.invoke() }
+            ) {
+                Text(PostSlots.label(slot), color = PostPalette.Text, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                if (hasCustomStyle) {
+                    Text("Styled", color = PostPalette.Mint, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                }
             }
-        }
-        Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            FilterChip(
-                selected = panel == "color",
-                onClick = { panel = if (panel == "color") "" else "color" },
-                label = { Text("Color") },
-                leadingIcon = if (style.colorHex != null) { { ColorDot(style.colorHex) } } else null
-            )
-            FilterChip(
-                selected = panel == "font",
-                onClick = { panel = if (panel == "font") "" else "font" },
-                label = { Text(if (style.fontEn == null && style.fontAm == null) "Font" else fontShort(style.fontEn ?: style.fontAm)) }
-            )
-            FilterChip(
-                selected = panel == "size",
-                onClick = { panel = if (panel == "size") "" else "size" },
-                label = { Text(if (style.scale == 1f) "Size" else "${(style.scale * 100).toInt()}%") }
-            )
-            if (!style.isDefault) {
-                TextButton(onClick = { onDoc(doc.withSlotStyle(slot) { SlotStyle() }); panel = "" }) { Text("Reset") }
-            }
-        }
-        when (panel) {
-            "color" -> {
-                StyleColorPicker(style.colorHex, brand) { hex -> onDoc(doc.withSlotStyle(slot) { it.copy(colorHex = hex) }) }
-                if (boxes.size > 1) {
-                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (slot == PostSlots.LETTER || slot == PostSlots.WORD) {
+                    val hl = doc.texts[PostSlots.HEADLINE].orEmpty()
+                    if (hl.isNotBlank()) {
                         FilterChip(
                             selected = false,
-                            onClick = { onDoc(doc.withColorOnAll(boxes, style.colorHex)) },
-                            label = { Text("Use this color for all words") }
+                            onClick = {
+                                val derived = if (slot == PostSlots.LETTER) {
+                                    PostSlots.deriveLetter(doc.texts[PostSlots.WORD], hl)
+                                } else {
+                                    PostSlots.deriveWord(hl)
+                                }
+                                onDoc(doc.copy(texts = doc.texts + (slot to derived)))
+                            },
+                            label = { Text("From title", fontSize = 11.sp) }
                         )
                     }
                 }
-                PostSmallLabel("A = the template's own color for this box.")
+                FilterChip(
+                    selected = styleOpen,
+                    onClick = { styleOpen = !styleOpen },
+                    label = { Text(if (styleOpen) "Hide style" else "Style", fontSize = 12.sp) }
+                )
             }
-            "font" -> StyleFontPicker(style) { next -> onDoc(doc.withSlotStyle(slot) { next }) }
-            "size" -> PostLabeledSlider("Size of this box", style.scale, 0.6f..1.6f, "${(style.scale * 100).toInt()}%") { v ->
-                onDoc(doc.withSlotStyle(slot) { it.copy(scale = v) })
+        }
+
+        OutlinedTextField(
+            value = text,
+            onValueChange = { next ->
+                val updatedTexts = doc.texts.toMutableMap()
+                updatedTexts[slot] = next
+                if (slot == PostSlots.HEADLINE) {
+                    if (doc.texts[PostSlots.WORD].isNullOrBlank()) {
+                        val w = PostSlots.deriveWord(next)
+                        if (w.isNotBlank()) updatedTexts[PostSlots.WORD] = w
+                    }
+                    if (doc.texts[PostSlots.LETTER].isNullOrBlank()) {
+                        val l = PostSlots.deriveLetter(updatedTexts[PostSlots.WORD], next)
+                        if (l.isNotBlank()) updatedTexts[PostSlots.LETTER] = l
+                    }
+                }
+                onDoc(doc.copy(texts = updatedTexts))
+            },
+            placeholder = { Text(PostSlots.label(slot)) },
+            singleLine = !multiline,
+            minLines = if (multiline) 2 else 1,
+            maxLines = if (multiline) 6 else 2,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        if (styleOpen) {
+            SlotStyleEditor(
+                slot = slot,
+                doc = doc,
+                style = style,
+                brandHex = brand.accentHex,
+                onStyle = { nextStyle ->
+                    val nextMap = doc.slotStyles.toMutableMap()
+                    if (nextStyle.isDefault) nextMap.remove(slot) else nextMap[slot] = nextStyle
+                    onDoc(doc.copy(slotStyles = nextMap))
+                },
+                onResetOffset = if (doc.offsetOf(slot) != Offset(0f, 0f)) {
+                    {
+                        val nextOffsets = doc.offsets.toMutableMap()
+                        nextOffsets.remove(slot)
+                        onDoc(doc.copy(offsets = nextOffsets))
+                    }
+                } else null
+            )
+        }
+    }
+}
+
+@Composable
+internal fun OtherTextStyles(doc: PostDoc, onDoc: (PostDoc) -> Unit, brand: PostBrand) {
+    var openSlot by rememberSaveable { mutableStateOf<String?>(null) }
+    val extras = listOf(PostSlots.FOOTER to "Bottom bar", PostSlots.MARKS to "Corner marks")
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        PostSmallLabel("Other text on the post")
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            extras.forEach { (slot, label) ->
+                val styled = doc.slotStyles[slot]?.isDefault == false
+                FilterChip(
+                    selected = openSlot == slot,
+                    onClick = { openSlot = if (openSlot == slot) null else slot },
+                    label = { Text(if (styled) "$label *" else label, fontSize = 12.sp) }
+                )
+            }
+        }
+        val active = openSlot
+        if (active != null) {
+            val style = doc.slotStyles[active] ?: SlotStyle()
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(PostPalette.Surface)
+                    .border(1.dp, PostPalette.Line, RoundedCornerShape(12.dp))
+                    .padding(10.dp)
+            ) {
+                SlotStyleEditor(
+                    slot = active,
+                    doc = doc,
+                    style = style,
+                    brandHex = brand.accentHex,
+                    onStyle = { nextStyle ->
+                        val nextMap = doc.slotStyles.toMutableMap()
+                        if (nextStyle.isDefault) nextMap.remove(active) else nextMap[active] = nextStyle
+                        onDoc(doc.copy(slotStyles = nextMap))
+                    },
+                    onResetOffset = null
+                )
             }
         }
     }
 }
 
-/** Colors for the text that is not a word box: the fixed marks of a template (when it has any) and the footer text. */
 @Composable
-internal fun OtherTextStyles(doc: PostDoc, onDoc: (PostDoc) -> Unit, brand: PostBrand, hasMarks: Boolean) {
-    var open by remember { mutableStateOf("") }
-    val shown = if (open == PostSlots.MARKS && !hasMarks) "" else open
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text("Other text", color = PostPalette.Text, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (hasMarks) {
+internal fun SlotStyleEditor(
+    slot: String,
+    doc: PostDoc,
+    style: SlotStyle,
+    brandHex: String?,
+    onStyle: (SlotStyle) -> Unit,
+    onResetOffset: (() -> Unit)?
+) {
+    val context = LocalContext.current
+    val enFonts = remember { PostFonts.list(context, PostFonts.ENGLISH) }
+    val amFonts = remember { PostFonts.list(context, PostFonts.AMHARIC) }
+    val shortSide = min(doc.size.width, doc.size.height)
+    val templateSlot = postTemplate(doc.templateId).withLookIndex(doc.lookIndex).layout(doc.size).slots.firstOrNull { it.slot == slot }
+    val rawSlotSize = templateSlot?.size ?: 0.032f
+    val defaultUnit = (if (rawSlotSize <= 2.0f) rawSlotSize else rawSlotSize / 1080f).coerceIn(0.015f, 1.6f)
+    val activeUnit = style.sizeUnit ?: (defaultUnit * style.scale).coerceIn(0.015f, 1.6f)
+    val pxDisplay = (activeUnit * shortSide).roundToInt()
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        // 1. Direct size (logarithmic 16px..1700px) + Fit toggle
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            PostSmallLabel("Text size ($pxDisplay px)")
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 FilterChip(
-                    selected = shown == PostSlots.MARKS,
-                    onClick = { open = if (open == PostSlots.MARKS) "" else PostSlots.MARKS },
-                    label = { Text("Marks and badges") },
-                    leadingIcon = if (doc.slotStyles[PostSlots.MARKS]?.colorHex != null) { { ColorDot(doc.slotStyles[PostSlots.MARKS]?.colorHex) } } else null
+                    selected = false,
+                    onClick = {
+                        val nextU = (activeUnit / 1.12f).coerceIn(0.015f, 1.6f)
+                        onStyle(style.copy(sizeUnit = nextU))
+                    },
+                    label = { Text("A-", fontSize = 12.sp) }
+                )
+                FilterChip(
+                    selected = false,
+                    onClick = {
+                        val nextU = (activeUnit * 1.12f).coerceIn(0.015f, 1.6f)
+                        onStyle(style.copy(sizeUnit = nextU))
+                    },
+                    label = { Text("A+", fontSize = 12.sp) }
+                )
+                FilterChip(
+                    selected = style.sizeUnit == null && style.scale == 1f,
+                    onClick = { onStyle(style.copy(sizeUnit = null, scale = 1f)) },
+                    label = { Text("Fit box", fontSize = 12.sp) }
+                )
+            }
+        }
+        Slider(
+            value = unitToLogSlider(activeUnit),
+            onValueChange = { t -> onStyle(style.copy(sizeUnit = logSliderToUnit(t))) },
+            valueRange = 0f..1f
+        )
+
+        // 2. Color circles (no hex input)
+        PostSmallLabel("Color")
+        PaletteStrip(
+            currentHex = style.colorHex,
+            brandHex = brandHex,
+            allowAuto = true,
+            onPick = { hex -> onStyle(style.copy(colorHex = hex)) }
+        )
+
+        // 3. Text shadow
+        val shadow = style.shadow ?: TextShadow()
+        PostLabeledSlider(
+            label = "Shadow",
+            value = shadow.strength.toFloat(),
+            range = 0f..100f,
+            display = if (shadow.strength == 0) "Off" else "${shadow.strength}"
+        ) { v ->
+            val s = v.roundToInt().coerceIn(0, 100)
+            onStyle(style.copy(shadow = if (s == 0) null else shadow.copy(strength = s)))
+        }
+        if (shadow.strength > 0) {
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                ShadowMode.values().forEach { mode ->
+                    FilterChip(
+                        selected = shadow.mode == mode,
+                        onClick = { onStyle(style.copy(shadow = shadow.copy(mode = mode))) },
+                        label = {
+                            Text(
+                                when (mode) {
+                                    ShadowMode.SOFT -> "Soft"
+                                    ShadowMode.HARD -> "Hard"
+                                    ShadowMode.GLOW -> "Glow"
+                                },
+                                fontSize = 12.sp
+                            )
+                        }
+                    )
+                }
+            }
+            PostSmallLabel("Shadow color")
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                PostSwatch(null, shadow.colorHex == null) {
+                    onStyle(style.copy(shadow = shadow.copy(colorHex = null)))
+                }
+                StyleSwatches.forEach { hex ->
+                    PostSwatch(hex, shadow.colorHex.equals(hex, ignoreCase = true)) {
+                        onStyle(style.copy(shadow = shadow.copy(colorHex = hex)))
+                    }
+                }
+            }
+        }
+
+        // 4. Text effect (TextFx)
+        PostSmallLabel("Text effect")
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            FilterChip(
+                selected = style.fx == null,
+                onClick = { onStyle(style.copy(fx = null)) },
+                label = { Text("Template", fontSize = 12.sp) }
+            )
+            TextFx.values().forEach { fx ->
+                FilterChip(
+                    selected = style.fx == fx,
+                    onClick = { onStyle(style.copy(fx = fx)) },
+                    label = {
+                        Text(
+                            when (fx) {
+                                TextFx.SOLID -> "Solid"
+                                TextFx.OUTLINE -> "Outline"
+                                TextFx.GRADIENT -> "Gradient"
+                                TextFx.PHOTO_FILL -> "Photo inside"
+                                TextFx.ECHO -> "Echo"
+                                TextFx.EXTRUDE -> "3D block"
+                                TextFx.SPLIT_TONE -> "Split color"
+                            },
+                            fontSize = 12.sp
+                        )
+                    }
+                )
+            }
+        }
+
+        // 5. Alignment, Case, Rotation
+        PostSmallLabel("Alignment & Case")
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            FilterChip(
+                selected = style.align == null,
+                onClick = { onStyle(style.copy(align = null)) },
+                label = { Text("Auto", fontSize = 12.sp) }
+            )
+            TextAlign.values().forEach { a ->
+                FilterChip(
+                    selected = style.align == a,
+                    onClick = { onStyle(style.copy(align = a)) },
+                    label = { Text(a.name.lowercase().replaceFirstChar { it.uppercase() }, fontSize = 12.sp) }
                 )
             }
             FilterChip(
-                selected = shown == PostSlots.FOOTER,
-                onClick = { open = if (open == PostSlots.FOOTER) "" else PostSlots.FOOTER },
-                label = { Text("Footer text") },
-                leadingIcon = if (doc.slotStyles[PostSlots.FOOTER]?.colorHex != null) { { ColorDot(doc.slotStyles[PostSlots.FOOTER]?.colorHex) } } else null
+                selected = style.caps == true,
+                onClick = {
+                    val nextCaps = when (style.caps) {
+                        null -> true
+                        true -> false
+                        false -> null
+                    }
+                    onStyle(style.copy(caps = nextCaps))
+                },
+                label = {
+                    Text(
+                        when (style.caps) {
+                            true -> "ALL CAPS"
+                            false -> "Normal case"
+                            null -> "Auto case"
+                        },
+                        fontSize = 12.sp
+                    )
+                }
             )
         }
-        if (shown.isNotEmpty()) {
-            val style = doc.slotStyles[shown] ?: SlotStyle()
-            StyleColorPicker(style.colorHex, brand) { hex -> onDoc(doc.withSlotStyle(shown) { it.copy(colorHex = hex) }) }
-            PostSmallLabel(
-                if (shown == PostSlots.MARKS) "Quote marks, the ANSWER label and the letters inside badges. A = the template's own color."
-                else "The handles in the footer and the social cards. A = automatic."
-            )
+
+        PostSmallLabel("Rotation")
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            listOf(null to "Template", -90f to "-90°", -45f to "-45°", -8f to "-8°", 0f to "0°", 8f to "+8°", 45f to "+45°", 90f to "+90°").forEach { (deg, label) ->
+                FilterChip(
+                    selected = style.rotate == deg,
+                    onClick = { onStyle(style.copy(rotate = deg)) },
+                    label = { Text(label, fontSize = 12.sp) }
+                )
+            }
+        }
+
+        // 6. Tracking & Line spacing
+        val trackingVal = style.tracking ?: (templateSlot?.tracking ?: 0f)
+        PostLabeledSlider(
+            label = "Letter spacing",
+            value = trackingVal,
+            range = -0.06f..0.4f,
+            display = "${(trackingVal * 100).roundToInt()}%"
+        ) { v ->
+            onStyle(style.copy(tracking = v))
+        }
+
+        val leadingVal = style.leading ?: (templateSlot?.leading ?: 1.08f)
+        PostLabeledSlider(
+            label = "Line height",
+            value = leadingVal,
+            range = 0.78f..1.6f,
+            display = String.format("%.2f", leadingVal)
+        ) { v ->
+            onStyle(style.copy(leading = v))
+        }
+
+        // 7. Per-slot fonts
+        if (enFonts.isNotEmpty()) {
+            PostSmallLabel("English font for this box")
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                FilterChip(
+                    selected = style.fontEn == null,
+                    onClick = { onStyle(style.copy(fontEn = null)) },
+                    label = { Text("Post default", fontSize = 12.sp) }
+                )
+                enFonts.forEach { f ->
+                    FilterChip(
+                        selected = style.fontEn == f.path,
+                        onClick = { onStyle(style.copy(fontEn = f.path)) },
+                        label = { Text(f.label, fontSize = 12.sp) }
+                    )
+                }
+            }
+        }
+
+        if (amFonts.isNotEmpty()) {
+            PostSmallLabel("Amharic font for this box")
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                FilterChip(
+                    selected = style.fontAm == null,
+                    onClick = { onStyle(style.copy(fontAm = null)) },
+                    label = { Text("Post default", fontSize = 12.sp) }
+                )
+                amFonts.forEach { f ->
+                    FilterChip(
+                        selected = style.fontAm == f.path,
+                        onClick = { onStyle(style.copy(fontAm = f.path)) },
+                        label = { Text(f.label, fontSize = 12.sp) }
+                    )
+                }
+            }
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (!style.isDefault) {
+                OutlinedButton(onClick = { onStyle(SlotStyle()) }) {
+                    Text("Reset style", fontSize = 12.sp)
+                }
+            }
+            if (onResetOffset != null) {
+                OutlinedButton(onClick = onResetOffset) {
+                    Text("Reset position", fontSize = 12.sp)
+                }
+            }
         }
     }
 }

@@ -61,7 +61,7 @@ import kotlin.math.abs
  * THUMB_VERSION goes into the cache name: raise it when the drawing changes, so old saved cards are not reused.
  */
 object PostThumbs {
-    private const val THUMB_VERSION = "v5"
+    private const val THUMB_VERSION = "v6"
     private val memory = LruCache<String, Bitmap>(64)
 
     private fun safe(text: String): String = text.replace(Regex("[^A-Za-z0-9_-]"), "_")

@@ -1,5 +1,12 @@
 package com.wisdomtower.post
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.LinearGradient
+import android.graphics.Paint
+import android.graphics.Shader
+import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -45,22 +52,31 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileOutputStream
 
 /**
- * Template QA (docs/APP_QUALITY_ROADMAP.md, slices Q1 and Q2).
- * Draws every template at every size with test words and lists the boxes whose text had to shrink.
- *   Sample:  the template's own sample words (should never shrink).
- *   Stress:  every box 1.5 times longer than its sample (finds layouts with no room to spare).
- *   Amharic: fixed Amharic words in every box (finds layouts that break with wider letters; needs an Amharic font to be exact).
- * The check uses the same renderer as export, so what it reports is what a saved poster would do.
- * Small text check (Q2): no drawing, reads each template's layout and lists boxes whose own size is under PostDesignRules.
- * Reached from the Poster inbox ("Template QA").
+ * Template QA (docs/APP_QUALITY_ROADMAP.md + docs/TEMPLATE_REDESIGN_PLAN.md section 3.9).
+ * Tests every template at 4:3, 9:16, and 16:9 under 6 text modes:
+ *   - Sample:        the template's own sample words
+ *   - 1 short word:  1 short word ("GROW") in headline/word and 1 letter ("G") in letter
+ *   - Long 4-line:   1.5x stretched multi-line text in every box
+ *   - Amharic short: short Amharic words ("ዕውቀት", "ጥበብ")
+ *   - Amharic long:  full Amharic sentences and list items
+ *   - Empty box:     optional boxes (eyebrow, body, button) left empty so only the hero slot renders
+ * Plus toggles for background photo (Off / 40% / 100%) and shadow (0 / 60).
  */
-private enum class QaText(val label: String) { SAMPLE("Sample"), STRESS("Stress 1.5x"), AMHARIC("Amharic") }
+private enum class QaText(val label: String) {
+    SAMPLE("Sample"),
+    SHORT_WORD("1 short word"),
+    STRESS("Long 4-line"),
+    AMHARIC_SHORT("Amharic short"),
+    AMHARIC_LONG("Amharic long"),
+    EMPTY_BOX("Empty box")
+}
 
 private fun stretchLine(text: String, factor: Float): String {
     val colon = text.indexOf(':')
-    // a timetable row "Mon: Physics": only the part after the label grows
     if (colon in 1..8) return text.substring(0, colon + 1) + " " + stretchLine(text.substring(colon + 1).trim(), factor)
     val target = (text.length * factor).toInt()
     if (target <= text.length) return text
@@ -75,10 +91,32 @@ private fun stretchLine(text: String, factor: Float): String {
     return out.toString()
 }
 
-private fun amharicFor(slot: String, sample: String): String = when (slot) {
+private fun amharicShortFor(slot: String, sample: String): String = when (slot) {
+    PostSlots.LETTER -> "ዕ"
+    PostSlots.WORD -> "ዕውቀት"
+    PostSlots.NUMBER -> "98%"
     PostSlots.EYEBROW -> "የጥናት ምክር"
+    PostSlots.HEADLINE -> "ዕውቀት ያድጋል"
+    PostSlots.BODY -> "በየቀኑ ትንሽ እርምጃ ውሰድ።"
+    PostSlots.BUTTON -> "ዛሬ ጀምር"
+    PostSlots.LIST -> {
+        val count = sample.split('\n').count { it.isNotBlank() }.coerceIn(1, 4)
+        val rows = sample.contains(':')
+        val plain = listOf("ምዕራፍ ክለሳ", "የቀድሞ ፈተና", "ስህተት ማስተካከል", "እረፍት እና ክለሳ")
+        val days = listOf("ሰኞ", "ማክሰ", "ረቡዕ", "ሐሙስ")
+        (0 until count).joinToString("\n") { if (rows) days[it] + ": " + plain[it] else plain[it] }
+    }
+    else -> sample
+}
+
+private fun amharicLongFor(slot: String, sample: String): String = when (slot) {
+    PostSlots.LETTER -> "ጥ"
+    PostSlots.WORD -> "ትውስታህ"
+    PostSlots.NUMBER -> "100%"
+    PostSlots.EYEBROW -> "የጥናት ምክር እና መመሪያ"
     PostSlots.HEADLINE -> "ምዕራፉን ዝጋ። ከትውስታህ መልስ።"
     PostSlots.BODY -> "ምዕራፉን ዘግተህ የምታስታውሰውን ጻፍ። ከዚያ ያመለጠህን አረጋግጥ።"
+    PostSlots.BUTTON -> "አሁኑኑ ይጀምሩ"
     PostSlots.LIST -> {
         val count = sample.split('\n').count { it.isNotBlank() }.coerceIn(1, 6)
         val rows = sample.contains(':')
@@ -89,16 +127,69 @@ private fun amharicFor(slot: String, sample: String): String = when (slot) {
     else -> sample
 }
 
-private fun qaDoc(spec: PostTemplateSpec, size: PostSize, mode: QaText): PostDoc {
+private fun ensureQaBgPhotoUri(context: android.content.Context): String {
+    val file = File(context.cacheDir, "qa_test_bg.png")
+    if (!file.exists()) {
+        val bmp = Bitmap.createBitmap(360, 360, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp)
+        val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            shader = LinearGradient(
+                0f, 0f, 360f, 360f,
+                intArrayOf(Color.parseColor("#0EA5E9"), Color.parseColor("#6366F1"), Color.parseColor("#F59E0B")),
+                floatArrayOf(0f, 0.5f, 1f),
+                Shader.TileMode.CLAMP
+            )
+        }
+        c.drawRect(0f, 0f, 360f, 360f, p)
+        FileOutputStream(file).use { bmp.compress(Bitmap.CompressFormat.PNG, 90, it) }
+        bmp.recycle()
+    }
+    return Uri.fromFile(file).toString()
+}
+
+private fun qaDoc(
+    context: android.content.Context,
+    spec: PostTemplateSpec,
+    size: PostSize,
+    mode: QaText,
+    bgPhotoPct: Int,
+    shadowStrength: Int
+): PostDoc {
     val base = PostDrafts.factory(spec.id, size)
     val texts = spec.samples.mapValues { (slot, sample) ->
         when (mode) {
             QaText.SAMPLE -> sample
-            QaText.STRESS -> sample.split('\n').joinToString("\n") { stretchLine(it, 1.5f) }
-            QaText.AMHARIC -> amharicFor(slot, sample)
+            QaText.SHORT_WORD -> when (slot) {
+                PostSlots.LETTER -> "G"
+                PostSlots.WORD -> "GROW"
+                PostSlots.HEADLINE -> "GROW"
+                PostSlots.NUMBER -> "1"
+                PostSlots.EYEBROW -> "TIP"
+                PostSlots.BODY -> "Start now."
+                PostSlots.BUTTON -> "GO"
+                else -> sample
+            }
+            QaText.STRESS -> when (slot) {
+                PostSlots.LETTER -> sample
+                PostSlots.WORD -> sample + "S"
+                else -> sample.split('\n').joinToString("\n") { stretchLine(it, 1.5f) }
+            }
+            QaText.AMHARIC_SHORT -> amharicShortFor(slot, sample)
+            QaText.AMHARIC_LONG -> amharicLongFor(slot, sample)
+            QaText.EMPTY_BOX -> when (slot) {
+                PostSlots.EYEBROW, PostSlots.BODY, PostSlots.BUTTON -> ""
+                else -> sample
+            }
         }
     }
-    return base.copy(texts = texts)
+    val bgUri = if (bgPhotoPct > 0) ensureQaBgPhotoUri(context) else null
+    val bgOpacity = (bgPhotoPct / 100f).coerceIn(0f, 1f)
+    return base.copy(
+        texts = PostSlots.withDerivedSlots(texts, spec.slots),
+        backgroundPhotoUri = bgUri,
+        backgroundPhotoOpacity = if (bgPhotoPct > 0) bgOpacity else 0.35f,
+        shadowAll = TextShadow(strength = shadowStrength.coerceIn(0, 100))
+    )
 }
 
 @Composable
@@ -107,7 +198,9 @@ fun PostQaScreen(brand: PostBrand, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     val clipboard = LocalClipboardManager.current
     var size by remember { mutableStateOf(PostSize.values().first()) }
-    var mode by remember { mutableStateOf(QaText.STRESS) }
+    var mode by remember { mutableStateOf(QaText.SAMPLE) }
+    var bgPhotoPct by remember { mutableStateOf(0) }
+    var shadowStrength by remember { mutableStateOf(0) }
     var running by remember { mutableStateOf(false) }
     var progress by remember { mutableStateOf("") }
     var report by remember { mutableStateOf<List<String>?>(null) }
@@ -119,6 +212,8 @@ fun PostQaScreen(brand: PostBrand, onBack: () -> Unit) {
         running = true
         report = null
         val chosen = mode
+        val chosenBg = bgPhotoPct
+        val chosenShadow = shadowStrength
         scope.launch {
             val found = mutableListOf<String>()
             var count = 0
@@ -126,7 +221,12 @@ fun PostQaScreen(brand: PostBrand, onBack: () -> Unit) {
                 for (sz in PostSize.values()) {
                     progress = spec.name + ", " + sz.label
                     val result = withContext(Dispatchers.Default) {
-                        PostRenderer.preview(context, qaDoc(spec, sz, chosen), brand, 240) { !isActive }
+                        PostRenderer.preview(
+                            context,
+                            qaDoc(context, spec, sz, chosen, chosenBg, chosenShadow),
+                            brand,
+                            240
+                        ) { !isActive }
                     }
                     count++
                     if (result.overflow.isNotEmpty()) {
@@ -169,8 +269,7 @@ fun PostQaScreen(brand: PostBrand, onBack: () -> Unit) {
                             }
                         }
                         Text(
-                            "Sample: the template's own words. Stress: every box 1.5 times longer. Amharic: fixed Amharic words. " +
-                                "A box is listed when its text had to shrink.",
+                            "Test every template with Sample, 1 short word, Long 4-line, Amharic short/long, or Empty optional boxes, plus background photo and shadow toggles.",
                             color = PostPalette.Muted, fontSize = 12.sp
                         )
                         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -178,9 +277,15 @@ fun PostQaScreen(brand: PostBrand, onBack: () -> Unit) {
                                 FilterChip(selected = mode == m, onClick = { mode = m; report = null }, label = { Text(m.label) }, enabled = !running)
                             }
                         }
-                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                             PostSize.values().forEach { s ->
                                 FilterChip(selected = size == s, onClick = { size = s }, label = { Text(s.label) })
+                            }
+                            listOf(0 to "Bg Off", 40 to "Bg 40%", 100 to "Bg 100%").forEach { (pct, label) ->
+                                FilterChip(selected = bgPhotoPct == pct, onClick = { bgPhotoPct = pct }, label = { Text(label) })
+                            }
+                            listOf(0 to "Shadow 0", 60 to "Shadow 60").forEach { (sh, label) ->
+                                FilterChip(selected = shadowStrength == sh, onClick = { shadowStrength = sh }, label = { Text(label) })
                             }
                         }
                         OutlinedButton(onClick = { runAll() }, enabled = !running, modifier = Modifier.fillMaxWidth()) {
@@ -227,7 +332,14 @@ fun PostQaScreen(brand: PostBrand, onBack: () -> Unit) {
                     }
                 }
                 items(PostTemplates, key = { it.id }) { spec ->
-                    QaCard(spec = spec, size = size, mode = mode, brand = brand)
+                    QaCard(
+                        spec = spec,
+                        size = size,
+                        mode = mode,
+                        bgPhotoPct = bgPhotoPct,
+                        shadowStrength = shadowStrength,
+                        brand = brand
+                    )
                 }
             }
         }
@@ -235,14 +347,26 @@ fun PostQaScreen(brand: PostBrand, onBack: () -> Unit) {
 }
 
 @Composable
-private fun QaCard(spec: PostTemplateSpec, size: PostSize, mode: QaText, brand: PostBrand) {
+private fun QaCard(
+    spec: PostTemplateSpec,
+    size: PostSize,
+    mode: QaText,
+    bgPhotoPct: Int,
+    shadowStrength: Int,
+    brand: PostBrand
+) {
     val context = LocalContext.current
-    var bitmap by remember(spec.id, size, mode) { mutableStateOf<android.graphics.Bitmap?>(null) }
-    var overflow by remember(spec.id, size, mode) { mutableStateOf<List<String>>(emptyList()) }
+    var bitmap by remember(spec.id, size, mode, bgPhotoPct, shadowStrength) { mutableStateOf<Bitmap?>(null) }
+    var overflow by remember(spec.id, size, mode, bgPhotoPct, shadowStrength) { mutableStateOf<List<String>>(emptyList()) }
     val small = remember(spec.id, size) { PostDesignRules.smallText(spec, size) }
-    LaunchedEffect(spec.id, size, mode, brand) {
+    LaunchedEffect(spec.id, size, mode, bgPhotoPct, shadowStrength, brand) {
         val result = withContext(Dispatchers.Default) {
-            PostRenderer.preview(context, qaDoc(spec, size, mode), brand, 360) { !isActive }
+            PostRenderer.preview(
+                context,
+                qaDoc(context, spec, size, mode, bgPhotoPct, shadowStrength),
+                brand,
+                360
+            ) { !isActive }
         }
         bitmap = result.bitmap
         overflow = result.overflow

@@ -66,6 +66,7 @@ data class PostChatBatch(
 ) {
     fun batchInput(): String {
         val keys = linkedMapOf(
+            "letter" to "letter", "word" to "word",
             "eyebrow" to "label", "headline" to "headline", "message" to "message",
             "number" to "number", "list" to "list", "button" to "button"
         )

@@ -2,397 +2,723 @@ package com.wisdomtower.post
 
 import org.json.JSONArray
 import org.json.JSONObject
+import java.text.BreakIterator
+import kotlin.math.roundToInt
 
-/**
- * The only supported export sizes. Template layouts use normalized positions, with landscape layouts shared by 4:3 and 16:9.
- * Export order and the order of the size chips follow this order.
- */
 enum class PostSize(val label: String, val width: Int, val height: Int) {
     LANDSCAPE("4:3", 1440, 1080),
     STORY("9:16", 1080, 1920),
-    WIDE("16:9", 1920, 1080)
+    WIDE("16:9", 1920, 1080);
+
+    fun <T> pick3(story: T, standard: T, wide: T): T = when (this) {
+        STORY -> story
+        LANDSCAPE -> standard
+        WIDE -> wide
+    }
+
+    companion object {
+        fun fromKey(key: String?): PostSize = values().firstOrNull {
+            it.name.equals(key, ignoreCase = true) || it.label == key
+        } ?: LANDSCAPE
+    }
 }
 
 object PostSlots {
+    const val LETTER = "letter"
+    const val WORD = "word"
     const val EYEBROW = "eyebrow"
     const val HEADLINE = "headline"
     const val BODY = "body"
     const val NUMBER = "number"
     const val LIST = "list"
     const val BUTTON = "button"
+    const val MARKS = "marks"
+    const val FOOTER = "footer"
 
-    /** Style keys for text that is not a word box (see PostDoc.slotStyles). They never appear in PostDoc.texts. */
-    const val MARKS = "@marks"
-    const val FOOTER = "@footer"
+    val ALL = listOf(LETTER, WORD, EYEBROW, HEADLINE, BODY, NUMBER, LIST, BUTTON)
 
     fun label(slot: String): String = when (slot) {
+        LETTER -> "Big letter"
+        WORD -> "Big word"
         EYEBROW -> "Small label"
         HEADLINE -> "Headline"
         BODY -> "Message"
-        NUMBER -> "Big number or code"
-        LIST -> "List (one item per line)"
-        BUTTON -> "Button text"
-        MARKS -> "Marks and badges"
-        FOOTER -> "Footer text"
-        else -> slot
+        NUMBER -> "Number"
+        LIST -> "List"
+        BUTTON -> "Button"
+        MARKS -> "Page marks"
+        FOOTER -> "Footer"
+        else -> slot.replaceFirstChar { it.uppercase() }
+    }
+
+    fun containsEthiopic(text: String): Boolean {
+        for (ch in text) {
+            val code = ch.code
+            if (code in 0x1200..0x137F || code in 0x1380..0x139F || code in 0x2D80..0x2DDF || code in 0xAB00..0xAB2F) {
+                return true
+            }
+        }
+        return false
+    }
+
+    fun graphemes(text: String, maxCount: Int = Int.MAX_VALUE): List<String> {
+        val clean = text.trim()
+        if (clean.isEmpty() || maxCount <= 0) return emptyList()
+        val bi = BreakIterator.getCharacterInstance()
+        bi.setText(clean)
+        val out = mutableListOf<String>()
+        var start = bi.first()
+        var end = bi.next()
+        while (end != BreakIterator.DONE && out.size < maxCount) {
+            val g = clean.substring(start, end)
+            if (g.isNotBlank()) out.add(g)
+            start = end
+            end = bi.next()
+        }
+        return out
+    }
+
+    fun firstGraphemes(text: String, maxCount: Int = 1): String =
+        graphemes(text, maxCount.coerceAtLeast(1)).joinToString("")
+
+    fun deriveLetter(word: String?, headline: String?): String {
+        val source = word?.trim()?.takeIf { it.isNotEmpty() }
+            ?: headline?.trim()?.takeIf { it.isNotEmpty() }
+            ?: return ""
+        val cleaned = source.trimStart { !it.isLetterOrDigit() && Character.getType(it) != Character.OTHER_LETTER.toInt() }
+        return firstGraphemes(cleaned.ifEmpty { source }, 1)
+    }
+
+    fun deriveWord(headline: String?): String {
+        val clean = headline?.trim().orEmpty()
+        if (clean.isEmpty()) return ""
+        val tokens = clean.split(Regex("\\s+"))
+            .map { it.trim { ch -> ch in ".,!?;:\"'()[]{}*«»—–-" } }
+            .filter { it.isNotEmpty() }
+        if (tokens.isEmpty()) return ""
+        val stopWords = setOf("the", "a", "an", "of", "in", "on", "to", "for", "and", "or", "is", "are", "with", "by")
+        return tokens.firstOrNull { it.length >= 3 && it.lowercase() !in stopWords } ?: tokens.first()
+    }
+
+    fun withDerivedSlots(texts: Map<String, String>, requiredSlots: Iterable<String>): Map<String, String> {
+        val out = texts.toMutableMap()
+        val req = requiredSlots.toSet()
+        if (WORD in req && out[WORD].isNullOrBlank()) {
+            val derivedW = deriveWord(out[HEADLINE])
+            if (derivedW.isNotBlank()) out[WORD] = derivedW
+        }
+        if (LETTER in req && out[LETTER].isNullOrBlank()) {
+            val derivedL = deriveLetter(out[WORD], out[HEADLINE])
+            if (derivedL.isNotBlank()) out[LETTER] = derivedL
+        }
+        return out
     }
 }
 
-enum class LogoCorner { LEFT, CENTER, RIGHT }
+enum class FitMode {
+    LEGACY,
+    FILL,
+    FILL_WIDTH,
+    STACK,
+    TICKER,
+    TILES,
+    CHIPS
+}
 
-/** LINE: a thin rule with the icons under it. PILL: every icon and handle sits in its own rounded chip. */
-enum class FooterStyle { LINE, PILL }
+enum class VAnchor {
+    TOP,
+    CENTER,
+    BOTTOM
+}
 
-/** PLAIN: just the glyph. BADGE: glyph on a circle in the brand (or item) color. OFFICIAL: glyph on a circle in the platform's own color. */
-enum class IconLook { PLAIN, BADGE, OFFICIAL }
+enum class TextFx {
+    SOLID,
+    OUTLINE,
+    GRADIENT,
+    PHOTO_FILL,
+    ECHO,
+    EXTRUDE,
+    SPLIT_TONE
+}
 
-/** TEMPLATE keeps the template's own gradient. SOLID and GRADIENT use the colors picked on the post. */
-enum class BgMode { TEMPLATE, SOLID, GRADIENT }
+enum class ShadowMode {
+    SOFT,
+    HARD,
+    GLOW
+}
 
-/** kind picks the icon. label is the text shown next to it. colorHex is an optional own color for that icon (empty = automatic). */
-data class FooterItem(val kind: String, val label: String, val colorHex: String = "")
+data class TextShadow(
+    val strength: Int = 0,
+    val mode: ShadowMode = ShadowMode.SOFT,
+    val colorHex: String? = null,
+    val angle: Int = 135,
+    val distance: Int = 35,
+    val blur: Int = 55
+) {
+    val angleDeg: Int get() = angle
+    val isDefault: Boolean get() = strength <= 0
+}
 
-/**
- * A small graphic placed on one post (UI_UX_PLAN.md section 6).
- * source is "shape:<name>" for a bundled flat shape, or "file:<absolute path>" for a picture copied into app storage.
- * cx and cy are the centre as a fraction of the post width and height. size is the longest side as a fraction of the shorter post side.
- * tintHex null keeps the picture's own colors (a shape then uses the brand color); a color tints the whole icon.
- * front true draws it above the words, false draws it behind them.
- */
-data class PostIconItem(
-    val source: String,
-    val cx: Float = 0.5f,
-    val cy: Float = 0.5f,
-    val size: Float = 0.18f,
-    val tintHex: String? = null,
-    val front: Boolean = true,
-    /** Hidden graphic layers remain in the document and can be shown again. */
-    val visible: Boolean = true
-)
+enum class BgPhotoTone {
+    NONE,
+    MONO,
+    DUOTONE
+}
 
-const val MAX_POST_ICONS = 6
+enum class BgMode {
+    TEMPLATE,
+    SOLID,
+    GRADIENT
+}
 
-/**
- * The look of one text box on one post (docs/TEXT_STYLE.md). Every field is optional: null (or 1 for scale) means
- * "keep what the template does". colorHex is a color for the whole box. fontEn is the font of its Latin letters and
- * fontAm the font of its Ethiopic letters (a bundled asset path, or a file added from the phone).
- * scale multiplies the box's text size on top of the post's overall Text size.
- */
+enum class TextAlign {
+    LEFT,
+    CENTER,
+    RIGHT
+}
+
 data class SlotStyle(
     val colorHex: String? = null,
     val fontEn: String? = null,
     val fontAm: String? = null,
-    val scale: Float = 1f
+    val scale: Float = 1f,
+    val sizeUnit: Float? = null,
+    val shadow: TextShadow? = null,
+    val fx: TextFx? = null,
+    val tracking: Float? = null,
+    val leading: Float? = null,
+    val rotate: Float? = null,
+    val align: TextAlign? = null,
+    val caps: Boolean? = null
 ) {
-    val isDefault: Boolean get() = colorHex == null && fontEn == null && fontAm == null && scale == 1f
+    val isDefault: Boolean
+        get() = colorHex == null &&
+            fontEn == null &&
+            fontAm == null &&
+            scale == 1f &&
+            sizeUnit == null &&
+            (shadow == null || shadow.strength == 0) &&
+            fx == null &&
+            tracking == null &&
+            leading == null &&
+            rotate == null &&
+            align == null &&
+            caps == null
 }
 
-/**
- * bgLook: the poster background look (PostBackdrops, docs/BACKDROPS.md). 0 = Auto (no look). Only used when the brand is dark-first.
- */
+enum class FooterStyle { PILL, LINE }
+
+enum class IconLook { PLAIN, BADGE, OFFICIAL }
+
+data class FooterItem(
+    val kind: String,
+    val label: String,
+    val colorHex: String = ""
+)
+
 data class PostBrand(
-    val primaryHex: String = "#176B4D",
-    val secondaryHex: String = "#C9E7B8",
-    val lightHex: String = "#F4F6EF",
-    val darkHex: String = "#18221D",
+    val name: String = "Wisdom Tower",
+    val handle: String = "@wisdomtower",
+    val primaryHex: String = "#22E0FF",
+    val secondaryHex: String = "#FFD54A",
+    val lightHex: String = "#FFFFFF",
+    val darkHex: String = "#060B14",
+    val bgLook: Int = 1,
     val logoPath: String? = null,
     val logoStamp: Long = 0L,
-    val logoCorner: LogoCorner = LogoCorner.LEFT,
     val logoScale: Float = 1f,
-    val footerItems: List<FooterItem> = listOf(FooterItem("website", "www.wisdom-tower-academy.live")),
     val footerStyle: FooterStyle = FooterStyle.PILL,
     val iconLook: IconLook = IconLook.OFFICIAL,
     val iconScale: Float = 1f,
-    val bgLook: Int = 0
+    val footerItems: List<FooterItem> = listOf(
+        FooterItem("telegram", "@wisdomtower"),
+        FooterItem("youtube", "Wisdom Tower")
+    )
+) {
+    val accentHex: String get() = primaryHex
+    val logoUri: String? get() = logoPath
+}
+
+enum class PhotoFrame(val label: String) {
+    ROUNDED("Rounded"),
+    PILL("Pill"),
+    CIRCLE("Circle"),
+    ARCH("Arch"),
+    STACKED("Stacked")
+}
+
+enum class MeshStyle(val label: String) {
+    NONE("None"),
+    AURORA("Aurora"),
+    SPOTLIGHT("Spotlight"),
+    DUSK("Dusk");
+
+    companion object {
+        val OFF = NONE
+    }
+}
+
+data class Offset(val dx: Float = 0f, val dy: Float = 0f)
+
+const val MAX_POST_ICONS = 8
+
+data class PostIconItem(
+    val source: String,
+    val cx: Float = 0.5f,
+    val cy: Float = 0.5f,
+    val size: Float = 0.14f,
+    val tintHex: String? = null,
+    val front: Boolean = true
 )
 
-/**
- * One post: which template, which size, the words and the style choices. No layers.
- * A null color means "use the brand color", so changing the Brand screen restyles every post that has no override.
- * photoDim -1 means "use the template's own darkening".
- */
 data class PostDoc(
-    val templateId: String = "info-quote",
+    val version: Int = 4,
+    val templateId: String = "ltr-window",
     val size: PostSize = PostSize.LANDSCAPE,
-    val texts: Map<String, String> = mapOf(
-        PostSlots.EYEBROW to "TODAY'S THOUGHT",
-        PostSlots.HEADLINE to "Small steps still move you forward.",
-        PostSlots.BODY to "Progress is built by showing up consistently."
+    val texts: Map<String, String> = PostSlots.withDerivedSlots(
+        postTemplate("ltr-window").samples,
+        postTemplate("ltr-window").slots
     ),
-    val bgMode: BgMode = BgMode.TEMPLATE,
-    val bgStartHex: String = "#1FA37A",
-    val bgEndHex: String = "#0B3B2C",
-    val bgAngle: Int = 135,
-    /** Full-canvas photo layer, independent from a template photo slot. */
-    val backgroundPhotoUri: String? = null,
-    val backgroundPhotoOpacity: Float = 1f,
-    val accentHex: String? = null,
+    val hiddenTextSlots: Set<String> = emptySet(),
     val textHex: String? = null,
+    val accentHex: String? = null,
+    val backgroundHex: String? = null,
+    val bgMode: BgMode = BgMode.TEMPLATE,
+    val bgStartHex: String = "#0B1F3A",
+    val bgEndHex: String = "#050910",
+    val bgAngle: Float = 90f,
+    val backdrop: Backdrop? = null,
     val textScale: Float = 1f,
+    val fontEnglish: String? = null,
+    val fontAmharic: String? = null,
     val photoUri: String? = null,
     val photoZoom: Float = 1f,
+    val photoPanX: Float = 0f,
+    val photoPanY: Float = 0f,
     val photoFocusX: Float = 0.5f,
     val photoFocusY: Float = 0.5f,
-    val photoDim: Int = -1,
-    val showLogo: Boolean = true,
-    val showFooter: Boolean = true,
-    /** Free logo position on this post: centre of the logo as a fraction of the post width and height. null = the Brand screen's corner. */
-    val logoCx: Float? = null,
-    val logoCy: Float? = null,
-    /** Multiplies the Brand logo size for this post only. */
-    val logoSize: Float = 1f,
-    /** Path of the English font picked on this post (an asset path, or a file added from the phone). null = the default font. */
-    val fontEnglish: String? = null,
-    /** Path of the Amharic font picked on this post. null = the first Amharic font available. */
-    val fontAmharic: String? = null,
-    /** Small graphics the user placed on this post (at most MAX_POST_ICONS). */
-    val icons: List<PostIconItem> = emptyList(),
-    /** Editable text slots hidden in the layer manager. */
-    val hiddenTextSlots: Set<String> = emptySet(),
-    /** Engine (document version 4). A photo frame picked on this post; null keeps the template's own photo shape. */
+    val photoDim: Int? = null,
     val photoFrame: PhotoFrame? = null,
-    /** A light outline around a framed photo. */
     val frameBorder: Boolean = false,
-    /** Soft color blends over the background gradient, plus a light grain so gradients do not band. */
-    val meshStyle: MeshStyle = MeshStyle.OFF,
+    val backgroundPhotoUri: String? = null,
+    val backgroundPhotoOpacity: Float = 0.35f,
+    val backgroundPhotoDim: Int = 0,
+    val backgroundPhotoBlur: Int = 0,
+    val backgroundPhotoZoom: Float = 1f,
+    val backgroundPhotoFocusX: Float = 0.5f,
+    val backgroundPhotoFocusY: Float = 0.5f,
+    val backgroundPhotoTone: BgPhotoTone = BgPhotoTone.NONE,
+    val photoAsBackground: Boolean = false,
+    val panelOpacity: Int = 100,
+    val shadowAll: TextShadow = TextShadow(),
+    val lookIndex: Int = 0,
+    val meshStyle: MeshStyle = MeshStyle.NONE,
     val grain: Boolean = false,
-    /** A transparent PNG of a subject (absolute path in app storage). Drawn between the "behind" and the "front" text. */
     val cutoutUri: String? = null,
     val cutoutScale: Float = 1f,
-    /** Horizontal centre and bottom edge of the cut-out, as fractions of the post width and height. */
     val cutoutX: Float = 0.5f,
     val cutoutY: Float = 0.94f,
-    /** Text slots drawn behind the cut-out subject. */
     val textBehind: Set<String> = emptySet(),
-    /** Dragged text positions, keyed "templateId:SIZE:slot" (see PostEngine.offsetFor). */
-    val slotOffsets: Map<String, SlotOffset> = emptyMap(),
-    /** Color, font and size of single text boxes, keyed by slot name (or PostSlots.MARKS / PostSlots.FOOTER). Empty = every template look is untouched. */
-    val slotStyles: Map<String, SlotStyle> = emptyMap()
+    val showLogo: Boolean = true,
+    val logoCx: Float? = null,
+    val logoCy: Float? = null,
+    val logoSize: Float = 1f,
+    val showFooter: Boolean = true,
+    val offsets: Map<String, Offset> = emptyMap(),
+    val slotStyles: Map<String, SlotStyle> = emptyMap(),
+    val icons: List<PostIconItem> = emptyList()
 ) {
-    fun withText(slot: String, value: String): PostDoc = copy(texts = texts + (slot to value))
+    val backgroundPhotoAlpha: Float get() = backgroundPhotoOpacity
+    fun hasOffsets(): Boolean = offsets.values.any { it.dx != 0f || it.dy != 0f }
+    fun withoutOffsets(): PostDoc = copy(offsets = emptyMap())
+    fun offsetOf(slot: String): Offset = offsets[slot] ?: Offset()
+    fun withOffset(slot: String, offset: Offset): PostDoc = copy(offsets = offsets + (slot to offset))
 }
 
 object PostCodec {
-    /**
-     * Drafts saved before the Clean/Rich switch was removed still carry a "richness" number. It is not read any more and not written.
-     * Drafts saved before per-box styles have no "slotStyles" object; they read as no styles.
-     */
-    fun encodeDoc(d: PostDoc): String = JSONObject().apply {
-        put("version", 4)
-        put("templateId", d.templateId)
-        put("size", d.size.name)
-        put("texts", JSONObject().also { o -> d.texts.forEach { (k, v) -> o.put(k, v) } })
-        put("bgMode", d.bgMode.name)
-        put("bgStartHex", d.bgStartHex)
-        put("bgEndHex", d.bgEndHex)
-        put("bgAngle", d.bgAngle)
-        put("backgroundPhotoUri", d.backgroundPhotoUri ?: "")
-        put("backgroundPhotoOpacity", d.backgroundPhotoOpacity.toDouble())
-        put("accentHex", d.accentHex ?: "")
-        put("textHex", d.textHex ?: "")
-        put("textScale", d.textScale.toDouble())
-        put("photoUri", d.photoUri ?: "")
-        put("photoZoom", d.photoZoom.toDouble())
-        put("photoFocusX", d.photoFocusX.toDouble())
-        put("photoFocusY", d.photoFocusY.toDouble())
-        put("photoDim", d.photoDim)
-        put("showLogo", d.showLogo)
-        put("showFooter", d.showFooter)
-        put("logoCx", d.logoCx?.toDouble() ?: -1.0)
-        put("logoCy", d.logoCy?.toDouble() ?: -1.0)
-        put("logoSize", d.logoSize.toDouble())
-        put("fontEnglish", d.fontEnglish ?: "")
-        put("fontAmharic", d.fontAmharic ?: "")
-        put("icons", JSONArray().also { arr ->
-            d.icons.forEach {
-                arr.put(
-                    JSONObject()
-                        .put("source", it.source)
-                        .put("cx", it.cx.toDouble())
-                        .put("cy", it.cy.toDouble())
-                        .put("size", it.size.toDouble())
-                        .put("tintHex", it.tintHex ?: "")
-                        .put("front", it.front)
-                        .put("visible", it.visible)
+    fun encodeDoc(doc: PostDoc): String {
+        val root = JSONObject()
+        root.put("version", 4)
+        root.put("templateId", doc.templateId)
+        root.put("size", doc.size.name)
+        val textsObj = JSONObject()
+        doc.texts.forEach { (k, v) -> textsObj.put(k, v) }
+        root.put("texts", textsObj)
+        if (doc.hiddenTextSlots.isNotEmpty()) {
+            val hArr = JSONArray()
+            doc.hiddenTextSlots.forEach { hArr.put(it) }
+            root.put("hiddenTextSlots", hArr)
+        }
+        doc.textHex?.let { root.put("textHex", it) }
+        doc.accentHex?.let { root.put("accentHex", it) }
+        doc.backgroundHex?.let { root.put("backgroundHex", it) }
+        if (doc.bgMode != BgMode.TEMPLATE) root.put("bgMode", doc.bgMode.name)
+        root.put("bgStartHex", doc.bgStartHex)
+        root.put("bgEndHex", doc.bgEndHex)
+        if (doc.bgAngle != 90f) root.put("bgAngle", doc.bgAngle.toDouble())
+        doc.backdrop?.let { b ->
+            root.put("backdropFrom", b.from.name)
+            root.put("backdropTo", b.to.name)
+            root.put("backdropAngle", b.angle.toDouble())
+        }
+        root.put("textScale", doc.textScale.toDouble())
+        doc.fontEnglish?.let { root.put("fontEnglish", it) }
+        doc.fontAmharic?.let { root.put("fontAmharic", it) }
+        doc.photoUri?.let { root.put("photoUri", it) }
+        root.put("photoZoom", doc.photoZoom.toDouble())
+        root.put("photoPanX", doc.photoPanX.toDouble())
+        root.put("photoPanY", doc.photoPanY.toDouble())
+        root.put("photoFocusX", doc.photoFocusX.toDouble())
+        root.put("photoFocusY", doc.photoFocusY.toDouble())
+        doc.photoDim?.let { root.put("photoDim", it) }
+        doc.photoFrame?.let { root.put("photoFrame", it.name) }
+        root.put("frameBorder", doc.frameBorder)
+        doc.backgroundPhotoUri?.let { root.put("backgroundPhotoUri", it) }
+        root.put("backgroundPhotoOpacity", doc.backgroundPhotoOpacity.toDouble())
+        if (doc.backgroundPhotoDim != 0) root.put("backgroundPhotoDim", doc.backgroundPhotoDim)
+        if (doc.backgroundPhotoBlur != 0) root.put("backgroundPhotoBlur", doc.backgroundPhotoBlur)
+        if (doc.backgroundPhotoZoom != 1f) root.put("backgroundPhotoZoom", doc.backgroundPhotoZoom.toDouble())
+        if (doc.backgroundPhotoFocusX != 0.5f) root.put("backgroundPhotoFocusX", doc.backgroundPhotoFocusX.toDouble())
+        if (doc.backgroundPhotoFocusY != 0.5f) root.put("backgroundPhotoFocusY", doc.backgroundPhotoFocusY.toDouble())
+        if (doc.backgroundPhotoTone != BgPhotoTone.NONE) root.put("backgroundPhotoTone", doc.backgroundPhotoTone.name)
+        if (doc.photoAsBackground) root.put("photoAsBackground", true)
+        if (doc.panelOpacity != 100) root.put("panelOpacity", doc.panelOpacity)
+        if (!doc.shadowAll.isDefault) root.put("shadowAll", encodeShadow(doc.shadowAll))
+        if (doc.lookIndex != 0) root.put("lookIndex", doc.lookIndex)
+        root.put("meshStyle", doc.meshStyle.name)
+        root.put("grain", doc.grain)
+        doc.cutoutUri?.let { root.put("cutoutUri", it) }
+        root.put("cutoutScale", doc.cutoutScale.toDouble())
+        root.put("cutoutX", doc.cutoutX.toDouble())
+        root.put("cutoutY", doc.cutoutY.toDouble())
+        val behindArr = JSONArray()
+        doc.textBehind.forEach { behindArr.put(it) }
+        root.put("textBehind", behindArr)
+        root.put("showLogo", doc.showLogo)
+        doc.logoCx?.let { root.put("logoCx", it.toDouble()) }
+        doc.logoCy?.let { root.put("logoCy", it.toDouble()) }
+        root.put("logoSize", doc.logoSize.toDouble())
+        root.put("showFooter", doc.showFooter)
+
+        val offsetsObj = JSONObject()
+        doc.offsets.forEach { (k, off) ->
+            if (off.dx != 0f || off.dy != 0f) {
+                offsetsObj.put(k, JSONObject().put("dx", off.dx.toDouble()).put("dy", off.dy.toDouble()))
+            }
+        }
+        root.put("offsets", offsetsObj)
+        root.put("slotStyles", encodeSlotStyles(doc.slotStyles))
+
+        val iconsArr = JSONArray()
+        doc.icons.forEach { item ->
+            val o = JSONObject()
+            o.put("source", item.source)
+            o.put("cx", item.cx.toDouble())
+            o.put("cy", item.cy.toDouble())
+            o.put("size", item.size.toDouble())
+            item.tintHex?.let { o.put("tintHex", it) }
+            o.put("front", item.front)
+            iconsArr.put(o)
+        }
+        root.put("icons", iconsArr)
+        return root.toString()
+    }
+
+    fun decodeDoc(json: String): PostDoc {
+        val root = JSONObject(json)
+        val rawTemplateId = root.optString("templateId", "ltr-window")
+        val resolvedId = postTemplate(rawTemplateId).id
+        val size = PostSize.fromKey(root.optString("size", "LANDSCAPE"))
+        val texts = mutableMapOf<String, String>()
+        root.optJSONObject("texts")?.let { obj ->
+            obj.keys().forEach { k -> texts[k] = obj.optString(k, "") }
+        }
+        val specSlots = postTemplate(resolvedId).slots
+        val hydratedTexts = PostSlots.withDerivedSlots(texts, specSlots)
+
+        val hidden = mutableSetOf<String>()
+        root.optJSONArray("hiddenTextSlots")?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val s = arr.optString(i)
+                if (s.isNotBlank()) hidden.add(s)
+            }
+        }
+
+        val behind = mutableSetOf<String>()
+        root.optJSONArray("textBehind")?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val s = arr.optString(i)
+                if (s.isNotBlank()) behind.add(s)
+            }
+        }
+
+        val offsets = mutableMapOf<String, Offset>()
+        root.optJSONObject("offsets")?.let { obj ->
+            obj.keys().forEach { k ->
+                obj.optJSONObject(k)?.let { o ->
+                    offsets[k] = Offset(
+                        o.optDouble("dx", 0.0).toFloat(),
+                        o.optDouble("dy", 0.0).toFloat()
+                    )
+                }
+            }
+        }
+
+        val icons = mutableListOf<PostIconItem>()
+        root.optJSONArray("icons")?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val o = arr.optJSONObject(i) ?: continue
+                icons.add(
+                    PostIconItem(
+                        source = o.optString("source", ""),
+                        cx = o.optDouble("cx", 0.5).toFloat(),
+                        cy = o.optDouble("cy", 0.5).toFloat(),
+                        size = o.optDouble("size", 0.14).toFloat(),
+                        tintHex = o.optString("tintHex", "").takeIf { it.isNotBlank() },
+                        front = o.optBoolean("front", true)
+                    )
                 )
             }
-        })
-        put("photoFrame", d.photoFrame?.name ?: "")
-        put("frameBorder", d.frameBorder)
-        put("meshStyle", d.meshStyle.name)
-        put("grain", d.grain)
-        put("cutoutUri", d.cutoutUri ?: "")
-        put("cutoutScale", d.cutoutScale.toDouble())
-        put("cutoutX", d.cutoutX.toDouble())
-        put("cutoutY", d.cutoutY.toDouble())
-        put("textBehind", JSONArray().also { arr -> d.textBehind.forEach { arr.put(it) } })
-        put("hiddenTextSlots", JSONArray().also { arr -> d.hiddenTextSlots.forEach { arr.put(it) } })
-        put("slotOffsets", JSONObject().also { o ->
-            d.slotOffsets.forEach { (k, v) -> o.put(k, JSONObject().put("dx", v.dx.toDouble()).put("dy", v.dy.toDouble())) }
-        })
-        put("slotStyles", JSONObject().also { o ->
-            d.slotStyles.filterValues { !it.isDefault }.forEach { (k, v) ->
-                o.put(
-                    k,
-                    JSONObject()
-                        .put("color", v.colorHex ?: "")
-                        .put("fontEn", v.fontEn ?: "")
-                        .put("fontAm", v.fontAm ?: "")
-                        .put("scale", v.scale.toDouble())
-                )
-            }
-        })
-    }.toString()
-
-    /** The first test build stored the default colors as if they were choices. Treat those as "use the brand color". */
-    private fun colorOverride(j: JSONObject, key: String, legacyDefault: String): String? =
-        j.optString(key).takeIf { it.isNotBlank() && it != "null" && !it.equals(legacyDefault, ignoreCase = true) }
-
-    private fun decodeIcons(j: JSONObject): List<PostIconItem> {
-        val arr = j.optJSONArray("icons") ?: return emptyList()
-        return (0 until arr.length()).mapNotNull { i ->
-            val o = arr.optJSONObject(i) ?: return@mapNotNull null
-            val source = o.optString("source")
-            if (source.isBlank()) return@mapNotNull null
-            PostIconItem(
-                source = source,
-                cx = o.optDouble("cx", 0.5).toFloat().coerceIn(0f, 1f),
-                cy = o.optDouble("cy", 0.5).toFloat().coerceIn(0f, 1f),
-                size = o.optDouble("size", 0.18).toFloat().coerceIn(0.04f, 0.9f),
-                tintHex = o.optString("tintHex").takeIf { it.isNotBlank() && it != "null" },
-                front = o.optBoolean("front", true),
-                visible = o.optBoolean("visible", true)
-            )
-        }.take(MAX_POST_ICONS)
-    }
-
-    private fun decodeTextBehind(j: JSONObject): Set<String> {
-        val arr = j.optJSONArray("textBehind") ?: return emptySet()
-        return (0 until arr.length()).map { arr.optString(it) }.filter { it.isNotBlank() }.toSet()
-    }
-
-    private fun decodeHiddenTextSlots(j: JSONObject): Set<String> {
-        val arr = j.optJSONArray("hiddenTextSlots") ?: return emptySet()
-        return (0 until arr.length()).map { arr.optString(it) }.filter { it.isNotBlank() }.toSet()
-    }
-
-    private fun decodeOffsets(j: JSONObject): Map<String, SlotOffset> {
-        val o = j.optJSONObject("slotOffsets") ?: return emptyMap()
-        val out = LinkedHashMap<String, SlotOffset>()
-        o.keys().forEach { key ->
-            val v = o.optJSONObject(key) ?: return@forEach
-            out[key] = SlotOffset(
-                dx = v.optDouble("dx", 0.0).toFloat().coerceIn(-1f, 1f),
-                dy = v.optDouble("dy", 0.0).toFloat().coerceIn(-1f, 1f)
-            )
         }
-        return out
-    }
 
-    private fun decodeSlotStyles(j: JSONObject): Map<String, SlotStyle> {
-        val o = j.optJSONObject("slotStyles") ?: return emptyMap()
-        val out = LinkedHashMap<String, SlotStyle>()
-        o.keys().forEach { key ->
-            val v = o.optJSONObject(key) ?: return@forEach
-            val style = SlotStyle(
-                colorHex = v.optString("color").takeIf { it.isNotBlank() && it != "null" },
-                fontEn = v.optString("fontEn").takeIf { it.isNotBlank() && it != "null" },
-                fontAm = v.optString("fontAm").takeIf { it.isNotBlank() && it != "null" },
-                scale = v.optDouble("scale", 1.0).toFloat().coerceIn(0.5f, 2f)
-            )
-            if (!style.isDefault) out[key] = style
+        val backdrop = if (root.has("backdropFrom") && root.has("backdropTo")) {
+            val from = runCatching { PostTone.valueOf(root.getString("backdropFrom")) }.getOrNull()
+            val to = runCatching { PostTone.valueOf(root.getString("backdropTo")) }.getOrNull()
+            if (from != null && to != null) Backdrop(from, to, root.optDouble("backdropAngle", 90.0).toFloat()) else null
+        } else null
+
+        val bgOpacity = when {
+            root.has("backgroundPhotoOpacity") -> root.optDouble("backgroundPhotoOpacity", 0.35).toFloat()
+            root.has("backgroundPhotoAlpha") -> root.optDouble("backgroundPhotoAlpha", 0.35).toFloat()
+            else -> 0.35f
+        }.coerceIn(0f, 1f)
+
+        val bgDim = when {
+            !root.has("backgroundPhotoDim") -> 0
+            root.optDouble("backgroundPhotoDim", 0.0) in -1.0..1.0 && root.optInt("backgroundPhotoDim", 0) == 0 ->
+                (root.optDouble("backgroundPhotoDim", 0.0) * 100.0).roundToInt().coerceIn(0, 100)
+            else -> root.optInt("backgroundPhotoDim", 0).coerceIn(0, 100)
         }
-        return out
-    }
 
-    fun decodeDoc(raw: String): PostDoc {
-        val j = JSONObject(raw)
-        val base = PostDoc()
-        val t = j.optJSONObject("texts")
-        val texts = if (t == null) base.texts else t.keys().asSequence().associateWith { t.optString(it) }
+        val bgBlur = when {
+            !root.has("backgroundPhotoBlur") -> 0
+            root.optDouble("backgroundPhotoBlur", 0.0) in 0.0..1.0 && root.optInt("backgroundPhotoBlur", 0) <= 1 ->
+                (root.optDouble("backgroundPhotoBlur", 0.0) * 100.0).roundToInt().coerceIn(0, 100)
+            else -> root.optInt("backgroundPhotoBlur", 0).coerceIn(0, 100)
+        }
+
+        val pOpacity = when {
+            !root.has("panelOpacity") -> 100
+            root.optDouble("panelOpacity", 100.0) <= 1.0 ->
+                (root.optDouble("panelOpacity", 1.0) * 100.0).roundToInt().coerceIn(0, 100)
+            else -> root.optInt("panelOpacity", 100).coerceIn(0, 100)
+        }
+
+        val shadowAll = root.optJSONObject("shadowAll")?.let { decodeShadow(it) }
+            ?: if (root.has("shadowAll")) TextShadow(strength = root.optInt("shadowAll", 0).coerceIn(0, 100))
+            else TextShadow()
+
         return PostDoc(
-            templateId = j.optString("templateId", base.templateId),
-            size = when (j.optString("size", "LANDSCAPE")) {
-                "SQUARE", "PORTRAIT" -> PostSize.LANDSCAPE
-                else -> runCatching { PostSize.valueOf(j.optString("size")) }.getOrDefault(PostSize.LANDSCAPE)
+            version = 4,
+            templateId = resolvedId,
+            size = size,
+            texts = hydratedTexts,
+            hiddenTextSlots = hidden,
+            textHex = root.optString("textHex", "").takeIf { it.isNotBlank() },
+            accentHex = root.optString("accentHex", "").takeIf { it.isNotBlank() },
+            backgroundHex = root.optString("backgroundHex", "").takeIf { it.isNotBlank() },
+            bgMode = root.optString("bgMode", "").let { name ->
+                BgMode.values().firstOrNull { it.name == name } ?: BgMode.TEMPLATE
             },
-            texts = texts,
-            bgMode = runCatching { BgMode.valueOf(j.optString("bgMode", "TEMPLATE")) }.getOrDefault(BgMode.TEMPLATE),
-            bgStartHex = j.optString("bgStartHex", base.bgStartHex).ifBlank { base.bgStartHex },
-            bgEndHex = j.optString("bgEndHex", base.bgEndHex).ifBlank { base.bgEndHex },
-            bgAngle = j.optInt("bgAngle", base.bgAngle),
-            backgroundPhotoUri = j.optString("backgroundPhotoUri").takeIf { it.isNotBlank() && it != "null" },
-            backgroundPhotoOpacity = j.optDouble("backgroundPhotoOpacity", 1.0).toFloat().coerceIn(0f, 1f),
-            accentHex = colorOverride(j, "accentHex", "#176B4D"),
-            textHex = colorOverride(j, "textHex", "#18221D"),
-            textScale = j.optDouble("textScale", 1.0).toFloat(),
-            photoUri = j.optString("photoUri").takeIf { it.isNotBlank() && it != "null" },
-            photoZoom = j.optDouble("photoZoom", 1.0).toFloat(),
-            photoFocusX = j.optDouble("photoFocusX", 0.5).toFloat(),
-            photoFocusY = j.optDouble("photoFocusY", 0.5).toFloat(),
-            photoDim = j.optInt("photoDim", -1),
-            showLogo = j.optBoolean("showLogo", true),
-            showFooter = j.optBoolean("showFooter", true),
-            logoCx = j.optDouble("logoCx", -1.0).toFloat().takeIf { it >= 0f },
-            logoCy = j.optDouble("logoCy", -1.0).toFloat().takeIf { it >= 0f },
-            logoSize = j.optDouble("logoSize", 1.0).toFloat().coerceIn(0.4f, 3f),
-            fontEnglish = j.optString("fontEnglish").takeIf { it.isNotBlank() && it != "null" },
-            fontAmharic = j.optString("fontAmharic").takeIf { it.isNotBlank() && it != "null" },
-            icons = decodeIcons(j),
-            photoFrame = runCatching { PhotoFrame.valueOf(j.optString("photoFrame", "")) }.getOrNull(),
-            frameBorder = j.optBoolean("frameBorder", false),
-            meshStyle = runCatching { MeshStyle.valueOf(j.optString("meshStyle", "OFF")) }.getOrDefault(MeshStyle.OFF),
-            grain = j.optBoolean("grain", false),
-            cutoutUri = j.optString("cutoutUri").takeIf { it.isNotBlank() && it != "null" },
-            cutoutScale = j.optDouble("cutoutScale", 1.0).toFloat().coerceIn(0.3f, 2.5f),
-            cutoutX = j.optDouble("cutoutX", 0.5).toFloat().coerceIn(0f, 1f),
-            cutoutY = j.optDouble("cutoutY", 0.94).toFloat().coerceIn(0.2f, 1.2f),
-            textBehind = decodeTextBehind(j),
-            hiddenTextSlots = decodeHiddenTextSlots(j),
-            slotOffsets = decodeOffsets(j),
-            slotStyles = decodeSlotStyles(j)
+            bgStartHex = root.optString("bgStartHex", "#0B1F3A"),
+            bgEndHex = root.optString("bgEndHex", "#050910"),
+            bgAngle = root.optDouble("bgAngle", 90.0).toFloat(),
+            backdrop = backdrop,
+            textScale = root.optDouble("textScale", 1.0).toFloat().coerceIn(0.4f, 2.5f),
+            fontEnglish = root.optString("fontEnglish", "").takeIf { it.isNotBlank() },
+            fontAmharic = root.optString("fontAmharic", "").takeIf { it.isNotBlank() },
+            photoUri = root.optString("photoUri", "").takeIf { it.isNotBlank() },
+            photoZoom = root.optDouble("photoZoom", 1.0).toFloat().coerceIn(0.5f, 4f),
+            photoPanX = root.optDouble("photoPanX", 0.0).toFloat().coerceIn(-1f, 1f),
+            photoPanY = root.optDouble("photoPanY", 0.0).toFloat().coerceIn(-1f, 1f),
+            photoFocusX = root.optDouble("photoFocusX", 0.5).toFloat().coerceIn(0f, 1f),
+            photoFocusY = root.optDouble("photoFocusY", 0.5).toFloat().coerceIn(0f, 1f),
+            photoDim = if (root.has("photoDim")) root.optInt("photoDim").coerceIn(0, 255) else null,
+            photoFrame = root.optString("photoFrame", "").takeIf { it.isNotBlank() }?.let { name ->
+                PhotoFrame.values().firstOrNull { it.name == name }
+            },
+            frameBorder = root.optBoolean("frameBorder", false),
+            backgroundPhotoUri = root.optString("backgroundPhotoUri", "").takeIf { it.isNotBlank() },
+            backgroundPhotoOpacity = bgOpacity,
+            backgroundPhotoDim = bgDim,
+            backgroundPhotoBlur = bgBlur,
+            backgroundPhotoZoom = root.optDouble("backgroundPhotoZoom", 1.0).toFloat().coerceIn(1f, 3f),
+            backgroundPhotoFocusX = root.optDouble("backgroundPhotoFocusX", 0.5).toFloat().coerceIn(0f, 1f),
+            backgroundPhotoFocusY = root.optDouble("backgroundPhotoFocusY", 0.5).toFloat().coerceIn(0f, 1f),
+            backgroundPhotoTone = root.optString("backgroundPhotoTone", "").let { name ->
+                BgPhotoTone.values().firstOrNull { it.name == name } ?: BgPhotoTone.NONE
+            },
+            photoAsBackground = root.optBoolean("photoAsBackground", false),
+            panelOpacity = pOpacity,
+            shadowAll = shadowAll,
+            lookIndex = root.optInt("lookIndex", 0).coerceIn(0, 2),
+            meshStyle = root.optString("meshStyle", "").let { name ->
+                MeshStyle.values().firstOrNull { it.name == name } ?: MeshStyle.NONE
+            },
+            grain = root.optBoolean("grain", false),
+            cutoutUri = root.optString("cutoutUri", "").takeIf { it.isNotBlank() },
+            cutoutScale = root.optDouble("cutoutScale", 1.0).toFloat().coerceIn(0.3f, 2.5f),
+            cutoutX = root.optDouble("cutoutX", 0.5).toFloat().coerceIn(0f, 1f),
+            cutoutY = root.optDouble("cutoutY", 0.94).toFloat().coerceIn(0f, 1.2f),
+            textBehind = behind,
+            showLogo = root.optBoolean("showLogo", true),
+            logoCx = if (root.has("logoCx")) root.optDouble("logoCx").toFloat() else null,
+            logoCy = if (root.has("logoCy")) root.optDouble("logoCy").toFloat() else null,
+            logoSize = root.optDouble("logoSize", 1.0).toFloat().coerceIn(0.4f, 3f),
+            showFooter = root.optBoolean("showFooter", true),
+            offsets = offsets,
+            slotStyles = decodeSlotStyles(root.optJSONObject("slotStyles")),
+            icons = icons
         )
     }
 
-    fun encodeBrand(b: PostBrand): String = JSONObject().apply {
-        put("primaryHex", b.primaryHex)
-        put("secondaryHex", b.secondaryHex)
-        put("lightHex", b.lightHex)
-        put("darkHex", b.darkHex)
-        put("logoPath", b.logoPath ?: "")
-        put("logoStamp", b.logoStamp)
-        put("logoCorner", b.logoCorner.name)
-        put("logoScale", b.logoScale.toDouble())
-        put("footerStyle", b.footerStyle.name)
-        put("iconLook", b.iconLook.name)
-        put("iconScale", b.iconScale.toDouble())
-        put("bgLook", b.bgLook)
-        put("footerItems", JSONArray().also { arr ->
-            b.footerItems.forEach { arr.put(JSONObject().put("kind", it.kind).put("label", it.label).put("colorHex", it.colorHex)) }
-        })
-    }.toString()
+    private fun encodeShadow(sh: TextShadow): JSONObject = JSONObject().apply {
+        put("strength", sh.strength)
+        put("mode", sh.mode.name)
+        sh.colorHex?.let { put("colorHex", it) }
+        put("angle", sh.angle)
+        put("distance", sh.distance)
+        put("blur", sh.blur)
+    }
 
-    fun decodeBrand(raw: String): PostBrand {
-        val j = JSONObject(raw)
-        val base = PostBrand()
-        val arr = j.optJSONArray("footerItems")
-        val items = if (arr == null) base.footerItems else (0 until arr.length()).mapNotNull { i ->
-            arr.optJSONObject(i)?.let { FooterItem(it.optString("kind", "website"), it.optString("label", ""), it.optString("colorHex", "")) }
+    private fun decodeShadow(so: JSONObject): TextShadow = TextShadow(
+        strength = so.optInt("strength", 0).coerceIn(0, 100),
+        mode = so.optString("mode", "").let { n ->
+            ShadowMode.values().firstOrNull { it.name == n } ?: ShadowMode.SOFT
+        },
+        colorHex = so.optString("colorHex", "").takeIf { it.isNotBlank() },
+        angle = so.optInt("angle", so.optInt("angleDeg", 135)),
+        distance = so.optInt("distance", 35).coerceIn(0, 100),
+        blur = so.optInt("blur", 55).coerceIn(0, 100)
+    )
+
+    fun encodeSlotStyles(styles: Map<String, SlotStyle>): JSONObject {
+        val obj = JSONObject()
+        styles.forEach { (slot, s) ->
+            if (s.isDefault) return@forEach
+            val o = JSONObject()
+            s.colorHex?.let { o.put("colorHex", it) }
+            s.fontEn?.let { o.put("fontEn", it) }
+            s.fontAm?.let { o.put("fontAm", it) }
+            if (s.scale != 1f) o.put("scale", s.scale.toDouble())
+            s.sizeUnit?.let { o.put("sizeUnit", it.toDouble()) }
+            s.shadow?.takeIf { it.strength > 0 }?.let { sh ->
+                o.put("shadow", encodeShadow(sh))
+            }
+            s.fx?.let { o.put("fx", it.name) }
+            s.tracking?.let { o.put("tracking", it.toDouble()) }
+            s.leading?.let { o.put("leading", it.toDouble()) }
+            s.rotate?.let { o.put("rotate", it.toDouble()) }
+            s.align?.let { o.put("align", it.name) }
+            s.caps?.let { o.put("caps", it) }
+            obj.put(slot, o)
         }
+        return obj
+    }
+
+    fun decodeSlotStyles(obj: JSONObject?): Map<String, SlotStyle> {
+        if (obj == null) return emptyMap()
+        val out = mutableMapOf<String, SlotStyle>()
+        obj.keys().forEach { slot ->
+            val o = obj.optJSONObject(slot) ?: return@forEach
+            val shadow = o.optJSONObject("shadow")?.let { decodeShadow(it) }
+            val style = SlotStyle(
+                colorHex = o.optString("colorHex", "").takeIf { it.isNotBlank() },
+                fontEn = o.optString("fontEn", "").takeIf { it.isNotBlank() },
+                fontAm = o.optString("fontAm", "").takeIf { it.isNotBlank() },
+                scale = o.optDouble("scale", 1.0).toFloat().coerceIn(0.25f, 4.0f),
+                sizeUnit = if (o.has("sizeUnit")) o.optDouble("sizeUnit").toFloat().coerceIn(0.015f, 1.6f) else null,
+                shadow = shadow,
+                fx = o.optString("fx", "").takeIf { it.isNotBlank() }?.let { n ->
+                    TextFx.values().firstOrNull { it.name == n }
+                },
+                tracking = if (o.has("tracking")) o.optDouble("tracking").toFloat().coerceIn(-0.08f, 0.5f) else null,
+                leading = if (o.has("leading")) o.optDouble("leading").toFloat().coerceIn(0.75f, 1.8f) else null,
+                rotate = if (o.has("rotate")) o.optDouble("rotate").toFloat().coerceIn(-90f, 90f) else null,
+                align = o.optString("align", "").takeIf { it.isNotBlank() }?.let { n ->
+                    TextAlign.values().firstOrNull { it.name == n }
+                },
+                caps = if (o.has("caps")) o.optBoolean("caps") else null
+            )
+            if (!style.isDefault) out[slot] = style
+        }
+        return out
+    }
+
+    fun encodeBrand(brand: PostBrand): String {
+        val o = JSONObject()
+        o.put("name", brand.name)
+        o.put("handle", brand.handle)
+        o.put("primaryHex", brand.primaryHex)
+        o.put("secondaryHex", brand.secondaryHex)
+        o.put("lightHex", brand.lightHex)
+        o.put("darkHex", brand.darkHex)
+        o.put("bgLook", brand.bgLook)
+        brand.logoPath?.let { o.put("logoPath", it) }
+        o.put("logoStamp", brand.logoStamp)
+        o.put("logoScale", brand.logoScale.toDouble())
+        o.put("footerStyle", brand.footerStyle.name)
+        o.put("iconLook", brand.iconLook.name)
+        o.put("iconScale", brand.iconScale.toDouble())
+        val arr = JSONArray()
+        brand.footerItems.forEach { item ->
+            arr.put(
+                JSONObject()
+                    .put("kind", item.kind)
+                    .put("label", item.label)
+                    .put("colorHex", item.colorHex)
+            )
+        }
+        o.put("footerItems", arr)
+        return o.toString()
+    }
+
+    fun decodeBrand(json: String): PostBrand {
+        val o = JSONObject(json)
+        val items = mutableListOf<FooterItem>()
+        o.optJSONArray("footerItems")?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val fi = arr.optJSONObject(i) ?: continue
+                items.add(
+                    FooterItem(
+                        kind = fi.optString("kind", "telegram"),
+                        label = fi.optString("label", ""),
+                        colorHex = fi.optString("colorHex", "")
+                    )
+                )
+            }
+        }
+        val primary = o.optString("primaryHex", "").ifBlank { o.optString("accentHex", "#22E0FF") }
+        val logoPath = o.optString("logoPath", "").ifBlank { o.optString("logoUri", "") }.takeIf { it.isNotBlank() }
         return PostBrand(
-            primaryHex = j.optString("primaryHex", base.primaryHex),
-            secondaryHex = j.optString("secondaryHex", base.secondaryHex),
-            lightHex = j.optString("lightHex", base.lightHex),
-            darkHex = j.optString("darkHex", base.darkHex),
-            logoPath = j.optString("logoPath").takeIf { it.isNotBlank() && it != "null" },
-            logoStamp = j.optLong("logoStamp", 0L),
-            logoCorner = runCatching { LogoCorner.valueOf(j.optString("logoCorner", "LEFT")) }.getOrDefault(LogoCorner.LEFT),
-            logoScale = j.optDouble("logoScale", 1.0).toFloat(),
-            footerItems = items,
-            footerStyle = runCatching { FooterStyle.valueOf(j.optString("footerStyle", "PILL")) }.getOrDefault(FooterStyle.PILL),
-            iconLook = runCatching { IconLook.valueOf(j.optString("iconLook", "OFFICIAL")) }.getOrDefault(IconLook.OFFICIAL),
-            iconScale = j.optDouble("iconScale", 1.0).toFloat(),
-            bgLook = j.optInt("bgLook", 0)
+            name = o.optString("name", "Wisdom Tower"),
+            handle = o.optString("handle", "@wisdomtower"),
+            primaryHex = primary,
+            secondaryHex = o.optString("secondaryHex", "#FFD54A"),
+            lightHex = o.optString("lightHex", "#FFFFFF"),
+            darkHex = o.optString("darkHex", "#060B14"),
+            bgLook = o.optInt("bgLook", 1),
+            logoPath = logoPath,
+            logoStamp = o.optLong("logoStamp", 0L),
+            logoScale = o.optDouble("logoScale", 1.0).toFloat(),
+            footerStyle = o.optString("footerStyle", "").let { n ->
+                FooterStyle.values().firstOrNull { it.name == n } ?: FooterStyle.PILL
+            },
+            iconLook = o.optString("iconLook", "").let { n ->
+                IconLook.values().firstOrNull { it.name == n } ?: IconLook.OFFICIAL
+            },
+            iconScale = o.optDouble("iconScale", 1.0).toFloat(),
+            footerItems = if (items.isNotEmpty()) items else PostBrand().footerItems
         )
     }
 }

@@ -1,64 +1,185 @@
 package com.wisdomtower.post
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.net.Uri
 import android.util.LruCache
+import java.io.ByteArrayInputStream
 import java.io.InputStream
-import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.max
+import kotlin.math.roundToInt
 
 /**
- * Keeps recently decoded pictures (the template photo, the background photo, the cut-out subject and placed icons), so the editor
- * preview and the template cards do not decode the same file again for every redraw. Before this, every redraw while dragging a
- * slider or an icon opened and decoded the photo from storage again.
- *
- * A picture that came from this cache is shared: nobody may recycle it or draw into it. Always call Picture.release() when done;
- * it frees a private decode and leaves a shared one alone. A decode that would be very large (a 4K export) is never kept, so
- * exports cannot fill the memory.
+ * In-memory LRU bitmap cache so photo, icon and cutout bitmaps are decoded once instead of on every slider drag.
+ * Also provides fast downscaled 2-pass box blur cached by (key, blur) without RenderScript (TEMPLATE_REDESIGN_PLAN.md 3.4).
  */
 object PostImageCache {
-    /** A decoded picture larger than this (in bytes) is not kept. */
-    private const val MAX_ENTRY_BYTES = 20L * 1024 * 1024
-
-    class Picture(val bitmap: Bitmap, private val shared: Boolean) {
-        /** Frees the pixels of a private decode. A shared (cached) picture is left alone. */
+    class Lease(val bitmap: Bitmap) {
         fun release() {
-            if (!shared) bitmap.recycle()
+            // Kept in LRU cache; no-op on release so callers never use a recycled bitmap.
         }
     }
 
-    private fun budget(): Int =
-        (Runtime.getRuntime().maxMemory() / 8L).coerceIn(8L * 1024 * 1024, 48L * 1024 * 1024).toInt()
-
-    private val cache = object : LruCache<String, Bitmap>(budget()) {
-        override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount
+    private val cache: LruCache<String, Bitmap> = object : LruCache<String, Bitmap>(24 * 1024) {
+        override fun sizeOf(key: String, value: Bitmap): Int = max(1, value.byteCount / 1024)
     }
 
-    /** Width and height of each picture, so the file header is read only once. */
-    private val sizes = ConcurrentHashMap<String, IntArray>()
+    fun decode(key: String, maxSide: Int, open: () -> InputStream?): Lease? {
+        val target = maxSide.coerceAtLeast(32)
+        val cacheKey = "$key@$target"
+        synchronized(this) {
+            cache.get(cacheKey)?.let { if (!it.isRecycled) return Lease(it) }
+        }
+        return try {
+            val bytes = open()?.use { it.readBytes() } ?: return null
+            if (bytes.isEmpty()) return null
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeStream(ByteArrayInputStream(bytes), null, bounds)
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+            var sample = 1
+            while (max(bounds.outWidth, bounds.outHeight) / (sample * 2) >= target) {
+                sample *= 2
+            }
+            val opts = BitmapFactory.Options().apply { inSampleSize = sample }
+            val decoded = BitmapFactory.decodeStream(ByteArrayInputStream(bytes), null, opts) ?: return null
+            synchronized(this) {
+                cache.put(cacheKey, decoded)
+            }
+            Lease(decoded)
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
+    fun get(context: Context, uriString: String?, maxDim: Int = 1600): Bitmap? {
+        if (uriString.isNullOrBlank()) return null
+        val target = maxDim.coerceAtLeast(64)
+        val key = "$uriString@$target"
+        synchronized(this) {
+            cache.get(key)?.let { if (!it.isRecycled) return it }
+        }
+        return try {
+            val uri = Uri.parse(uriString)
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            context.contentResolver.openInputStream(uri)?.use {
+                BitmapFactory.decodeStream(it, null, bounds)
+            }
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+            var sample = 1
+            while (bounds.outWidth / sample > target || bounds.outHeight / sample > target) {
+                sample *= 2
+            }
+            val opts = BitmapFactory.Options().apply { inSampleSize = sample }
+            val decoded = context.contentResolver.openInputStream(uri)?.use {
+                BitmapFactory.decodeStream(it, null, opts)
+            }
+            if (decoded != null) {
+                synchronized(this) {
+                    cache.put(key, decoded)
+                }
+            }
+            decoded
+        } catch (_: Throwable) {
+            null
+        }
+    }
 
     /**
-     * Decodes the picture behind key, no smaller than target pixels on its shorter side (it is sampled down by whole powers of two).
-     * key must change when the file changes. open gives a fresh stream each time it is called. Returns null when it cannot be read.
+     * Fast downscaled 2-pass sliding box blur cached by (key, blur).
+     * Works identically on all API levels without RenderScript.
      */
-    fun decode(key: String, target: Int, open: () -> InputStream?): Picture? {
-        val dims = sizes[key] ?: run {
-            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            open()?.use { BitmapFactory.decodeStream(it, null, bounds) }
-            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
-            intArrayOf(bounds.outWidth, bounds.outHeight).also { sizes[key] = it }
+    fun blurred(key: String, src: Bitmap, blur: Int): Bitmap {
+        val clamped = blur.coerceIn(0, 100)
+        if (clamped <= 0) return src
+        val cacheKey = "blur:$key@$clamped@${src.width}x${src.height}"
+        synchronized(this) {
+            cache.get(cacheKey)?.let { if (!it.isRecycled) return it }
         }
-        var sample = 1
-        while (dims[0] / (sample * 2) >= target && dims[1] / (sample * 2) >= target) sample *= 2
-        val bytes = ((dims[0] + sample - 1) / sample).toLong() * ((dims[1] + sample - 1) / sample) * 4L
-        val keep = bytes <= MAX_ENTRY_BYTES
-        val cacheKey = key + "#" + sample
-        if (keep) {
-            val hit = cache.get(cacheKey)
-            if (hit != null && !hit.isRecycled) return Picture(hit, true)
+
+        val scale = 4
+        val sw = max(16, (src.width / scale.toFloat()).roundToInt())
+        val sh = max(16, (src.height / scale.toFloat()).roundToInt())
+        val small = Bitmap.createScaledBitmap(src, sw, sh, true).copy(Bitmap.Config.ARGB_8888, true)
+        val radius = max(1, (clamped * 0.22f).roundToInt())
+
+        boxBlurPass(small, radius)
+        boxBlurPass(small, radius)
+
+        synchronized(this) {
+            cache.put(cacheKey, small)
         }
-        val options = BitmapFactory.Options().apply { inSampleSize = sample }
-        val bitmap = open()?.use { BitmapFactory.decodeStream(it, null, options) } ?: return null
-        if (keep) cache.put(cacheKey, bitmap)
-        return Picture(bitmap, keep)
+        return small
+    }
+
+    private fun boxBlurPass(bitmap: Bitmap, radius: Int) {
+        val w = bitmap.width
+        val h = bitmap.height
+        if (w <= 2 || h <= 2 || radius <= 0) return
+        val pixels = IntArray(w * h)
+        val temp = IntArray(w * h)
+        bitmap.getPixels(pixels, 0, w, 0, 0, w, h)
+        val div = 2 * radius + 1
+
+        for (y in 0 until h) {
+            var aSum = 0
+            var rSum = 0
+            var gSum = 0
+            var bSum = 0
+            val rowOffset = y * w
+            for (i in -radius..radius) {
+                val p = pixels[rowOffset + i.coerceIn(0, w - 1)]
+                aSum += (p ushr 24) and 0xFF
+                rSum += (p ushr 16) and 0xFF
+                gSum += (p ushr 8) and 0xFF
+                bSum += p and 0xFF
+            }
+            for (x in 0 until w) {
+                temp[rowOffset + x] =
+                    ((aSum / div) shl 24) or ((rSum / div) shl 16) or ((gSum / div) shl 8) or (bSum / div)
+                val outIdx = (x - radius).coerceIn(0, w - 1)
+                val inIdx = (x + radius + 1).coerceIn(0, w - 1)
+                val pOut = pixels[rowOffset + outIdx]
+                val pIn = pixels[rowOffset + inIdx]
+                aSum += ((pIn ushr 24) and 0xFF) - ((pOut ushr 24) and 0xFF)
+                rSum += ((pIn ushr 16) and 0xFF) - ((pOut ushr 16) and 0xFF)
+                gSum += ((pIn ushr 8) and 0xFF) - ((pOut ushr 8) and 0xFF)
+                bSum += (pIn and 0xFF) - (pOut and 0xFF)
+            }
+        }
+
+        for (x in 0 until w) {
+            var aSum = 0
+            var rSum = 0
+            var gSum = 0
+            var bSum = 0
+            for (i in -radius..radius) {
+                val p = temp[i.coerceIn(0, h - 1) * w + x]
+                aSum += (p ushr 24) and 0xFF
+                rSum += (p ushr 16) and 0xFF
+                gSum += (p ushr 8) and 0xFF
+                bSum += p and 0xFF
+            }
+            for (y in 0 until h) {
+                pixels[y * w + x] =
+                    ((aSum / div) shl 24) or ((rSum / div) shl 16) or ((gSum / div) shl 8) or (bSum / div)
+                val outIdx = (y - radius).coerceIn(0, h - 1)
+                val inIdx = (y + radius + 1).coerceIn(0, h - 1)
+                val pOut = temp[outIdx * w + x]
+                val pIn = temp[inIdx * w + x]
+                aSum += ((pIn ushr 24) and 0xFF) - ((pOut ushr 24) and 0xFF)
+                rSum += ((pIn ushr 16) and 0xFF) - ((pOut ushr 16) and 0xFF)
+                gSum += ((pIn ushr 8) and 0xFF) - ((pOut ushr 8) and 0xFF)
+                bSum += (pIn and 0xFF) - (pOut and 0xFF)
+            }
+        }
+
+        bitmap.setPixels(pixels, 0, w, 0, 0, w, h)
+    }
+
+    fun clear() {
+        synchronized(this) {
+            cache.evictAll()
+        }
     }
 }

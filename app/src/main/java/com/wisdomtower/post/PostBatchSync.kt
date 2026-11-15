@@ -129,6 +129,8 @@ object PostBatchSync {
 
     /** The wt-mcp box name for a PostDoc slot. Note the message box is called BODY in the app and "message" on the server. */
     private fun backendKey(slot: String): String? = when (slot) {
+        PostSlots.LETTER -> "letter"
+        PostSlots.WORD -> "word"
         PostSlots.EYEBROW -> "eyebrow"
         PostSlots.HEADLINE -> "headline"
         PostSlots.BODY -> "message"

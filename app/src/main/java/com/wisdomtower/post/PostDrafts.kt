@@ -48,14 +48,18 @@ object PostDrafts {
     /** True when the post differs from the template's factory look (the size counts as part of the draft). */
     fun isEdited(doc: PostDoc): Boolean = doc != factory(doc.templateId, doc.size)
 
-    /** A post saved under an old template id moves to the template that replaced it, keeping its words and taking the new look. */
-    private fun migrate(doc: PostDoc, spec: PostTemplateSpec): PostDoc =
-        if (doc.templateId == spec.id) doc else doc.copy(templateId = spec.id).withTemplate(spec)
+    /** A post saved under an old template id moves to the template that replaced it, keeping its words, deriving missing letter/word, and taking the new look. */
+    private fun migrate(doc: PostDoc, spec: PostTemplateSpec): PostDoc {
+        val withDerived = doc.copy(texts = PostSlots.deriveLetterAndWord(doc.texts, spec.samples))
+        return if (withDerived.templateId == spec.id) withDerived else withDerived.copy(templateId = spec.id).withTemplate(spec)
+    }
 
     fun loadDraft(context: Context, templateId: String): PostDoc? = runCatching {
-        val f = draftFile(context, templateId)
-        if (!f.exists()) return@runCatching null
-        migrate(PostCodec.decodeDoc(f.readText()), postTemplate(templateId))
+        val spec = postTemplate(templateId)
+        val f = draftFile(context, templateId).takeIf { it.exists() }
+            ?: draftFile(context, spec.id).takeIf { it.exists() }
+            ?: return@runCatching null
+        migrate(PostCodec.decodeDoc(f.readText()), spec)
     }.getOrNull()
 
     /** All template ids that currently have a draft file. */

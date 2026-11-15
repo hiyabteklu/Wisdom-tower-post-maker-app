@@ -3,10 +3,9 @@ package com.wisdomtower.post
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.BitmapShader
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.Matrix
+import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RadialGradient
@@ -14,269 +13,244 @@ import android.graphics.RectF
 import android.graphics.Shader
 import android.net.Uri
 import java.io.File
-import java.util.Random
+import kotlin.math.abs
+import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.sin
 
 /**
- * Shapes for the template photo (REDESIGN_PLAN.md section 4). A post with no frame chosen keeps the template's own shape.
- * STACKED is a rounded photo with two tilted cards behind it.
- */
-enum class PhotoFrame(val label: String) {
-    ROUNDED("Rounded"),
-    ARCH("Arch"),
-    PILL("Pill"),
-    CIRCLE("Circle"),
-    STACKED("Stacked")
-}
-
-/** Soft color blends laid over the background gradient. Built from the brand colors, so they follow a color change. */
-enum class MeshStyle(val label: String) {
-    OFF("Off"),
-    AURORA("Aurora"),
-    SPOTLIGHT("Spotlight"),
-    DUSK("Dusk")
-}
-
-/** How far a text slot was dragged away from where the template put it, as fractions of the post width and height. */
-data class SlotOffset(val dx: Float, val dy: Float)
-
-/** Saved offsets are per template and per size, because a slot sits somewhere different on every layout. */
-private fun offsetKey(doc: PostDoc, slot: String): String = doc.templateId + ":" + doc.size.name + ":" + slot
-
-fun PostDoc.offsetFor(slot: String): SlotOffset? =
-    slotOffsets[offsetKey(this, slot)]?.takeIf { it.dx != 0f || it.dy != 0f }
-
-fun PostDoc.withOffset(slot: String, offset: SlotOffset): PostDoc =
-    copy(slotOffsets = slotOffsets + (offsetKey(this, slot) to offset))
-
-/** Puts every slot of the current template and size back where the template designed it. */
-fun PostDoc.withoutOffsets(): PostDoc {
-    val prefix = templateId + ":" + size.name + ":"
-    return copy(slotOffsets = slotOffsets.filterKeys { !it.startsWith(prefix) })
-}
-
-fun PostDoc.hasOffsets(): Boolean {
-    val prefix = templateId + ":" + size.name + ":"
-    return slotOffsets.any { it.key.startsWith(prefix) && (it.value.dx != 0f || it.value.dy != 0f) }
-}
-
-/**
- * Drawing helpers that sit beside PostRenderer: photo frames, mesh gradients, grain, the cut-out subject layer
- * and hit testing for dragging text on the preview.
+ * Shared geometry, hit-testing (with inverse rotation), photo frame paths, cut-out import,
+ * mesh gradients and film grain (docs/REDESIGN_PLAN.md and docs/TEMPLATE_REDESIGN_PLAN.md 3.1).
  */
 object PostEngine {
-    /** The name used for the cut-out subject when it is the thing being dragged on the preview. */
-    const val CUTOUT_TARGET = "@cutout"
+    private var grainTile: Bitmap? = null
 
-    // ---- photo frames ----
+    fun importCutout(context: Context, uri: Uri): String? {
+        val dir = File(context.filesDir, "photos").also { it.mkdirs() }
+        val out = File(dir, "cutout_${System.currentTimeMillis()}_${kotlin.random.Random.nextInt(1000, 9999)}.png")
+        val copied = runCatching {
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                out.outputStream().use { input.copyTo(it) }
+            } != null
+        }.getOrDefault(false)
+        if (!copied) return null
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(out.absolutePath, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
+            out.delete()
+            return null
+        }
+        return Uri.fromFile(out).toString()
+    }
 
-    fun framePath(frame: PhotoFrame, r: RectF, unit: Float): Path {
+    fun hasTransparency(storedUri: String): Boolean = runCatching {
+        val path = Uri.parse(storedUri).path ?: return@runCatching false
+        val opts = BitmapFactory.Options().apply { inSampleSize = 4 }
+        val bmp = BitmapFactory.decodeFile(path, opts) ?: return@runCatching false
+        try {
+            if (!bmp.hasAlpha()) return@runCatching false
+            val w = bmp.width
+            val h = bmp.height
+            val stepX = max(1, w / 24)
+            val stepY = max(1, h / 24)
+            for (y in 0 until h step stepY) {
+                for (x in 0 until w step stepX) {
+                    if (Color.alpha(bmp.getPixel(x, y)) < 230) return@runCatching true
+                }
+            }
+            false
+        } finally {
+            bmp.recycle()
+        }
+    }.getOrDefault(false)
+
+    /**
+     * Builds the clipping path for a photo window shaped by [frame].
+     * ROUNDED uses unit * 0.05 (54 px at 1080) as required by DEVICE_MOCKUP_PLAN.md.
+     */
+    fun framePath(frame: PhotoFrame, rect: RectF, unit: Float): Path {
         val path = Path()
         when (frame) {
             PhotoFrame.ROUNDED, PhotoFrame.STACKED -> {
-                val rad = unit * 0.05f
-                path.addRoundRect(r, rad, rad, Path.Direction.CW)
+                val r = unit * 0.05f
+                path.addRoundRect(rect, r, r, Path.Direction.CW)
             }
             PhotoFrame.PILL -> {
-                val rad = min(r.width(), r.height()) / 2f
-                path.addRoundRect(r, rad, rad, Path.Direction.CW)
+                val r = min(rect.width(), rect.height()) / 2f
+                path.addRoundRect(rect, r, r, Path.Direction.CW)
             }
             PhotoFrame.CIRCLE -> {
-                val d = min(r.width(), r.height())
-                path.addOval(RectF(r.centerX() - d / 2f, r.centerY() - d / 2f, r.centerX() + d / 2f, r.centerY() + d / 2f), Path.Direction.CW)
+                val r = min(rect.width(), rect.height()) / 2f
+                path.addCircle(rect.centerX(), rect.centerY(), r, Path.Direction.CW)
             }
             PhotoFrame.ARCH -> {
-                val rad = min(r.width() / 2f, r.height() / 2f)
-                path.moveTo(r.left, r.bottom)
-                path.lineTo(r.left, r.top + rad)
-                path.arcTo(RectF(r.left, r.top, r.right, r.top + 2f * rad), 180f, 180f, false)
-                path.lineTo(r.right, r.bottom)
+                val r = rect.width() / 2f
+                val archTop = rect.top + min(r, rect.height() * 0.48f)
+                path.moveTo(rect.left, rect.bottom)
+                path.lineTo(rect.left, archTop)
+                path.arcTo(RectF(rect.left, rect.top, rect.right, rect.top + (archTop - rect.top) * 2f), 180f, 180f, false)
+                path.lineTo(rect.right, rect.bottom)
                 path.close()
             }
         }
         return path
     }
 
-    /** Two tilted cards behind a STACKED photo. far is the back card, near the one just behind the photo. */
-    fun drawStackedBacks(canvas: Canvas, dest: RectF, unit: Float, far: Int, near: Int) {
-        val rad = unit * 0.05f
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-        paint.setShadowLayer(unit * 0.02f, 0f, unit * 0.008f, Color.argb(70, 0, 0, 0))
-        canvas.save()
-        canvas.rotate(-6f, dest.centerX(), dest.centerY())
-        paint.color = far
-        canvas.drawRoundRect(dest, rad, rad, paint)
-        canvas.restore()
-        canvas.save()
-        canvas.rotate(4f, dest.centerX(), dest.centerY())
-        paint.color = near
-        canvas.drawRoundRect(dest, rad, rad, paint)
-        canvas.restore()
+    fun slotRect(doc: PostDoc, box: SlotBox, canvasW: Float, canvasH: Float): RectF {
+        val (dx, dy) = doc.offsetOf(box.slot)
+        val left = (box.x + dx) * canvasW
+        val top = (box.y + dy) * canvasH
+        return RectF(left, top, left + box.w * canvasW, top + box.h * canvasH)
     }
 
-    /** A soft shadow under the frame. The photo is drawn over the fill, so only the shadow stays visible. */
-    fun drawFrameShadow(canvas: Canvas, path: Path, unit: Float) {
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-        paint.color = Color.BLACK
-        paint.setShadowLayer(unit * 0.025f, 0f, unit * 0.010f, Color.argb(80, 0, 0, 0))
-        canvas.drawPath(path, paint)
-    }
+    fun slotRect(box: SlotBox, doc: PostDoc): RectF =
+        slotRect(doc, box, 1f, 1f)
 
-    fun drawFrameBorder(canvas: Canvas, path: Path, unit: Float, color: Int) {
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-        paint.style = Paint.Style.STROKE
-        paint.strokeWidth = max(2f, unit * 0.012f)
-        paint.color = color
-        canvas.drawPath(path, paint)
-    }
+    fun effectiveRotation(doc: PostDoc, box: SlotBox): Float =
+        doc.slotStyles[box.slot]?.rotate ?: box.rotate
 
-    // ---- mesh gradient and grain ----
-
-    private class Blob(val cx: Float, val cy: Float, val r: Float, val color: Int, val alpha: Int)
+    fun effectiveRotation(box: SlotBox, doc: PostDoc): Float =
+        effectiveRotation(doc, box)
 
     /**
-     * Two or three large soft color areas over the background, so the gradient looks blended rather than a straight ramp.
-     * w and h are the full export size (the canvas is already scaled for previews).
+     * Hit-tests word slots on the preview in reverse draw order (topmost first).
+     * Inverse-rotates the touch point around the slot box centre when `rotate != 0` (TEMPLATE_REDESIGN_PLAN.md 3.1).
      */
-    fun drawMesh(canvas: Canvas, style: MeshStyle, w: Int, h: Int, accent: Int, glow: Int, deep: Int, secondary: Int) {
-        val blobs: List<Blob> = when (style) {
-            MeshStyle.OFF -> emptyList()
-            MeshStyle.AURORA -> listOf(
-                Blob(0.12f, 0.08f, 0.80f, glow, 175),
-                Blob(0.95f, 0.52f, 0.75f, accent, 150),
-                Blob(0.25f, 1.00f, 0.70f, secondary, 105)
-            )
-            MeshStyle.SPOTLIGHT -> listOf(
-                Blob(0.50f, 0.38f, 0.85f, glow, 200),
-                Blob(0.00f, 1.00f, 0.70f, deep, 140),
-                Blob(1.00f, 0.00f, 0.55f, accent, 90)
-            )
-            MeshStyle.DUSK -> listOf(
-                Blob(0.90f, 0.10f, 0.70f, secondary, 140),
-                Blob(0.05f, 0.60f, 0.80f, accent, 150),
-                Blob(0.70f, 1.00f, 0.65f, glow, 110)
-            )
+    fun hitSlot(doc: PostDoc, layout: TemplateLayout, normX: Float, normY: Float): String? {
+        val w = doc.size.width.toFloat()
+        val h = doc.size.height.toFloat()
+        val px = normX * w
+        val py = normY * h
+
+        val editableSlots = layout.slots.filter { it.literal == null && it.slot !in doc.hiddenTextSlots }
+        for (box in editableSlots.asReversed()) {
+            val rect = slotRect(doc, box, w, h)
+            val angleDeg = effectiveRotation(doc, box)
+            val (testX, testY) = if (abs(angleDeg) > 0.01f) {
+                val cx = rect.centerX()
+                val cy = rect.centerY()
+                val rad = Math.toRadians((-angleDeg).toDouble())
+                val cosA = cos(rad).toFloat()
+                val sinA = sin(rad).toFloat()
+                val vx = px - cx
+                val vy = py - cy
+                (cx + vx * cosA - vy * sinA) to (cy + vx * sinA + vy * cosA)
+            } else {
+                px to py
+            }
+            val padX = max(14f, rect.width() * 0.04f)
+            val padY = max(14f, rect.height() * 0.06f)
+            if (testX in (rect.left - padX)..(rect.right + padX) &&
+                testY in (rect.top - padY)..(rect.bottom + padY)
+            ) {
+                return box.slot
+            }
         }
+        return null
+    }
+
+    fun hitSlot(layout: TemplateLayout, doc: PostDoc, normX: Float, normY: Float): String? =
+        hitSlot(doc, layout, normX, normY)
+
+    fun hitCutout(doc: PostDoc, normX: Float, normY: Float): Boolean {
+        if (doc.cutoutUri.isNullOrBlank()) return false
+        val halfW = 0.24f * doc.cutoutScale.coerceIn(0.3f, 2.5f)
+        val height = 0.56f * doc.cutoutScale.coerceIn(0.3f, 2.5f)
+        val left = doc.cutoutX - halfW
+        val right = doc.cutoutX + halfW
+        val bottom = doc.cutoutY
+        val top = bottom - height
+        return normX in left..right && normY in top..bottom
+    }
+
+    fun hitIcon(doc: PostDoc, normX: Float, normY: Float): Int? {
+        for (i in doc.icons.indices.reversed()) {
+            val item = doc.icons[i]
+            val r = max(0.05f, item.size * 0.6f)
+            if (abs(normX - item.cx) <= r && abs(normY - item.cy) <= r) {
+                return i
+            }
+        }
+        return null
+    }
+
+    fun drawMesh(canvas: Canvas, style: MeshStyle, w: Int, h: Int, accent: Int, secondary: Int, glow: Int) {
+        if (style == MeshStyle.NONE) return
         val reach = max(w, h).toFloat()
-        blobs.forEach { b ->
-            val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-            paint.shader = RadialGradient(
-                b.cx * w, b.cy * h, b.r * reach,
-                intArrayOf(withAlpha(b.color, b.alpha), withAlpha(b.color, 0)),
+        fun orb(cx: Float, cy: Float, radiusFrac: Float, color: Int, alpha: Int) {
+            val p = Paint(Paint.ANTI_ALIAS_FLAG)
+            p.shader = RadialGradient(
+                cx * w,
+                cy * h,
+                max(1f, reach * radiusFrac),
+                intArrayOf(
+                    Color.argb(alpha.coerceIn(0, 255), Color.red(color), Color.green(color), Color.blue(color)),
+                    Color.argb(0, Color.red(color), Color.green(color), Color.blue(color))
+                ),
                 floatArrayOf(0f, 1f),
                 Shader.TileMode.CLAMP
             )
-            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
+            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), p)
+        }
+        when (style) {
+            MeshStyle.NONE -> Unit
+            MeshStyle.AURORA -> {
+                orb(0.16f, 0.20f, 0.78f, glow, 92)
+                orb(0.84f, 0.78f, 0.75f, secondary, 76)
+                orb(0.54f, 0.46f, 0.64f, accent, 64)
+            }
+            MeshStyle.SPOTLIGHT -> {
+                orb(0.50f, 0.38f, 0.74f, glow, 100)
+                orb(0.50f, 0.62f, 0.52f, accent, 58)
+            }
+            MeshStyle.DUSK -> {
+                val p = Paint(Paint.ANTI_ALIAS_FLAG)
+                p.shader = LinearGradient(
+                    0f, 0f, w.toFloat(), h.toFloat(),
+                    intArrayOf(
+                        Color.argb(80, Color.red(accent), Color.green(accent), Color.blue(accent)),
+                        Color.argb(0, 0, 0, 0),
+                        Color.argb(74, Color.red(secondary), Color.green(secondary), Color.blue(secondary))
+                    ),
+                    floatArrayOf(0f, 0.5f, 1f),
+                    Shader.TileMode.CLAMP
+                )
+                canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), p)
+                orb(0.85f, 0.18f, 0.65f, glow, 68)
+            }
         }
     }
 
-    private var grainTile: Bitmap? = null
-
-    private fun grain(): Bitmap {
-        grainTile?.let { return it }
-        val size = 128
-        val rnd = Random(7L)
-        val px = IntArray(size * size) {
-            val v = if (rnd.nextBoolean()) 255 else 0
-            Color.argb(12, v, v, v)
+    fun drawGrain(canvas: Canvas, w: Int, h: Int, strength: Int = 22) {
+        val tile = synchronized(this) {
+            grainTile?.takeIf { !it.isRecycled } ?: run {
+                val size = 96
+                val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+                val pixels = IntArray(size * size)
+                var seed = 0x5DEECE66DL
+                for (i in pixels.indices) {
+                    seed = (seed * 25214903917L + 11L) and ((1L shl 48) - 1)
+                    val v = ((seed ushr 24) and 0xFF).toInt()
+                    val lum = if (v > 128) 255 else 0
+                    val a = (v and 0x3F)
+                    pixels[i] = Color.argb(a, lum, lum, lum)
+                }
+                bmp.setPixels(pixels, 0, size, 0, 0, size, size)
+                grainTile = bmp
+                bmp
+            }
         }
-        val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-        bmp.setPixels(px, 0, size, 0, 0, size, size)
-        grainTile = bmp
-        return bmp
-    }
-
-    /** A very light noise over the background, so smooth gradients do not show bands at large export sizes. */
-    fun drawGrain(canvas: Canvas, w: Int, h: Int) {
-        val shader = BitmapShader(grain(), Shader.TileMode.REPEAT, Shader.TileMode.REPEAT)
-        val s = max(1f, w / 1080f)
-        val m = Matrix()
-        m.setScale(s, s)
-        shader.setLocalMatrix(m)
-        val paint = Paint()
-        paint.shader = shader
-        canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
-    }
-
-    // ---- cut-out subject ----
-
-    /** Copies a picture picked on the phone into app storage so it survives. Returns the saved path, or null if it cannot be read. */
-    fun importCutout(context: Context, uri: Uri): String? {
-        val dir = File(context.filesDir, "cutouts").apply { mkdirs() }
-        val target = File(dir, "cutout_" + System.currentTimeMillis() + ".png")
-        val copied = runCatching {
-            context.contentResolver.openInputStream(uri)?.use { input -> target.outputStream().use { out -> input.copyTo(out) } } != null
-        }.getOrDefault(false)
-        if (!copied) {
-            target.delete()
-            return null
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        paint.alpha = strength.coerceIn(8, 90)
+        var y = 0
+        while (y < h) {
+            var x = 0
+            while (x < w) {
+                canvas.drawBitmap(tile, x.toFloat(), y.toFloat(), paint)
+                x += tile.width
+            }
+            y += tile.height
         }
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeFile(target.absolutePath, bounds)
-        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
-            target.delete()
-            return null
-        }
-        return target.absolutePath
     }
-
-    /** True when the picture has a transparent channel, which a cut-out needs. A JPG, or a PNG with a solid background, returns false. */
-    fun hasTransparency(path: String): Boolean {
-        val opts = BitmapFactory.Options().apply { inSampleSize = 8 }
-        val bmp = runCatching { BitmapFactory.decodeFile(path, opts) }.getOrNull() ?: return false
-        val has = bmp.hasAlpha()
-        bmp.recycle()
-        return has
-    }
-
-    private fun decode(path: String, target: Int): Bitmap? {
-        if (!File(path).exists()) return null
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeFile(path, bounds)
-        var sample = 1
-        while (bounds.outWidth / (sample * 2) >= target && bounds.outHeight / (sample * 2) >= target) sample *= 2
-        val real = BitmapFactory.Options().apply { inSampleSize = sample }
-        return runCatching { BitmapFactory.decodeFile(path, real) }.getOrNull()
-    }
-
-    /**
-     * Draws the cut-out subject. cutoutX is the horizontal centre and cutoutY the bottom edge, both as fractions of the post;
-     * cutoutScale multiplies a height of 72% of the post. Drawn between the "behind" text and the "front" text.
-     */
-    fun drawCutout(canvas: Canvas, path: String, doc: PostDoc, w: Int, h: Int, decodeTo: Int) {
-        val bmp = decode(path, decodeTo) ?: return
-        var th = h * 0.72f * doc.cutoutScale
-        var tw = th * bmp.width / max(1, bmp.height).toFloat()
-        val cap = w * 1.1f
-        if (tw > cap) {
-            th *= cap / tw
-            tw = cap
-        }
-        val cx = doc.cutoutX * w
-        val bottom = doc.cutoutY * h
-        val dest = RectF(cx - tw / 2f, bottom - th, cx + tw / 2f, bottom)
-        canvas.drawBitmap(bmp, null, dest, Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG))
-        bmp.recycle()
-    }
-
-    // ---- dragging text on the preview ----
-
-    /**
-     * The text slot under a touch point (fx and fy are fractions of the preview), counting any offset already applied.
-     * Later slots win, so a slot drawn on top is picked first. Returns null when the touch lands on no text.
-     */
-    fun hitSlot(layout: TemplateLayout, doc: PostDoc, fx: Float, fy: Float): String? {
-        var found: String? = null
-        layout.slots.forEach { box ->
-            if (box.literal != null || box.slot.isEmpty()) return@forEach
-            val off = doc.offsetFor(box.slot)
-            val left = box.x + (off?.dx ?: 0f)
-            val top = box.y + (off?.dy ?: 0f)
-            if (fx >= left && fx <= left + box.w && fy >= top && fy <= top + box.h) found = box.slot
-        }
-        return found
-    }
-
-    private fun withAlpha(c: Int, alpha: Int): Int = Color.argb(alpha.coerceIn(0, 255), Color.red(c), Color.green(c), Color.blue(c))
 }

@@ -222,7 +222,9 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
     fun pageDoc(item: BatchItem): PostDoc {
         val design = editedDesigns[item.number] ?: batchDesign ?: doc
         val batchPhoto = batchPhotos.getOrNull(item.number - 1)
-        val worded = if (initialBatch != null) design.copy(texts = item.texts) else PostBatch.apply(design, item)
+        val rawWorded = if (initialBatch != null) design.copy(texts = item.texts) else PostBatch.apply(design, item)
+        val specSlots = postTemplate(rawWorded.templateId).slots
+        val worded = rawWorded.copy(texts = PostSlots.withDerivedSlots(rawWorded.texts, specSlots))
         return worded.let { page ->
             val withSize = page.copy(size = batchSize)
             if (item.number !in editedDesigns && batchPhoto != null) withSize.copy(photoUri = batchPhoto) else withSize
@@ -815,7 +817,7 @@ private fun BatchPostPage(
                 )
             } else if (overflow.isNotEmpty()) {
                 Text(
-                    if (isStudy) "Does not fit, split this sheet" else "Text shrunk to fit",
+                    if (isStudy) "Does not fit, split this sheet" else "Too long for this template: shorten it or pick a bigger one",
                     color = PostPalette.Ink,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,

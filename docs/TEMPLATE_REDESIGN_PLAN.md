@@ -383,8 +383,8 @@ Without the files everything falls back to the current fonts.
 
 ## Status
 
-- [x] 15 Nov 2026: plan written from the real code. Nothing built.
-- [ ] Google AI Studio: whole plan in one run (sections 3 to 6), then re-read for compile errors.
+- [x] 15 Nov 2026: plan written from the real code.
+- [x] Google AI Studio: whole plan written in one run (sections 3 to 6, HUD, 33 new templates + 6 kept across 5 families, `LegacyTemplateIds` mapping, `letter`/`word` derivation, QA screen), every touched file re-read for compile errors. Status: **written, not compiled**.
 - [ ] Build, fix compile errors, owner phone test (section 8).
 - [ ] Backend rows and Brand Kit docs (section 7), after the build.
 - [ ] Owner adds the font files (section 9).

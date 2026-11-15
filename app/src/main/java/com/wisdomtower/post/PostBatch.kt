@@ -9,6 +9,8 @@ data class BatchParse(val items: List<BatchItem>, val notes: List<String>)
 object PostBatch {
     const val MAX_POSTS = 50
     private val keys = mapOf(
+        "letter" to PostSlots.LETTER, "big letter" to PostSlots.LETTER,
+        "word" to PostSlots.WORD, "big word" to PostSlots.WORD,
         "label" to PostSlots.EYEBROW, "eyebrow" to PostSlots.EYEBROW, "small label" to PostSlots.EYEBROW,
         "headline" to PostSlots.HEADLINE, "title" to PostSlots.HEADLINE,
         "message" to PostSlots.BODY, "body" to PostSlots.BODY,
@@ -105,7 +107,8 @@ object PostBatch {
                 }
             }
             values.replaceAll { _, value -> value.replace("{n}", number.toString()).trim() }
-            items.add(BatchItem(number, values, itemNotes))
+            val hydrated = PostSlots.withDerivedSlots(values, slots)
+            items.add(BatchItem(number, hydrated, itemNotes))
             notes.addAll(itemNotes)
         }
         if (chunks.size > MAX_POSTS) notes.add("Only the first $MAX_POSTS posts were kept")
@@ -118,6 +121,8 @@ object PostBatch {
         if (mode == BatchMode.ONE_LINE) return "Small steps still move you forward.\nRead the question twice.\nSleep is part of studying."
         return slots.map { slot ->
             val key = when (slot) {
+                PostSlots.LETTER -> "letter"
+                PostSlots.WORD -> "word"
                 PostSlots.EYEBROW -> "label"
                 PostSlots.HEADLINE -> "headline"
                 PostSlots.BODY -> "message"
@@ -127,6 +132,8 @@ object PostBatch {
                 else -> PostSlots.label(slot).lowercase()
             }
             key + ": " + when (slot) {
+                PostSlots.LETTER -> "S"
+                PostSlots.WORD -> "STEPS"
                 PostSlots.EYEBROW -> "STUDY TIP"
                 PostSlots.HEADLINE -> "Small steps, every day"
                 PostSlots.BODY -> "A little progress adds up."

@@ -12,7 +12,7 @@ Code comments in `PostInboxActions.kt`, `PostChatInboxScreen.kt`, `PostBatchSync
 | 2 | Mark as posted with platform selector, in-app notification | PARTLY: picker used in inbox AND review screen (written); the inbox dot also lights for approved-not-posted batches; a real notification is NOT done (not needed for now, see Decisions) |
 | 3 | Clear edit and save UI, edits synced to Supabase | PARTLY: `update_batch` LIVE (wt-mcp v5); autosave for drafts, confirm for approved, one state line, offline retry (slices 3a, 3b); words now kept across an app restart (`PostWordsStore.kt`, written); clearer edit flow and keeping the last version NOT done |
 | 4 | No hex field, only tappable color circles | Written by an earlier agent; check on the phone |
-| 5 | Logo as a thin fading header instead of a corner box | WRITTEN (15 Nov), not compiled: needs a look on the phone |
+| 5 | Logo header | REVERTED (15 Nov): the thin fading bar looked bad on the phone, the original corner box is back. Not compiled |
 | 6 | Redesign the other poster templates (bold, creative, photo posters) | NOT DONE |
 
 ## Decisions (taken by the assistant as designer, 15 Nov 2026, owner delegated)
@@ -20,6 +20,7 @@ Code comments in `PostInboxActions.kt`, `PostChatInboxScreen.kt`, `PostBatchSync
 - Post log: it is NEVER deleted by the app or by wt-mcp. A draft has no log rows, and a posted batch cannot be deleted from the app, so "also delete the log" is closed: posted history stays safe. If the owner ever wants a posted batch removed, do it by hand in Supabase.
 - Notification for "not marked posted": the inbox dot (drafts to review plus approved batches not posted) is enough for now. Add a real Android notification only if the owner asks, because it needs a notification permission and a background job.
 - Removing one post inside a batch is allowed only for DRAFT and APPROVED batches and never for the last post.
+- Logo header: the owner rejected the thin fading bar (it looked like a swoosh cutting across the poster and the logo had no clear box). The rule now: do NOT change the logo header design again without the owner's explicit yes; small refinements only (size, padding, corner radius), never a new shape.
 
 ## 1. Delete drafts (and the Supabase copy)
 
@@ -66,14 +67,13 @@ To do:
 
 Replaced by an earlier agent with tappable swatches (shown in the commit history). Check on the phone: no hex text field anywhere (editor tabs, batch Design panel), circles show the real color, tap changes it. Check icon colors too.
 
-## 5. Logo placement: thin fading header
+## 5. Logo header: REVERTED to the corner box (15 Nov 2026)
 
-Written in `PostRenderer.drawLogo`: a slim bar along the top edge. It starts as a hairline at the top-left, grows smoothly to the logo's height near the right, and is transparent at the left edge (fades in toward the logo). A thin line along its lower edge fades the same way. The logo sits at the right end, white on the dark part. On tall 9:16 posts the logo is lowered to 8.5% of the height (Instagram and TikTok top buttons) and the bar reaches down to it. Study sheets use a smaller bar about one ruled line high.
+The thin fading bar (commit f9355b73) was rejected by the owner after seeing a real export: it looked like a swoosh across the poster. `PostRenderer.drawLogo` is back to the version from before that commit: a dark brand-gradient box hanging from the top-right corner with the white logo inside it, flush to the top on 1:1, 4:5 and 4:3, lowered to 8.5% of the height on tall 9:16 posts (so Instagram and TikTok buttons do not cover it), a small box one ruled line high on study sheets. Everything else in `PostRenderer.kt` is unchanged.
 
-To check on the phone, then adjust:
-- [ ] Does it look right on a light poster, a dark poster, a photo poster and a study sheet? Does it cover any eyebrow or headline text near the top? (Text is drawn before the header, so the header can cover it. If it does, lower the safe area at the top or shrink the bar.)
-- [ ] Brand screen and editor still say "Left / Center / Right" for the logo corner and "S / M / L" for size: size works with the new bar, the corner setting is ignored. Remove or repurpose it.
-- [ ] Optional: a "Header style" choice (fading bar, or the old corner box) in the Brand screen, if the owner wants both.
+To do:
+- [ ] Look at it on the phone (light, dark and photo posters, 9:16 and 1:1, a study sheet). Only small refinements are allowed (size, padding, corner radius); see Decisions.
+- [ ] Brand screen and editor "Left / Center / Right" corner setting and "S / M / L" size: check they still do what their labels say with the box (the corner setting was always ignored by the box, which sits at the right).
 
 ## 6. Redesign the other poster templates
 
@@ -90,7 +90,6 @@ To do (one family at a time, each reviewed on the phone before the next):
 
 - Inbox batch pages no longer show the template's SAMPLE words (the old "SQ3R" and five-step line on the EMF sheets). `PostBatchScreen.pageDoc`.
 - Powers and indices inside `\sqrt{...}` (A_y², A_z²) now draw as real sub and superscripts. `PostStudyInline.appendMath`.
-- Logo header (item 5), see above.
 - Known, not fixed: the study sheets draw all text in capitals (the chosen font), so `a_x` and `A_x` look the same. Pick a font with lowercase letters in the Design panel, or add a lowercase option.
 
 ## Suggested order

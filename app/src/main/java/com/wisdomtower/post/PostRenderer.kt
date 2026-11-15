@@ -255,27 +255,24 @@ object PostFonts {
  * render(). Layout, text fitting and every position are worked out at the real export size; a smaller
  * bitmap (the editor preview) only scales the canvas, so what you see is what you save.
  * Order: background gradient, backdrop look glow and pattern, mesh blend and grain, shapes, photo, shapes marked overPhoto, icons placed "behind",
- * text set "behind the subject", the cut-out subject, the rest of the text, header with the logo, then the social block or the footer,
+ * text set "behind the subject", the cut-out subject, the rest of the text, header box with the logo, then the social block or the footer,
  * then icons placed "in front".
- * A template whose layout is bare (TemplateLayout.bare, the phone mockup) draws no logo header and no footer or social block, whatever the post's switches say.
+ * A template whose layout is bare (TemplateLayout.bare, the phone mockup) draws no logo box and no footer or social block, whatever the post's switches say.
  * Colors come from the Brand kit unless the post overrides them. Derived tones (DEEP, GLOW, TINT, SOFT, PAGE)
  * are built from the brand here, so every gradient follows a color change.
  * Text: each word box takes its color from the template's tone unless the post has a style for that box (PostDoc.slotStyles),
  * which can set its color, its English and Amharic fonts and its size. See docs/TEXT_STYLE.md.
  *
  * CHAPTER SUMMARIES (study-* templates, docs/CHAPTER_SUMMARIES_PLAN.md). Their text is not drawn in word boxes: PostStudyGrid lays it on the 30 ruled
- * lines of the paper, over the whole page. Their logo header is a slim fading bar in the first line at the top, and their footer is a row of small
+ * lines of the paper, over the whole page. Their logo is a small box in the first line at the top-right corner, and their footer is a row of small
  * chips on the last line.
- *
- * LOGO HEADER (docs/URGENT_PLAN.md item 5). A thin bar along the top edge: it starts as a hairline at the top-left, grows toward the right
- * until it is tall enough for the logo, and fades out toward the left (transparent at the left edge). The logo sits at the right end.
  *
  * DARK-FIRST LOOK (docs/BRAND_COLOR_PLAN.md, phase 1). When the brand's Dark color is near-black (darkFirst):
  * - pale (PostBase.LIGHT) templates are drawn on a deep dark surface with light text instead of a pale page;
  * - gradients that run from the accent (ACCENT to DEEP) become dark gradients tinted with the accent, so a bright cyan
  *   Main never sits behind white text;
  * - big accent shapes get a soft glow, big rounded cards get a thin light border, light headlines get a soft glow of the accent,
- *   and the logo header stays dark.
+ *   and the logo box stays dark.
  * BACKDROP LOOKS (docs/BACKDROPS.md). In dark-first, when the brand has a look (PostBrand.bgLook, see PostBackdrops) and the post uses
  * the template background, the look's gradient, glow and pattern replace the template's own backdrop on every template.
  * CONTRAST GUARD (always on). Before a text box is drawn, the pixels under it are sampled. If the template's text color would
@@ -413,7 +410,7 @@ object PostRenderer {
             if (doc.showLogo && !layout.bare) drawLogo(context, canvas, doc, brand, colors, w, h, unit)
             val social = layout.social
             if (layout.bare) {
-                // a bare template (the phone mockup) carries no logo header, footer or social block
+                // a bare template (the phone mockup) carries no logo box, footer or social block
             } else if (social != null) {
                 drawSocial(context, canvas, brand, social, colors, w, h, unit)
             } else if (doc.showFooter) {
@@ -1005,7 +1002,7 @@ object PostRenderer {
         return art
     }
 
-    /** The box around the visible part of the logo, so empty transparent margins do not make the header too big. */
+    /** The box around the visible part of the logo, so empty transparent margins do not make the header box too big. */
     private fun visibleBounds(bmp: Bitmap): Rect {
         val step = max(1, max(bmp.width, bmp.height) / 256)
         var minX = bmp.width
@@ -1036,14 +1033,13 @@ object PostRenderer {
     }
 
     /**
-     * The logo header (docs/URGENT_PLAN.md item 5): a slim bar along the top edge, on every template and size.
-     * Shape: a hairline at the top-left that grows smoothly toward the right until it is tall enough for the logo, then stays that tall to the
-     * right edge. Fill: the brand's deep-to-dark gradient, fully transparent at the left edge and fading in toward the logo, so it never
-     * hides the poster's own top-left content. The logo sits at the right end, in white on the dark part.
-     * On tall posts (9:16) the logo is lowered to about 8.5% of the height so Instagram and TikTok top buttons do not cover it;
-     * the bar still starts flush at the top edge and reaches down to the logo.
-     * Chapter summaries (study-*) use a smaller bar, about one ruled line high, on every size.
-     * In dark-first the bar is a deep tint of the accent over the dark color, never a bright accent, so the white logo always reads.
+     * The header: a dark brand-gradient box hanging from the top-right corner with the white logo inside it.
+     * Always on the right edge, on every template and size, so the logo reads on light and dark posters alike.
+     * On tall posts (9:16) the box is lowered to about 8.5% of the height so Instagram and TikTok top buttons do not cover it.
+     * 1:1, 4:5 and 4:3 keep it flush to the top.
+     * In dark-first the box is a deep tint of the accent over the dark color, never a bright accent, so the white logo always reads.
+     * Chapter summaries (study-*) use a small box flush in the top-right corner, about one ruled line high, on every size.
+     * (15 Nov 2026: a thin fading bar replaced this box and the owner rejected it, so the corner box is back. See docs/URGENT_PLAN.md item 5.)
      */
     private fun drawLogo(context: Context, canvas: Canvas, doc: PostDoc, brand: PostBrand, c: Colors, w: Int, h: Int, unit: Float) {
         val art = logoArt(context, brand, (unit * 0.12f).toInt()) ?: return
@@ -1058,53 +1054,33 @@ object PostRenderer {
             innerW = maxInnerW
             innerH = innerW / max(0.01f, aspect)
         }
-        val padX = if (study) w * 0.022f else unit * 0.045f
+        val padX = if (study) w * 0.016f else unit * 0.034f
         val padY = if (study) h * 0.0070f else unit * 0.020f
+        val boxW = innerW + padX * 2f
+        val boxH = innerH + padY * 2f
         val detached = h >= w * 1.5f && !study
-        val logoTop = (if (detached) h * 0.085f else 0f) + padY
-        val barBottom = logoTop + innerH + padY
-        // where the bar reaches its full height: a little to the left of the logo
-        val fullAt = max(w * 0.30f, w - padX - innerW - unit * 0.10f)
-        val hairline = barBottom * 0.10f
+        val top = if (detached) h * 0.085f else 0f
+        val bleed = unit * 0.03f
+        // the box runs a little past the right (and, when flush, the top) edge so no outline shows there
+        val rect = RectF(w - boxW, if (detached) top else top - bleed, w + bleed, top + boxH)
+        val r = boxH * 0.32f
+        val radii = if (detached) floatArrayOf(r, r, 0f, 0f, 0f, 0f, r, r) else floatArrayOf(0f, 0f, 0f, 0f, 0f, 0f, r, r)
+        val shape = Path().apply { addRoundRect(rect, radii, Path.Direction.CW) }
 
-        val shape = Path().apply {
-            moveTo(0f, 0f)
-            lineTo(w.toFloat(), 0f)
-            lineTo(w.toFloat(), barBottom)
-            lineTo(fullAt, barBottom)
-            cubicTo(fullAt * 0.62f, barBottom, fullAt * 0.38f, hairline, 0f, hairline)
-            close()
-        }
-
-        val inkFrom = if (c.darkFirst) mix(c.dark, c.accent, 0.22f) else c.deep
-        val inkTo = c.dark
         val fill = Paint(Paint.ANTI_ALIAS_FLAG)
-        fill.shader = LinearGradient(
-            0f, 0f, w.toFloat(), 0f,
-            intArrayOf(withAlpha(inkFrom, 0), withAlpha(inkFrom, 140), withAlpha(inkTo, 235), withAlpha(inkTo, 255)),
-            floatArrayOf(0f, 0.38f, 0.74f, 1f),
-            Shader.TileMode.CLAMP
-        )
+        val boxTop = if (c.darkFirst) mix(c.dark, c.accent, 0.22f) else c.deep
+        fill.shader = gradientShader(rect, 135f, intArrayOf(boxTop, c.dark))
+        fill.setShadowLayer(unit * 0.02f, 0f, unit * 0.008f, Color.argb(90, 0, 0, 0))
         canvas.drawPath(shape, fill)
 
-        // a thin line along the lower edge of the bar, also fading to nothing on the left
         val edge = Paint(Paint.ANTI_ALIAS_FLAG)
         edge.style = Paint.Style.STROKE
         edge.strokeWidth = max(1.5f, unit * 0.0028f)
-        edge.shader = LinearGradient(
-            0f, 0f, w.toFloat(), 0f,
-            intArrayOf(withAlpha(c.secondary, 0), withAlpha(c.secondary, 0), withAlpha(c.secondary, 190)),
-            floatArrayOf(0f, 0.45f, 1f),
-            Shader.TileMode.CLAMP
-        )
-        val edgePath = Path().apply {
-            moveTo(w.toFloat(), barBottom)
-            lineTo(fullAt, barBottom)
-            cubicTo(fullAt * 0.62f, barBottom, fullAt * 0.38f, hairline, 0f, hairline)
-        }
-        canvas.drawPath(edgePath, edge)
+        edge.color = withAlpha(c.secondary, 170)
+        canvas.drawPath(shape, edge)
 
-        val left = w - padX - innerW
+        val left = w - boxW + padX
+        val logoTop = top + padY
         canvas.drawBitmap(bmp, src, RectF(left, logoTop, left + innerW, logoTop + innerH), Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG))
     }
 

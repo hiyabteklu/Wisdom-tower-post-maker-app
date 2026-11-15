@@ -89,6 +89,8 @@ import java.util.Locale
  * Step 2 (review): swipe through a preview of every post, change the design of one page or of the whole batch (Design panel,
  * PostBatchDesign.kt), edit the words of any post, then press Save to gallery. Nothing is saved to the gallery until that button is pressed.
  * Designs of an inbox batch are remembered on this phone (PostDesignStore), so they are still there when the batch is reopened.
+ * Words and captions of an inbox batch reach Supabase only when "Save changes to cloud" is pressed (BatchSaveBar in PostBatchSync.kt,
+ * wt-mcp v5 update_batch; docs/URGENT_PLAN.md item 3).
  * "Mark posted" (inbox batches) uses the same platform picker and post log as the inbox card menu (PostInboxActions.kt).
  */
 @OptIn(ExperimentalFoundationApi::class)
@@ -132,7 +134,8 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
     var entireBatch by remember(initialBatch?.id) { mutableStateOf(true) }
     val editedDesigns = remember(initialBatch?.id) { mutableStateMapOf<Int, PostDoc>().apply { putAll(savedDesigns.pages) } }
     // Captions belong to the inbox batch, not to the poster design. Keep edits locally on this phone
-    // so they survive leaving and reopening the batch; the current wt-mcp API has no caption-update tool.
+    // so they survive leaving and reopening the batch. They reach Supabase when "Save changes to cloud" is pressed
+    // (BatchSaveBar, PostBatchSync.kt, wt-mcp v5 update_batch).
     val captionDrafts = remember(initialBatch?.id) {
         mutableStateMapOf<Int, String>().apply {
             val batch = initialBatch
@@ -538,6 +541,16 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
                                 ) { Text("Copy caption") }
                             }
                         }
+                    }
+                    // One clear save state for the words and captions of an inbox batch (PostBatchSync.kt, docs/URGENT_PLAN.md item 3).
+                    if (initialBatch != null && !running) {
+                        BatchSaveBar(
+                            batch = initialBatch,
+                            items = reviewItems,
+                            originalItems = originalItems,
+                            captions = captionDrafts,
+                            backendStatus = backendStatus
+                        )
                     }
                     Row(
                         Modifier.fillMaxWidth(),

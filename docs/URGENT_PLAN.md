@@ -1,15 +1,15 @@
 # Urgent plan (owner's list, 15 Nov 2026)
 
 The assistant cannot build the app. Everything marked "written" is NOT compiled and NOT tested on the phone. Build first, fix compile errors, then test each item.
-Code comments in `PostInboxActions.kt` and `PostChatInboxScreen.kt` point here.
+Code comments in `PostInboxActions.kt`, `PostChatInboxScreen.kt` and `PostBatchSync.kt` point here.
 
 ## Status at a glance
 
 | # | Item | Status |
 |---|------|--------|
 | 1 | Delete single or batch drafts, and their Supabase copy | PARTLY: single draft delete written; multi-select NOT done |
-| 2 | Mark as posted with platform selector, in-app notification | PARTLY: platform picker written; notification NOT done |
-| 3 | Clear edit and save UI, edits synced to Supabase | NOT DONE |
+| 2 | Mark as posted with platform selector, in-app notification | PARTLY: picker used in inbox AND review screen (written); notification NOT done |
+| 3 | Clear edit and save UI, edits synced to Supabase | PARTLY: `update_batch` is LIVE on wt-mcp (v5); Save button and state line written (slice 3a, not compiled); offline queue and clearer edit flow NOT done |
 | 4 | No hex field, only tappable color circles | Written by an earlier agent; check on the phone |
 | 5 | Logo as a thin fading header instead of a corner box | WRITTEN (15 Nov), not compiled: needs a look on the phone |
 | 6 | Redesign the other poster templates (bold, creative, photo posters) | NOT DONE |
@@ -26,21 +26,28 @@ To do:
 
 ## 2. Mark as posted
 
-Written (U1): "Mark posted" asks for every platform used (Telegram, TikTok, LinkedIn, Instagram, Facebook), sets the batch to `published`, then saves one `wt_post.post_log` row per post and platform.
+Written (U1): "Mark posted" asks for every platform used (Telegram, TikTok, LinkedIn, Instagram, Facebook), sets the batch to `published`, then saves one `wt_post.post_log` row per post and platform. The review screen (`PostBatchScreen.kt`) now uses the same picker and `markBatchPosted` (written 15 Nov, not compiled).
 
 To do:
 - [ ] In-app notification: a reminder when a planned or approved batch has not been marked posted (dot on the Inbox icon already exists for drafts; extend it, or add a notification).
-- [ ] The review screen (`PostBatchScreen.kt`) still has its own chips (Telegram, Instagram, Facebook, TikTok, no LinkedIn) and its own "Mark published" button that writes NO post log rows. Make it use the shared picker and `markBatchPosted`.
+- [ ] Review screen: the old chips and the old "Mark published" button are gone; check on the phone that nothing of them is left.
 
 ## 3. Edit and save, synced to Supabase
 
-Today edits live only on the phone: designs in `PostDesignStore`, captions in the `wt_post_captions` preferences. The review screen autosaves silently, so it is unclear what is saved. The `wt-mcp` function has no tool to update the words or captions of a batch.
+Backend: `wt-mcp` v5 is deployed and live (verified 15 Nov 2026, version 5, `update_batch` present). It replaces the posts and/or captions and/or title of a DRAFT or APPROVED batch, refuses a PUBLISHED batch, and never touches status, folder or the post log. It was deployed by an earlier agent; the owner should know it is live.
+
+Written (slice 3a, 15 Nov, NOT compiled): `PostBatchSync.kt` holds `updateBatch` (the wt-mcp call, in its own file so `PostChat.kt` with the built-in key was not rewritten), `mergePosts` (edited words laid over the cloud posts, every other field kept; the app's `body` box is `message` on the server) and the composable `BatchSaveBar`. `PostBatchScreen.kt` shows the bar under the caption box in the review step.
+- One clear state line: "Saved: same as the cloud copy", "Unsaved changes", "Saving...", "Waiting for internet", or the server's error.
+- Nothing is sent until "Save changes to cloud" is pressed. Captions are still also kept on the phone while typing (`wt_post_captions` preferences), as before.
+- An approved batch asks before it is overwritten. A published batch shows "cannot be edited online".
+- Words are only written when the phone and the cloud agree on the number of posts; otherwise only captions are saved and a line says so.
 
 To do:
-- [ ] New `wt-mcp` tool `update_batch` (posts, captions, title) and call it from the app. Tell the owner before deploying; wt-mcp is shared and live.
-- [ ] Inbox draft: every edit saves to Supabase when online, and is queued on the phone and sent later when offline. Show one clear state on the batch: "Saved", "Saving...", "Waiting for internet".
-- [ ] One clear editing flow: tap a sheet, edit, "Done" saves that sheet; "Apply design to all" is a separate, clearly named button. No hidden autosave.
-- [ ] Planned (approved) posts must not change by accident: ask before saving over an approved batch, and keep the last version.
+- [ ] Build, then test: edit a caption, Save, reopen the batch from the inbox, check the caption came back from Supabase. Same for a word edited in the editor. Test an approved batch (dialog) and airplane mode ("Waiting for internet").
+- [ ] Possible bug to check: in Full blocks mode a `---` line splits a post. A Chapter summaries list item that is only `---` (blank line) would then split a sheet in two on the phone, so the post count differs and words are not synced for that batch (captions still save). Check on a real study batch; if it happens, parse inbox batches from the JSON posts instead of from text.
+- [ ] Offline queue: remember unsent edits on the phone and send them later automatically (today the owner presses Save again when online).
+- [ ] One clear editing flow: tap a sheet, edit, "Done" saves that sheet; "Apply design to all" is a separate, clearly named button. Designs are still phone-only (`PostDesignStore`); only words and captions sync.
+- [ ] Keep the last version before overwriting an approved batch (needs a small wt-mcp change or a column; tell the owner before deploying, wt-mcp is shared and live).
 
 ## 4. Color circles instead of hex code
 
@@ -77,5 +84,5 @@ To do (one family at a time, each reviewed on the phone before the next):
 
 1. Build and fix compile errors (everything above is untested).
 2. Test items 1, 2, 4 and 5 on the phone.
-3. Item 3 (sync) next: it protects the planned posts.
+3. Test item 3 slice 3a (Save to cloud), then the offline queue and the clearer edit flow.
 4. Item 6 (templates), one family per round.

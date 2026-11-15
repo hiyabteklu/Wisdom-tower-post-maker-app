@@ -13,6 +13,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -26,13 +27,14 @@ import androidx.compose.ui.unit.sp
 import java.net.HttpURLConnection
 import java.net.URL
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * Saving edits of an inbox batch back to Supabase (docs/URGENT_PLAN.md item 3, slice 3a).
+ * Saving edits of an inbox batch back to Supabase (docs/URGENT_PLAN.md item 3, slices 3a and 3b).
  * Uses the wt-mcp v5 tool `update_batch` (live since 15 Nov 2026): replaces posts and/or captions of a DRAFT or APPROVED batch.
  * A published batch is refused by the server. Status, folder and the post log are never touched.
  * Kept in its own file so PostChat.kt (which holds the built-in key) did not have to be rewritten.
@@ -128,10 +130,20 @@ object PostBatchSync {
 
 private enum class SavePhase { IDLE, SAVING, OFFLINE, ERROR }
 
+/** A draft saves itself this long after the last edit. */
+private const val AUTOSAVE_DELAY_MS = 2_000L
+/** While offline, the unsent edits are tried again at this interval. */
+private const val OFFLINE_RETRY_MS = 15_000L
+
 /**
  * One clear save state for an inbox batch in the review step: "Saved to the cloud", "Unsaved changes", "Saving...",
- * "Waiting for internet" or the server's error. Nothing is sent until the button is pressed (no hidden autosave).
- * An approved (planned) batch asks first. A published batch cannot be edited online.
+ * "Waiting for internet" or the server's error.
+ * DRAFT batches save themselves about 2 seconds after the last edit (the state line always shows what is happening), and while the phone
+ * is offline the unsent edits are retried every 15 seconds while this screen is open. Captions typed on the phone are also kept in
+ * preferences (PostBatchScreen), so after the app is closed offline they are found again and sent when the batch is reopened.
+ * Words are not kept across a restart yet (docs/URGENT_PLAN.md item 3).
+ * An APPROVED (planned) batch never saves by itself: the button asks first. A published batch cannot be edited online.
+ * A server error (for example a rejected post) is NOT retried automatically; press Save after fixing it.
  * Not compiled when written (see docs/URGENT_PLAN.md).
  */
 @Composable
@@ -157,6 +169,7 @@ fun BatchSaveBar(
     val capsDirty = nowCaps != savedCaps
     val dirty = textsDirty || capsDirty
     val published = backendStatus == "published"
+    val approved = backendStatus == "approved"
     // Words can only be written back when the phone and the cloud agree on how many posts the batch has.
     val wordsBlocked = textsDirty && items.size != batch.posts.length()
 
@@ -187,15 +200,26 @@ fun BatchSaveBar(
         }
     }
 
+    // Autosave for drafts, and the retry while offline. Restarts on every edit and every state change; a server error stops it.
+    LaunchedEffect(batch.id, nowTexts, nowCaps, phase, backendStatus) {
+        if (!dirty || published || approved) return@LaunchedEffect
+        if (phase == SavePhase.SAVING || phase == SavePhase.ERROR) return@LaunchedEffect
+        // Words that cannot be matched to the cloud copy must not loop: only captions are auto-saved then.
+        if (textsDirty && !capsDirty && wordsBlocked) return@LaunchedEffect
+        delay(if (phase == SavePhase.OFFLINE) OFFLINE_RETRY_MS else AUTOSAVE_DELAY_MS)
+        doSave()
+    }
+
     val label: String
     val color: androidx.compose.ui.graphics.Color
     when {
         published -> { label = "This batch is posted. Posted batches cannot be edited online."; color = PostPalette.Muted }
         phase == SavePhase.SAVING -> { label = "Saving..."; color = PostPalette.Text }
         !dirty -> { label = "Saved: same as the cloud copy"; color = PostPalette.Mint }
-        phase == SavePhase.OFFLINE -> { label = "Waiting for internet. Your edits stay on this phone; press Save when you are online."; color = PostPalette.Gold }
+        phase == SavePhase.OFFLINE -> { label = "Waiting for internet. Your edits will be sent when you are online again."; color = PostPalette.Gold }
         phase == SavePhase.ERROR -> { label = "Could not save: " + (error ?: "unknown error"); color = PostPalette.Gold }
-        else -> { label = "Unsaved changes"; color = PostPalette.Gold }
+        approved -> { label = "Unsaved changes. This batch is approved, so press Save to confirm."; color = PostPalette.Gold }
+        else -> { label = "Unsaved changes, saving in a moment"; color = PostPalette.Gold }
     }
 
     Column(
@@ -209,10 +233,10 @@ fun BatchSaveBar(
         }
         if (!published) {
             Button(
-                onClick = { if (backendStatus == "approved") confirmApproved = true else doSave() },
+                onClick = { if (approved) confirmApproved = true else doSave() },
                 enabled = dirty && phase != SavePhase.SAVING,
                 modifier = Modifier.fillMaxWidth().height(48.dp)
-            ) { Text("Save changes to cloud") }
+            ) { Text("Save now") }
         }
     }
 

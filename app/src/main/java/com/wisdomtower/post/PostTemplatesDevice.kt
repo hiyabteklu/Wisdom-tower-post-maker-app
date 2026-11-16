@@ -11,7 +11,9 @@ import kotlin.math.min
  * PostPhoneFrame (DecorShape.PHONE), using the PHONE_RIM and PHONE_BEZEL sizes, so the body is always a little bigger than the
  * photo window and the frame stays visible. Each placement below says where the BODY runs (top and bottom as a share of the
  * height, centre as a share of the width); the screen window is worked out from it.
- * The words, looks and samples are unchanged.
+ *
+ * device-hero (Phone showcase) has no words, no logo header and no footer: it is just one big phone (bare = true).
+ * device-headline keeps its words; its phone is as tall as the words allow.
  */
 
 /** Screenshot ratio of the TECNO CAMON 30: 1080 / 2436. */
@@ -47,91 +49,35 @@ private fun dvBody(p: DvPhone) = DecorBox(DecorShape.PHONE, p.bx, p.by, p.bw, p.
 
 private fun dvScreen(p: DvPhone) = PostPhotoArea(p.sx, p.sy, p.sw, p.sh, rounded = true)
 
+/** One big centred phone, no words, no logo header, no footer (the room under it is left for the ground shadow). */
+private fun dvHeroLayout(size: PostSize): TemplateLayout {
+    val p = dvPhone(size, 0.50f, 0.035f, 0.965f)
+    return TemplateLayout(
+        base = PostBase.DARK,
+        backdrop = Backdrop.SPOT,
+        photo = dvScreen(p),
+        decor = listOf(dvBody(p)),
+        slots = emptyList(),
+        bare = true
+    )
+}
+
 internal val DeviceTemplates: List<PostTemplateSpec> = listOf(
-    // 1. device-hero — Phone showcase
+    // 1. device-hero — Phone showcase (no text, just a big phone)
     PostTemplateSpec(
         id = "device-hero",
         name = "Phone showcase",
         family = "Device mockup",
-        slots = listOf(PostSlots.EYEBROW, PostSlots.HEADLINE),
-        sample = mapOf(
-            PostSlots.EYEBROW to "NEW IN THE APP",
-            PostSlots.HEADLINE to "Study smarter right from your phone"
-        ),
+        slots = emptyList(),
+        sample = emptyMap(),
         looks = listOf(
             TemplateLook("Gold studio", "#F59E0B", "#070910", PostBase.DARK),
             TemplateLook("Mint studio", "#10B981", "#05100C", PostBase.DARK),
             TemplateLook("Light showcase", "#2563EB", "#F8FAFC", PostBase.LIGHT)
         )
     ) { size ->
-        size.pick3(
-            story = dvPhone(size, 0.50f, 0.232f, 0.902f).let { p ->
-                TemplateLayout(
-                    base = PostBase.DARK,
-                    backdrop = Backdrop.SPOT,
-                    photo = dvScreen(p),
-                    decor = listOf(dvBody(p)),
-                    slots = listOf(
-                        SlotBox(
-                            slot = PostSlots.EYEBROW,
-                            x = 0.20f, y = 0.09f, w = 0.60f, h = 0.038f,
-                            size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT,
-                            centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.14f
-                        ),
-                        SlotBox(
-                            slot = PostSlots.HEADLINE,
-                            x = 0.08f, y = 0.135f, w = 0.84f, h = 0.085f,
-                            size = 42f, font = PostFont.DISPLAY, tone = PostTone.TEXT,
-                            centered = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.04f
-                        )
-                    )
-                )
-            },
-            standard = dvPhone(size, 0.70f, 0.105f, 0.900f).let { p ->
-                TemplateLayout(
-                    base = PostBase.DARK,
-                    backdrop = Backdrop.SPOT,
-                    photo = dvScreen(p),
-                    decor = listOf(dvBody(p)),
-                    slots = listOf(
-                        SlotBox(
-                            slot = PostSlots.EYEBROW,
-                            x = 0.07f, y = 0.28f, w = 0.38f, h = 0.05f,
-                            size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT,
-                            caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.14f
-                        ),
-                        SlotBox(
-                            slot = PostSlots.HEADLINE,
-                            x = 0.07f, y = 0.36f, w = 0.38f, h = 0.34f,
-                            size = 48f, font = PostFont.DISPLAY, tone = PostTone.TEXT,
-                            fit = FitMode.FILL, anchor = VAnchor.TOP, leading = 1.05f
-                        )
-                    )
-                )
-            },
-            wide = dvPhone(size, 0.71f, 0.105f, 0.900f).let { p ->
-                TemplateLayout(
-                    base = PostBase.DARK,
-                    backdrop = Backdrop.SPOT,
-                    photo = dvScreen(p),
-                    decor = listOf(dvBody(p)),
-                    slots = listOf(
-                        SlotBox(
-                            slot = PostSlots.EYEBROW,
-                            x = 0.07f, y = 0.28f, w = 0.42f, h = 0.05f,
-                            size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT,
-                            caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.14f
-                        ),
-                        SlotBox(
-                            slot = PostSlots.HEADLINE,
-                            x = 0.07f, y = 0.36f, w = 0.42f, h = 0.34f,
-                            size = 50f, font = PostFont.DISPLAY, tone = PostTone.TEXT,
-                            fit = FitMode.FILL, anchor = VAnchor.TOP, leading = 1.05f
-                        )
-                    )
-                )
-            }
-        )
+        val layout = dvHeroLayout(size)
+        size.pick3(story = layout, standard = layout, wide = layout)
     },
 
     // 2. device-headline — Headline + phone
@@ -153,7 +99,7 @@ internal val DeviceTemplates: List<PostTemplateSpec> = listOf(
         )
     ) { size ->
         size.pick3(
-            story = dvPhone(size, 0.50f, 0.322f, 0.902f).let { p ->
+            story = dvPhone(size, 0.50f, 0.252f, 0.902f).let { p ->
                 TemplateLayout(
                     base = PostBase.DARK,
                     backdrop = Backdrop.CORNER,
@@ -162,19 +108,19 @@ internal val DeviceTemplates: List<PostTemplateSpec> = listOf(
                     slots = listOf(
                         SlotBox(
                             slot = PostSlots.EYEBROW,
-                            x = 0.18f, y = 0.08f, w = 0.64f, h = 0.036f,
+                            x = 0.18f, y = 0.068f, w = 0.64f, h = 0.032f,
                             size = 19f, font = PostFont.BOLD, tone = PostTone.DARK,
                             centered = true, caps = true, fit = FitMode.FILL_WIDTH, chip = PostTone.ACCENT
                         ),
                         SlotBox(
                             slot = PostSlots.HEADLINE,
-                            x = 0.08f, y = 0.13f, w = 0.84f, h = 0.11f,
+                            x = 0.08f, y = 0.104f, w = 0.84f, h = 0.095f,
                             size = 38f, font = PostFont.DISPLAY, tone = PostTone.TEXT,
                             centered = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.04f
                         ),
                         SlotBox(
                             slot = PostSlots.BODY,
-                            x = 0.10f, y = 0.25f, w = 0.80f, h = 0.06f,
+                            x = 0.10f, y = 0.202f, w = 0.80f, h = 0.044f,
                             size = 22f, font = PostFont.REGULAR, tone = PostTone.MUTED,
                             centered = true, fit = FitMode.FILL, anchor = VAnchor.TOP
                         ),
@@ -187,7 +133,7 @@ internal val DeviceTemplates: List<PostTemplateSpec> = listOf(
                     )
                 )
             },
-            standard = dvPhone(size, 0.71f, 0.105f, 0.900f).let { p ->
+            standard = dvPhone(size, 0.715f, 0.05f, 0.95f).let { p ->
                 TemplateLayout(
                     base = PostBase.DARK,
                     backdrop = Backdrop.CORNER,
@@ -196,32 +142,32 @@ internal val DeviceTemplates: List<PostTemplateSpec> = listOf(
                     slots = listOf(
                         SlotBox(
                             slot = PostSlots.EYEBROW,
-                            x = 0.07f, y = 0.16f, w = 0.36f, h = 0.048f,
+                            x = 0.07f, y = 0.16f, w = 0.34f, h = 0.048f,
                             size = 19f, font = PostFont.BOLD, tone = PostTone.DARK,
                             caps = true, fit = FitMode.FILL_WIDTH, chip = PostTone.ACCENT
                         ),
                         SlotBox(
                             slot = PostSlots.HEADLINE,
-                            x = 0.07f, y = 0.24f, w = 0.40f, h = 0.28f,
+                            x = 0.07f, y = 0.24f, w = 0.36f, h = 0.28f,
                             size = 42f, font = PostFont.DISPLAY, tone = PostTone.TEXT,
                             fit = FitMode.FILL, anchor = VAnchor.TOP, leading = 1.05f
                         ),
                         SlotBox(
                             slot = PostSlots.BODY,
-                            x = 0.07f, y = 0.55f, w = 0.40f, h = 0.14f,
+                            x = 0.07f, y = 0.55f, w = 0.36f, h = 0.14f,
                             size = 23f, font = PostFont.REGULAR, tone = PostTone.MUTED,
                             fit = FitMode.FILL, anchor = VAnchor.TOP
                         ),
                         SlotBox(
                             slot = PostSlots.BUTTON,
-                            x = 0.07f, y = 0.73f, w = 0.32f, h = 0.08f,
+                            x = 0.07f, y = 0.73f, w = 0.30f, h = 0.08f,
                             size = 21f, font = PostFont.BOLD, tone = PostTone.DARK,
                             centered = true, caps = true, fit = FitMode.FILL, chip = PostTone.ACCENT
                         )
                     )
                 )
             },
-            wide = dvPhone(size, 0.72f, 0.105f, 0.900f).let { p ->
+            wide = dvPhone(size, 0.72f, 0.05f, 0.95f).let { p ->
                 TemplateLayout(
                     base = PostBase.DARK,
                     backdrop = Backdrop.CORNER,

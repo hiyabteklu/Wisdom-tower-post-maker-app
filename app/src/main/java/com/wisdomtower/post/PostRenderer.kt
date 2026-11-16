@@ -208,6 +208,7 @@ object PostFonts {
  * - TextFx: SOLID, OUTLINE, GRADIENT, PHOTO_FILL, ECHO, EXTRUDE, SPLIT_TONE, plus chip pills & dimOthers spotlight
  * - Background photo on every template (opacity, dim, blur, zoom/focus, mono/duotone, photoAsBackground, panelOpacity)
  * - Triptych multi-cell photos, rotated slots/decors/photos, and LruCache for fitted text sizes.
+ * - Phone mockups (DecorShape.PHONE): the body is drawn by PostPhoneFrame before the screenshot, the glass and camera after it.
  */
 object PostRenderer {
     class Result(val bitmap: Bitmap, val overflow: List<String>)
@@ -343,6 +344,14 @@ object PostRenderer {
             drawPhotoArea(context, canvas, doc, layout.photo, tones, w, h, unit, max(outW, outH))
         }
         if (cancelled()) return Result(bitmap, emptyList())
+
+        // 6b. Phone mockups: glass sheen, soft inner shadow and the front camera over the screen
+        if (layout.photo != null && layout.decor.any { it.shape == DecorShape.PHONE }) {
+            val area = layout.photo
+            val screen = RectF(area.x * w, area.y * h, (area.x + area.w) * w, (area.y + area.h) * h)
+            val screenFrame = doc.photoFrame ?: area.mask ?: PhotoFrame.ROUNDED
+            PostPhoneFrame.drawGlass(canvas, screen, PostEngine.framePath(screenFrame, screen, unit), unit)
+        }
 
         // 7. Placed icons behind words
         doc.icons.filter { !it.front }.forEach { item ->
@@ -687,21 +696,8 @@ object PostRenderer {
                 canvas.drawText("\u201C", rect.left, rect.top + qPaint.textSize * 0.78f, qPaint)
             }
             DecorShape.PHONE -> {
-                val outerR = unit * 0.062f
-                val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    this.color = Color.argb(110, 0, 0, 0)
-                }
-                canvas.drawRoundRect(
-                    RectF(rect.left, rect.top + unit * 0.016f, rect.right, rect.bottom + unit * 0.016f),
-                    outerR, outerR, shadowPaint
-                )
-                canvas.drawRoundRect(rect, outerR, outerR, paint)
-                val rim = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    style = Paint.Style.STROKE
-                    strokeWidth = max(2.5f, unit * 0.004f)
-                    this.color = withAlpha(tones.light, 95)
-                }
-                canvas.drawRoundRect(rect, outerR, outerR, rim)
+                // the realistic phone body (shadow, side buttons, metal rim, 3D edge, black glass border) lives in PostPhoneFrame.kt
+                PostPhoneFrame.drawBody(canvas, rect, unit, tones.accent, luminance(tones.page) < 0.35f)
             }
             DecorShape.ARCH -> {
                 val path = PostEngine.framePath(PhotoFrame.ARCH, rect, unit)

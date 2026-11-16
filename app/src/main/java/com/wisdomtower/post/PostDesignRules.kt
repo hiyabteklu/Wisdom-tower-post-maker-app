@@ -1,17 +1,12 @@
 package com.wisdomtower.post
 
+import kotlin.math.abs
+import kotlin.math.max
 import kotlin.math.min
 
 /**
  * Shared design rules (docs/APP_QUALITY_ROADMAP.md, slice Q2). One place for the numbers every template is judged by,
  * so a rule changes once and the Template QA screen reports against it.
- *
- * Sizes are in pixels on the standard export (1080 on the shorter side). A box size in a template is a fraction of the shorter side,
- * so the pixel size of its text is box.size * min(width, height). On a phone feed the 1080 px poster is shown about 3 times smaller,
- * so a body text under about 34 px is under 12 points on screen.
- *
- * First version: the values below are starting estimates, not final. Change them here after looking at the Template QA report.
- * Contrast is not listed here: the renderer's contrast guard already moves any text below about 4:1 to a readable color.
  */
 object PostDesignRules {
     /** Smallest wanted size of message and list text, in pixels at 1080. */
@@ -47,5 +42,46 @@ object PostDesignRules {
             if (px + 0.5f >= wanted) null
             else PostSlots.label(box.slot) + " " + px.toInt() + " px (min " + wanted.toInt() + ")"
         }
+    }
+
+    /**
+     * Checks that every non-bleeding slot in [spec] at [size] stays inside the safe area (4%..96% horizontally,
+     * 5.5%..89% vertically above the footer) and does not overlap another unrotated slot in the same column.
+     */
+    fun safeAreaIssues(spec: PostTemplateSpec, size: PostSize): List<String> {
+        val layout = spec.layout(size)
+        val doc = PostDrafts.factory(spec.id, size)
+        val safeRects = PostEngine.safeNormalizedRects(doc, layout)
+        val issues = mutableListOf<String>()
+
+        val slots = layout.slots.filter {
+            it.literal == null && !(layout.bleed && (it.slot == PostSlots.LETTER || it.slot == PostSlots.WORD))
+        }
+        for (b in slots) {
+            val r = safeRects[b.slot] ?: continue
+            if (abs(b.rotate) <= 0.5f) {
+                if (r.left < PostEngine.SAFE_LEFT - 0.005f || r.right > PostEngine.SAFE_RIGHT + 0.005f) {
+                    issues += "${PostSlots.label(b.slot)} outside horizontal safe area"
+                }
+                if (r.top < PostEngine.SAFE_TOP - 0.005f || r.bottom > PostEngine.SAFE_BOTTOM_WITH_FOOTER + 0.005f) {
+                    issues += "${PostSlots.label(b.slot)} overlaps footer or top edge"
+                }
+            }
+        }
+        val unrotated = slots.filter { abs(it.rotate) <= 0.5f }
+        for (i in 0 until unrotated.size) {
+            val a = unrotated[i]
+            val ra = safeRects[a.slot] ?: continue
+            for (j in i + 1 until unrotated.size) {
+                val b = unrotated[j]
+                val rb = safeRects[b.slot] ?: continue
+                val ox = min(ra.right, rb.right) - max(ra.left, rb.left)
+                val oy = min(ra.bottom, rb.bottom) - max(ra.top, rb.top)
+                if (ox > min(ra.width(), rb.width()) * 0.35f && oy > 0.004f) {
+                    issues += "${PostSlots.label(a.slot)} overlaps ${PostSlots.label(b.slot)}"
+                }
+            }
+        }
+        return issues
     }
 }

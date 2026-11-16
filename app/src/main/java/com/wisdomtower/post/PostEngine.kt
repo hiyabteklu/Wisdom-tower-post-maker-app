@@ -20,11 +20,18 @@ import kotlin.math.min
 import kotlin.math.sin
 
 /**
- * Shared geometry, hit-testing (with inverse rotation), photo frame paths, cut-out import,
+ * Shared geometry, safe-area layout solver, hit-testing (with inverse rotation), photo frame paths, cut-out import,
  * mesh gradients and film grain (docs/REDESIGN_PLAN.md and docs/TEMPLATE_REDESIGN_PLAN.md 3.1).
  */
 object PostEngine {
     private var grainTile: Bitmap? = null
+
+    const val SAFE_LEFT = 0.04f
+    const val SAFE_RIGHT = 0.96f
+    const val SAFE_TOP = 0.055f
+    const val SAFE_BOTTOM_WITH_FOOTER = 0.888f
+    const val SAFE_BOTTOM_NO_FOOTER = 0.955f
+    private const val MIN_VERTICAL_GAP = 0.008f
 
     fun importCutout(context: Context, uri: Uri): String? {
         val dir = File(context.filesDir, "photos").also { it.mkdirs() }
@@ -98,14 +105,134 @@ object PostEngine {
     }
 
     fun slotRect(doc: PostDoc, box: SlotBox, canvasW: Float, canvasH: Float): RectF {
-        val (dx, dy) = doc.offsetOf(box.slot)
-        val left = (box.x + dx) * canvasW
-        val top = (box.y + dy) * canvasH
-        return RectF(left, top, left + box.w * canvasW, top + box.h * canvasH)
+        val layout = postTemplate(doc.templateId).withLookIndex(doc.lookIndex).layout(doc.size)
+        return safeSlotRect(doc, layout, box, canvasW, canvasH)
     }
 
     fun slotRect(box: SlotBox, doc: PostDoc): RectF =
         slotRect(doc, box, 1f, 1f)
+
+    /**
+     * Computes safe-area-clamped, non-overlapping normalized rectangles for all slots in [layout],
+     * then scales the target [box] to [canvasW] x [canvasH].
+     * Ensures:
+     * 1. Non-bleeding slots stay inside horizontal safe margins (4%..96%) and vertical safe margins
+     *    (5.5%..88.8% when footer is shown, 5.5%..95.5% when footer is hidden).
+     * 2. Unrotated text slots in the same column never overlap vertically and never run into the footer.
+     */
+    fun safeSlotRect(
+        doc: PostDoc,
+        layout: TemplateLayout,
+        box: SlotBox,
+        canvasW: Float,
+        canvasH: Float
+    ): RectF {
+        val (dx, dy) = doc.offsetOf(box.slot)
+        val isBleedSlot = layout.bleed && (box.slot == PostSlots.LETTER || box.slot == PostSlots.WORD)
+        if (box.literal != null || isBleedSlot || dx != 0f || dy != 0f) {
+            val left = (box.x + dx) * canvasW
+            val top = (box.y + dy) * canvasH
+            return RectF(left, top, left + box.w * canvasW, top + box.h * canvasH)
+        }
+
+        val resolved = safeNormalizedRects(doc, layout)
+        val norm = resolved[box.slot] ?: RectF(box.x, box.y, box.x + box.w, box.y + box.h)
+        return RectF(
+            norm.left * canvasW,
+            norm.top * canvasH,
+            norm.right * canvasW,
+            norm.bottom * canvasH
+        )
+    }
+
+    fun safeNormalizedRects(doc: PostDoc, layout: TemplateLayout): Map<String, RectF> {
+        val safeBottom = if (doc.showFooter) SAFE_BOTTOM_WITH_FOOTER else SAFE_BOTTOM_NO_FOOTER
+        val out = LinkedHashMap<String, RectF>()
+
+        val candidates = layout.slots.filter { b ->
+            b.literal == null &&
+                b.slot !in doc.hiddenTextSlots &&
+                !(layout.bleed && (b.slot == PostSlots.LETTER || b.slot == PostSlots.WORD)) &&
+                doc.offsetOf(b.slot) == Offset(0f, 0f)
+        }
+
+        // Initial safe-area clamping for each candidate
+        for (b in candidates) {
+            val rotated = abs(effectiveRotation(doc, b)) > 0.5f
+            if (rotated) {
+                out[b.slot] = RectF(b.x, b.y, b.x + b.w, b.y + b.h)
+            } else {
+                val left = b.x.coerceIn(SAFE_LEFT, SAFE_RIGHT - 0.08f)
+                val right = (b.x + b.w).coerceIn(left + 0.08f, SAFE_RIGHT)
+                val top = b.y.coerceIn(SAFE_TOP, safeBottom - 0.03f)
+                val h = b.h.coerceAtLeast(0.032f)
+                val bottom = min(safeBottom, top + h).coerceAtLeast(top + 0.03f)
+                out[b.slot] = RectF(left, top, right, bottom)
+            }
+        }
+
+        // Resolve vertical overlaps among unrotated slots that share horizontal column space
+        val unrotated = candidates
+            .filter { abs(effectiveRotation(doc, it)) <= 0.5f }
+            .sortedWith(compareBy<SlotBox> { it.y }.thenBy { it.h })
+
+        for (i in 0 until unrotated.size) {
+            val prevSlot = unrotated[i].slot
+            val prevRect = out[prevSlot] ?: continue
+            for (j in i + 1 until unrotated.size) {
+                val curSlot = unrotated[j].slot
+                val curRect = out[curSlot] ?: continue
+                val overlapX = min(prevRect.right, curRect.right) - max(prevRect.left, curRect.left)
+                val minWidth = min(prevRect.width(), curRect.width())
+                if (overlapX > minWidth * 0.35f) {
+                    // Intentionally nested badge/number inside a hero slot (e.g. small corner tag) is skipped only if zero slot conflict
+                    val minAllowedTop = prevRect.bottom + MIN_VERTICAL_GAP
+                    if (curRect.top < minAllowedTop) {
+                        val origH = curRect.height()
+                        val shiftedTop = minAllowedTop
+                        val shiftedBottom = shiftedTop + origH
+                        out[curSlot] = RectF(curRect.left, shiftedTop, curRect.right, shiftedBottom)
+                    }
+                }
+            }
+        }
+
+        // If any slot now extends past safeBottom, shift/compress the column back into [SAFE_TOP..safeBottom]
+        for (slotName in unrotated.map { it.slot }.asReversed()) {
+            val r = out[slotName] ?: continue
+            if (r.bottom > safeBottom) {
+                val excess = r.bottom - safeBottom
+                val minH = when (slotName) {
+                    PostSlots.EYEBROW, PostSlots.BUTTON -> 0.036f
+                    PostSlots.BODY -> 0.052f
+                    else -> 0.055f
+                }
+                val newBottom = safeBottom
+                val newTop = max(SAFE_TOP, (r.top - excess).coerceAtMost(newBottom - minH))
+                out[slotName] = RectF(r.left, newTop, r.right, newBottom)
+            }
+        }
+
+        // Second pass upwards: if shifting the bottom slot up caused it to touch the slot above it, nudge the upper slot up slightly
+        for (i in unrotated.size - 1 downTo 1) {
+            val lower = out[unrotated[i].slot] ?: continue
+            for (j in i - 1 downTo 0) {
+                val upperSlot = unrotated[j].slot
+                val upper = out[upperSlot] ?: continue
+                val overlapX = min(lower.right, upper.right) - max(lower.left, upper.left)
+                val minWidth = min(lower.width(), upper.width())
+                if (overlapX > minWidth * 0.35f && upper.bottom + MIN_VERTICAL_GAP > lower.top) {
+                    val maxBottom = lower.top - MIN_VERTICAL_GAP
+                    val minH = 0.036f
+                    val newBottom = max(SAFE_TOP + minH, maxBottom)
+                    val newTop = max(SAFE_TOP, min(upper.top, newBottom - min(upper.height(), maxBottom - SAFE_TOP)))
+                    out[upperSlot] = RectF(upper.left, newTop, upper.right, newBottom)
+                }
+            }
+        }
+
+        return out
+    }
 
     fun effectiveRotation(doc: PostDoc, box: SlotBox): Float =
         doc.slotStyles[box.slot]?.rotate ?: box.rotate
@@ -125,7 +252,7 @@ object PostEngine {
 
         val editableSlots = layout.slots.filter { it.literal == null && it.slot !in doc.hiddenTextSlots }
         for (box in editableSlots.asReversed()) {
-            val rect = slotRect(doc, box, w, h)
+            val rect = safeSlotRect(doc, layout, box, w, h)
             val angleDeg = effectiveRotation(doc, box)
             val (testX, testY) = if (abs(angleDeg) > 0.01f) {
                 val cx = rect.centerX()

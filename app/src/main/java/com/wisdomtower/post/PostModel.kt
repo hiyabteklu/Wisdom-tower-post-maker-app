@@ -10,6 +10,8 @@ enum class PostSize(val label: String, val width: Int, val height: Int) {
     STORY("9:16", 1080, 1920),
     WIDE("16:9", 1920, 1080);
 
+    val ratio: String get() = label
+
     fun <T> pick3(story: T, standard: T, wide: T): T = when (this) {
         STORY -> story
         LANDSCAPE -> standard

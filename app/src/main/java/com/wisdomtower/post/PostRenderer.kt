@@ -622,7 +622,27 @@ object PostRenderer {
                     )
                 }
                 canvas.drawRoundRect(rect, r, r, paint)
-                if (layout.base == PostBase.DARK && rect.width() > w * 0.25f && rect.height() > h * 0.12f) {
+                if (doc.templateId == "photo-glass" && decor.panel) {
+                    val sheen = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        shader = LinearGradient(
+                            rect.left, rect.top, rect.right, rect.bottom,
+                            intArrayOf(
+                                withAlpha(tones.light, 70),
+                                withAlpha(tones.light, 18),
+                                withAlpha(tones.accent, 28)
+                            ),
+                            floatArrayOf(0f, 0.5f, 1f),
+                            Shader.TileMode.CLAMP
+                        )
+                    }
+                    canvas.drawRoundRect(rect, r, r, sheen)
+                    val frostRim = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        style = Paint.Style.STROKE
+                        strokeWidth = max(2f, unit * 0.003f)
+                        this.color = withAlpha(tones.light, 115)
+                    }
+                    canvas.drawRoundRect(rect, r, r, frostRim)
+                } else if (layout.base == PostBase.DARK && rect.width() > w * 0.25f && rect.height() > h * 0.12f) {
                     val edge = Paint(Paint.ANTI_ALIAS_FLAG)
                     edge.style = Paint.Style.STROKE
                     edge.strokeWidth = max(1.5f, unit * 0.002f)
@@ -692,6 +712,19 @@ object PostRenderer {
                 paint.style = Paint.Style.STROKE
                 paint.strokeWidth = max(2f, unit * 0.006f)
                 canvas.drawCircle(rect.centerX(), rect.centerY(), r, paint)
+                if (doc.templateId == "mkt-seal") {
+                    val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        style = Paint.Style.FILL
+                        this.color = color
+                    }
+                    val dotR = max(2.5f, unit * 0.0045f)
+                    for (deg in 0 until 360 step 15) {
+                        val rad = Math.toRadians(deg.toDouble())
+                        val dx = cos(rad).toFloat() * (r * 0.90f)
+                        val dy = sin(rad).toFloat() * (r * 0.90f)
+                        canvas.drawCircle(rect.centerX() + dx, rect.centerY() + dy, dotR, dotPaint)
+                    }
+                }
             }
             DecorShape.DOTS, DecorShape.STRIPES, DecorShape.WAVE, DecorShape.GEM,
             DecorShape.DIAMOND, DecorShape.TRIANGLE, DecorShape.HEXAGON -> Unit
@@ -751,7 +784,36 @@ object PostRenderer {
 
         canvas.save()
         canvas.clipPath(clipPath)
-        if (bmp != null) {
+        if (doc.templateId == "photo-duo" && area.cells.size == 2) {
+            val bmp2 = PostImageCache.get(context, doc.backgroundPhotoUri ?: doc.photoUri, maxDim)
+            area.cells.forEachIndexed { idx, cell ->
+                val cr = RectF(cell.x * w, cell.y * h, (cell.x + cell.w) * w, (cell.y + cell.h) * h)
+                val cellBmp = if (idx == 0) bmp else (bmp2 ?: bmp)
+                if (cellBmp != null) {
+                    val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+                    val fx = if (idx == 0) (doc.photoFocusX * 0.7f).coerceIn(0f, 1f) else (0.3f + doc.photoFocusX * 0.7f).coerceIn(0f, 1f)
+                    drawBitmapCenterCrop(
+                        canvas = canvas,
+                        bmp = cellBmp,
+                        dest = cr,
+                        zoom = doc.photoZoom.coerceIn(1f, 4f),
+                        focusX = fx,
+                        focusY = doc.photoFocusY.coerceIn(0f, 1f),
+                        paint = paint
+                    )
+                } else {
+                    val ph = Paint(Paint.ANTI_ALIAS_FLAG)
+                    val cA = if (idx == 0) tones.accent else tones.glow
+                    ph.shader = LinearGradient(
+                        cr.left, cr.top, cr.right, cr.bottom,
+                        intArrayOf(tones.deep, blend(cA, tones.dark, 0.42f), tones.dark),
+                        floatArrayOf(0f, 0.55f, 1f),
+                        Shader.TileMode.CLAMP
+                    )
+                    canvas.drawRect(cr, ph)
+                }
+            }
+        } else if (bmp != null) {
             val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
             drawBitmapCenterCrop(
                 canvas = canvas,
@@ -1021,7 +1083,7 @@ object PostRenderer {
         val rect = if (isLiteral) {
             RectF(box.x * w, box.y * h, (box.x + box.w) * w, (box.y + box.h) * h)
         } else {
-            PostEngine.slotRect(doc, box, w.toFloat(), h.toFloat())
+            PostEngine.safeSlotRect(doc, layout, box, w.toFloat(), h.toFloat())
         }
         val boxW = max(24f, rect.width())
         val boxH = max(18f, rect.height())
@@ -1117,24 +1179,60 @@ object PostRenderer {
                 )
             }
             FitMode.FILL_WIDTH -> {
-                drawFillWidthSlot(
-                    canvas = canvas,
-                    text = text,
-                    tf = tf,
-                    rect = rect,
-                    box = box,
-                    color = color,
-                    tones = tones,
-                    fx = fx,
-                    tracking = tracking,
-                    shadow = shadow,
-                    manualSizePx = manualSizeUnit?.let { it * unit * postScale },
-                    scaleMultiplier = postScale * slotScale,
-                    bgPhotoBitmap = bgPhotoBitmap,
-                    doc = doc,
-                    w = w,
-                    h = h
-                )
+                val forceParagraph = box.chip != null ||
+                    box.slot == PostSlots.EYEBROW ||
+                    box.slot == PostSlots.BUTTON ||
+                    box.slot == PostSlots.BODY ||
+                    box.slot == PostSlots.LIST
+                if (forceParagraph) {
+                    drawParagraphSlot(
+                        canvas = canvas,
+                        rawText = text,
+                        tf = tf,
+                        rect = rect,
+                        boxW = boxW,
+                        boxH = boxH,
+                        box = box,
+                        layout = layout,
+                        align = align,
+                        color = color,
+                        tones = tones,
+                        fx = fx,
+                        tracking = tracking,
+                        leading = leading,
+                        shadow = shadow,
+                        unit = unit,
+                        manualSizePx = manualSizeUnit?.let { it * unit * postScale },
+                        postScale = postScale,
+                        slotScale = slotScale,
+                        bgPhotoBitmap = bgPhotoBitmap,
+                        doc = doc,
+                        w = w,
+                        h = h,
+                        isLiteral = isLiteral,
+                        overflow = overflow
+                    )
+                } else {
+                    drawFillWidthSlot(
+                        canvas = canvas,
+                        text = text,
+                        tf = tf,
+                        rect = rect,
+                        box = box,
+                        layout = layout,
+                        color = color,
+                        tones = tones,
+                        fx = fx,
+                        tracking = tracking,
+                        shadow = shadow,
+                        manualSizePx = manualSizeUnit?.let { it * unit * postScale },
+                        scaleMultiplier = postScale * slotScale,
+                        bgPhotoBitmap = bgPhotoBitmap,
+                        doc = doc,
+                        w = w,
+                        h = h
+                    )
+                }
             }
             FitMode.FILL, FitMode.LEGACY -> {
                 val cleanText = stripInlineMarkup(text)
@@ -1270,6 +1368,7 @@ object PostRenderer {
         tf: Typeface,
         rect: RectF,
         box: SlotBox,
+        layout: TemplateLayout,
         color: Int,
         tones: TonePalette,
         fx: TextFx,
@@ -1289,7 +1388,7 @@ object PostRenderer {
         paint.letterSpacing = tracking
         val bounds = Rect()
 
-        val sizePx = if (manualSizePx != null) {
+        var sizePx = if (manualSizePx != null) {
             manualSizePx
         } else {
             paint.textSize = 160f
@@ -1298,6 +1397,14 @@ object PostRenderer {
         }
         paint.textSize = sizePx
         paint.getTextBounds(line, 0, line.length, bounds)
+
+        val allowBleed = layout.bleed && (box.slot == PostSlots.LETTER || box.slot == PostSlots.WORD)
+        if (manualSizePx == null && !allowBleed && bounds.height() > rect.height() * 0.90f) {
+            val scaleH = (rect.height() * 0.90f) / max(1f, bounds.height().toFloat())
+            sizePx = (sizePx * scaleH).coerceAtLeast(18f)
+            paint.textSize = sizePx
+            paint.getTextBounds(line, 0, line.length, bounds)
+        }
 
         val drawX = if (box.centered) {
             rect.centerX() - paint.measureText(line) / 2f
@@ -1825,19 +1932,25 @@ object PostRenderer {
         var didOverflow = false
         val finalSizePx: Float = when {
             manualSizePx != null -> manualSizePx
-            box.fit == FitMode.FILL -> {
-                val cacheKey = "FILL|$charSeq|${tf.hashCode()}|${availW.toInt()}x${boxH.toInt()}|$tracking|$leading|${box.maxLines}"
+            box.fit == FitMode.FILL || box.fit == FitMode.FILL_WIDTH -> {
+                val cacheKey = "FILL|${box.slot}|$charSeq|${tf.hashCode()}|${availW.toInt()}x${boxH.toInt()}|$tracking|$leading|${box.maxLines}"
                 val cached = fitCache.get(cacheKey)
                 val fitted = cached ?: run {
-                    var lo = max(18f, basePx * 0.25f)
-                    var hi = max(lo + 4f, min(basePx * 4.0f, boxH * 1.15f))
+                    val maxRolePx = when (box.slot) {
+                        PostSlots.EYEBROW, PostSlots.BUTTON -> min(basePx * 1.08f, boxH * 0.72f)
+                        PostSlots.BODY, PostSlots.LIST -> min(basePx * 1.12f, boxH * 0.88f)
+                        PostSlots.HEADLINE -> min(basePx * 1.50f, boxH * 0.90f)
+                        else -> min(basePx * 3.5f, boxH * 0.94f)
+                    }
+                    var lo = max(16f, basePx * 0.30f)
+                    var hi = max(lo + 2f, maxRolePx)
                     var best = lo
                     repeat(10) {
                         val mid = (lo + hi) * 0.5f
                         val lay = buildStaticLayout(charSeq, tf, mid, availW.toInt(), align, tracking, leading)
                         val maxWordW = maxLineWidth(lay)
                         val linesOk = box.maxLines <= 0 || lay.lineCount <= box.maxLines
-                        if (lay.height <= boxH + 2f && maxWordW <= availW + 2f && linesOk) {
+                        if (lay.height <= boxH + 1f && maxWordW <= availW + 2f && linesOk) {
                             best = mid
                             lo = mid
                         } else {
@@ -1916,7 +2029,7 @@ object PostRenderer {
             canvas.translate(rect.left + dx, topY + dy)
             shadowLay.draw(canvas)
             canvas.restore()
-        } else if (layout.base == PostBase.DARK && box.slot == PostSlots.HEADLINE && luminance(color) > 0.6f && fx == TextFx.SOLID) {
+        } else if (luminance(tones.page) < 0.35f && box.slot == PostSlots.HEADLINE && luminance(color) > 0.6f && fx == TextFx.SOLID) {
             // Subtle dark-first headline glow when no custom shadow is configured (Section 3.2)
             val gp = TextPaint(paint).apply {
                 this.color = withAlpha(tones.accent, 65)
@@ -2099,7 +2212,7 @@ object PostRenderer {
         val slotStyle = doc.slotStyles[box.slot]
         val tf = PostFonts.get(context, box.font, raw, doc, slotStyle)
         val boldTf = PostFonts.get(context, PostFont.BOLD, raw, doc, slotStyle)
-        val rect = PostEngine.slotRect(doc, box, w.toFloat(), h.toFloat())
+        val rect = PostEngine.safeSlotRect(doc, layout, box, w.toFloat(), h.toFloat())
         val shadow = resolveShadow(doc, box, slotStyle)
         val userColor = parseColor(slotStyle?.colorHex)
         val baseInk = userColor ?: tones.colorOf(box.tone)
@@ -2276,46 +2389,99 @@ object PostRenderer {
                     curY += rowH + gap * 0.7f
                 }
                 ListStyle.CHECK -> {
-                    val badgeD = textSize * 1.18f
-                    val indent = badgeD + textSize * 0.50f
-                    val lay = buildStaticLayout(line, textPaint, max(24, (maxW - indent).toInt()), Layout.Alignment.ALIGN_NORMAL, 1.12f)
-                    val rowH = max(badgeD, lay.height.toFloat())
-                    val badgeCx = rect.left + badgeD / 2f
-                    val badgeCy = curY + textSize * 0.62f
+                    val isNumberedCards = doc.templateId == "info-checklist" || doc.templateId == "info-steps"
+                    val isTimeline = doc.templateId == "info-timeline"
+                    val badgeD = textSize * 1.32f
+                    val indent = badgeD + textSize * 0.55f
+                    val lay = buildStaticLayout(line, textPaint, max(24, (maxW - indent - textSize * 0.45f).toInt()), Layout.Alignment.ALIGN_NORMAL, 1.10f)
+                    val rowH = if (isNumberedCards || isTimeline) {
+                        max(badgeD + textSize * 0.40f, lay.height + textSize * 0.48f)
+                    } else {
+                        max(badgeD, lay.height.toFloat())
+                    }
+
+                    val rowRect = RectF(rect.left, curY, rect.right, curY + rowH)
+                    val badgeCx = if (isNumberedCards) {
+                        rowRect.left + textSize * 0.30f + badgeD / 2f
+                    } else {
+                        rect.left + badgeD / 2f
+                    }
+                    val badgeCy = if (isNumberedCards || isTimeline) rowRect.centerY() else curY + textSize * 0.62f
+
+                    if (isNumberedCards) {
+                        val r = rowH * 0.26f
+                        val cardPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                            color = withAlpha(tones.deep, (215 * doc.panelOpacity / 100f).roundToInt())
+                        }
+                        canvas.drawRoundRect(rowRect, r, r, cardPaint)
+                        val edgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                            style = Paint.Style.STROKE
+                            strokeWidth = max(1.5f, unit * 0.002f)
+                            color = withAlpha(accentInk, 95)
+                        }
+                        canvas.drawRoundRect(rowRect, r, r, edgePaint)
+                    } else if (isTimeline) {
+                        if (idx < lines.lastIndex) {
+                            val nextRowH = rowH
+                            val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                                style = Paint.Style.STROKE
+                                strokeWidth = max(3f, unit * 0.004f)
+                                color = withAlpha(accentInk, 150)
+                            }
+                            canvas.drawLine(badgeCx, badgeCy + badgeD * 0.5f, badgeCx, curY + rowH + gap * 0.68f + nextRowH * 0.5f, linePaint)
+                        }
+                        val cardRect = RectF(rect.left + indent - textSize * 0.20f, curY, rect.right, curY + rowH)
+                        val r = rowH * 0.24f
+                        val cardPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                            color = withAlpha(tones.deep, (195 * doc.panelOpacity / 100f).roundToInt())
+                        }
+                        canvas.drawRoundRect(cardRect, r, r, cardPaint)
+                    }
 
                     val discPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = accentInk }
                     canvas.drawCircle(badgeCx, badgeCy, badgeD / 2f, discPaint)
 
-                    val tickPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                        style = Paint.Style.STROKE
-                        strokeWidth = max(2.5f, badgeD * 0.14f)
-                        strokeCap = Paint.Cap.ROUND
-                        strokeJoin = Paint.Join.ROUND
-                        color = if (luminance(accentInk) > 0.45f) tones.dark else tones.light
+                    if (isNumberedCards || isTimeline) {
+                        val numLabel = String.format("%02d", idx + 1)
+                        markerPaint.color = if (luminance(accentInk) > 0.45f) tones.dark else tones.light
+                        val bBounds = Rect()
+                        markerPaint.getTextBounds(numLabel, 0, numLabel.length, bBounds)
+                        canvas.drawText(numLabel, badgeCx - bBounds.exactCenterX(), badgeCy - bBounds.exactCenterY(), markerPaint)
+                    } else {
+                        val tickPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                            style = Paint.Style.STROKE
+                            strokeWidth = max(2.5f, badgeD * 0.14f)
+                            strokeCap = Paint.Cap.ROUND
+                            strokeJoin = Paint.Join.ROUND
+                            color = if (luminance(accentInk) > 0.45f) tones.dark else tones.light
+                        }
+                        val tr = badgeD * 0.24f
+                        val tick = Path().apply {
+                            moveTo(badgeCx - tr, badgeCy)
+                            lineTo(badgeCx - tr * 0.2f, badgeCy + tr * 0.75f)
+                            lineTo(badgeCx + tr * 1.1f, badgeCy - tr * 0.75f)
+                        }
+                        canvas.drawPath(tick, tickPaint)
                     }
-                    val tr = badgeD * 0.24f
-                    val tick = Path().apply {
-                        moveTo(badgeCx - tr, badgeCy)
-                        lineTo(badgeCx - tr * 0.2f, badgeCy + tr * 0.75f)
-                        lineTo(badgeCx + tr * 1.1f, badgeCy - tr * 0.75f)
-                    }
-                    canvas.drawPath(tick, tickPaint)
+
+                    val textLeft = if (isNumberedCards) rowRect.left + indent + textSize * 0.18f else rect.left + indent
+                    val textTop = if (isNumberedCards || isTimeline) rowRect.centerY() - lay.height / 2f else curY
 
                     if (shadow != null && shadow.strength > 0) {
                         val sp = TextPaint(textPaint)
                         configureShadowPaint(sp, shadow, textSize, textColor, tones)
                         val (dx, dy) = shadowOffset(shadow, textSize)
-                        val sLay = buildStaticLayout(line, sp, max(24, (maxW - indent).toInt()), Layout.Alignment.ALIGN_NORMAL, 1.12f)
+                        val sLay = buildStaticLayout(line, sp, max(24, (maxW - indent - textSize * 0.45f).toInt()), Layout.Alignment.ALIGN_NORMAL, 1.10f)
                         canvas.save()
-                        canvas.translate(rect.left + indent + dx, curY + dy)
+                        canvas.translate(textLeft + dx, textTop + dy)
                         sLay.draw(canvas)
                         canvas.restore()
                     }
                     canvas.save()
-                    canvas.translate(rect.left + indent, curY)
+                    canvas.translate(textLeft, textTop)
                     lay.draw(canvas)
                     canvas.restore()
-                    curY += rowH + gap
+                    curY += rowH + (if (isNumberedCards || isTimeline) gap * 0.68f else gap)
                 }
                 ListStyle.ROW -> {
                     // Timetable row ("Mon: Physics & Mechanics")

@@ -393,7 +393,6 @@ val LegacyTemplateIds: Map<String, String> = mapOf(
     "photo-banner" to "photo-floor",
 
     "info-list" to "info-tip",
-    "info-steps" to "info-tip",
     "info-compare" to "info-versus",
     "info-fact" to "info-stat",
     "info-glossary" to "info-definition",

@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.Color
 object PostPalette {
     val Ink = Color(0xFF0B1220)
     val Surface = Color(0xFF121B2E)
+    val Card = Color(0xFF121B2E)
     val Raised = Color(0xFF1A263D)
     val Line = Color(0xFF2A3956)
     val Mint = Color(0xFF2DE0CF)

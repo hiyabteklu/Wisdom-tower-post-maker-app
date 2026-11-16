@@ -38,7 +38,13 @@ abstract class PrepareLauncherLogo : DefaultTask() {
 val wtpKeystoreFile = rootProject.file("signing/wtp.keystore")
 val wtpKeystoreText = rootProject.file("signing/wtp.keystore.b64")
 if (!wtpKeystoreFile.exists() && wtpKeystoreText.exists()) {
-    wtpKeystoreFile.writeBytes(Base64.getDecoder().decode(wtpKeystoreText.readText().trim()))
+    wtpKeystoreFile.writeBytes(Base64.getMimeDecoder().decode(wtpKeystoreText.readText().trim()))
+}
+
+val debugKeystoreFile = rootProject.file("debug.keystore")
+val debugKeystoreB64 = rootProject.file("debug.keystore.base64")
+if (!debugKeystoreFile.exists() && debugKeystoreB64.exists()) {
+    debugKeystoreFile.writeBytes(Base64.getMimeDecoder().decode(debugKeystoreB64.readText().trim()))
 }
 
 android {
@@ -57,6 +63,12 @@ android {
 
     // Same key for every build, so every new APK installs over the old one.
     signingConfigs {
+        create("debugConfig") {
+            storeFile = file("${rootDir}/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
         create("wtp") {
             storeFile = wtpKeystoreFile
             storePassword = "sr7O64XCj2DfqsIXpXtp"
@@ -66,6 +78,9 @@ android {
     }
 
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("debugConfig")
+        }
         release {
             // R8 removes the code and the icons the app never uses.
             isMinifyEnabled = true

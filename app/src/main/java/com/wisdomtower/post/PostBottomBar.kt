@@ -12,19 +12,30 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesomeMosaic
+import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.FormatSize
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Landscape
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.TextFields
+import androidx.compose.material.icons.outlined.AutoAwesomeMosaic
+import androidx.compose.material.icons.outlined.Brush
 import androidx.compose.material.icons.outlined.FormatSize
+import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.Landscape
 import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.TextFields
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -60,6 +71,17 @@ enum class EditorTool(val label: String, val icon: ImageVector, val iconOn: Imag
 }
 
 /**
+ * Top-level 56dp bottom navigation tabs: Studio, Library, Batch/Inbox, Brand, Settings.
+ */
+enum class AppNavTab(val route: String, val label: String, val icon: ImageVector, val iconOn: ImageVector) {
+    STUDIO("studio", "Studio", Icons.Outlined.AutoAwesomeMosaic, Icons.Filled.AutoAwesomeMosaic),
+    LIBRARY("library", "Library", Icons.Outlined.GridView, Icons.Filled.GridView),
+    INBOX("inbox", "Batch/Inbox", Icons.Outlined.Inbox, Icons.Filled.Inbox),
+    BRAND("brand", "Brand", Icons.Outlined.Brush, Icons.Filled.Brush),
+    SETTINGS("settings", "Settings", Icons.Outlined.Settings, Icons.Filled.Settings)
+}
+
+/**
  * What the Inbox knows, kept in memory so the Inbox opens at once and the editor can show a dot when something is waiting.
  * The list is also cached on disk by PostChatStore, so it survives a restart.
  *
@@ -83,6 +105,90 @@ object PostInboxState {
         batches = list
         loadedAt = System.currentTimeMillis()
         countsFrom(list)
+    }
+}
+
+/**
+ * Persistent 56dp bottom navigation bar (Studio, Library, Batch/Inbox, Brand, Settings).
+ * Respects navigationBarsPadding after the background so the bar fills behind the system gesture bar.
+ */
+@Composable
+fun PostAppBottomNav(
+    currentScreen: String,
+    inboxBadgeCount: Int,
+    onSelect: (AppNavTab) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val activeTab = when (currentScreen) {
+        "library" -> AppNavTab.LIBRARY
+        "inbox", "batch" -> AppNavTab.INBOX
+        "brand" -> AppNavTab.BRAND
+        "settings", "chat", "qa" -> AppNavTab.SETTINGS
+        else -> AppNavTab.STUDIO
+    }
+    Column(
+        modifier
+            .fillMaxWidth()
+            .background(PostPalette.Surface)
+            .navigationBarsPadding()
+    ) {
+        Box(Modifier.fillMaxWidth().height(1.dp).background(PostPalette.Line))
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+                .padding(horizontal = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            AppNavTab.values().forEach { tab ->
+                val on = tab == activeTab
+                val tint = if (on) PostPalette.Mint else PostPalette.Muted
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .height(56.dp)
+                        .clickable(role = Role.Tab) { onSelect(tab) },
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Box(
+                        Modifier
+                            .width(44.dp)
+                            .height(24.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (on) PostPalette.Mint.copy(alpha = 0.16f) else Color.Transparent),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (on) tab.iconOn else tab.icon,
+                            contentDescription = tab.label,
+                            tint = tint,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        if (tab == AppNavTab.INBOX && inboxBadgeCount > 0) {
+                            Box(
+                                Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(top = 2.dp, end = 6.dp)
+                                    .size(7.dp)
+                                    .clip(CircleShape)
+                                    .background(PostPalette.Mint)
+                            )
+                        }
+                    }
+                    Text(
+                        text = tab.label,
+                        fontSize = 10.sp,
+                        lineHeight = 11.sp,
+                        fontWeight = if (on) FontWeight.Bold else FontWeight.Medium,
+                        color = tint,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
+            }
+        }
     }
 }
 

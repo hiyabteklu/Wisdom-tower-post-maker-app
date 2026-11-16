@@ -52,14 +52,17 @@ object PostFrameExport {
         return uris
     }
 
-    /** Erases the screen window from the bitmap, in the shape the photo would take (same rule as PostRenderer.drawPhoto). */
+    /**
+     * Erases the screen window from the bitmap, in the shape the photo would take (same rule as PostRenderer.drawPhotoArea:
+     * the chosen photo frame, else the template's own mask, which is the rounded screen of the phone mockups).
+     */
     private fun punchScreen(bitmap: Bitmap, doc: PostDoc) {
         val area = postTemplate(doc.templateId).layout(doc.size).photo ?: return
         val w = doc.size.width
         val h = doc.size.height
         val unit = min(w, h).toFloat()
         val dest = RectF(area.x * w, area.y * h, (area.x + area.w) * w, (area.y + area.h) * h)
-        val frame = doc.photoFrame?.takeIf { area.w < 0.99f && area.h < 0.99f }
+        val frame = (doc.photoFrame ?: area.mask)?.takeIf { area.w < 0.99f && area.h < 0.99f }
         val path = frame?.let { PostEngine.framePath(it, dest, unit) }
             ?: Path().apply { addRect(dest, Path.Direction.CW) }
         val canvas = Canvas(bitmap)

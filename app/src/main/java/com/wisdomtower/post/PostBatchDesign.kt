@@ -137,15 +137,15 @@ internal fun BatchDesignPanel(
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Design", color = PostPalette.Text, fontWeight = FontWeight.Bold)
         ScrollRow {
-            FilterChip(selected = !entireBatch, onClick = { onScope(false) }, label = { Text("This page ($pageNumber)") })
-            FilterChip(selected = entireBatch, onClick = { onScope(true) }, label = { Text("Entire batch ($postCount)") })
+            FilterChip(selected = !entireBatch, onClick = { onScope(false) }, label = { Text("Edit this only · $pageNumber") })
+            FilterChip(selected = entireBatch, onClick = { onScope(true) }, label = { Text("Edit all · $postCount") })
         }
         PostSmallLabel(
             if (entireBatch) "Changes apply to all $postCount posts. Words are never changed."
             else "Changes apply to post $pageNumber only. Words are never changed."
         )
 
-        PostSmallLabel("Template")
+        PostSmallLabel(if (entireBatch) "Template · applies to every page" else "Template · this page only")
         ScrollRow {
             templates.forEach { spec ->
                 FilterChip(

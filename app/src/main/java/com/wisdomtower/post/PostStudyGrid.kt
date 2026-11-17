@@ -56,7 +56,7 @@ import kotlin.math.min
 internal object PostStudyGrid {
     private const val FIRST = 0.025f
     private const val LAST = 0.975f
-    private const val RULES = 30
+    private const val RULES = 36
     private const val LAST_CELL = RULES - 2
     private const val DOLLAR = "\u0024"
 
@@ -115,13 +115,13 @@ internal object PostStudyGrid {
     private data class Look(val marker: Int, val list: ListStyle, val headCells: Int, val headScale: Float, val bodyScale: Float)
 
     private fun lookFor(id: String): Look = when (id) {
-        "study-cover" -> Look(RED, ListStyle.NONE, 3, 1.9f, 0.72f)
-        "study-list" -> Look(RED, ListStyle.NUMBER, 2, 1.45f, 0.66f)
-        "study-define" -> Look(PURPLE, ListStyle.NONE, 2, 1.5f, 0.70f)
-        "study-checklist" -> Look(GREEN, ListStyle.CHECK, 2, 1.35f, 0.64f)
-        "study-table" -> Look(BLUE, ListStyle.ROW, 2, 1.35f, 0.64f)
-        "study-mnemonic" -> Look(PURPLE, ListStyle.ROW, 2, 1.35f, 0.66f)
-        else -> Look(RED, ListStyle.DOT, 2, 1.4f, 0.66f)
+        "study-cover" -> Look(RED, ListStyle.NONE, 2, 1.30f, 0.60f)
+        "study-list" -> Look(RED, ListStyle.NUMBER, 1, 1.18f, 0.58f)
+        "study-define" -> Look(PURPLE, ListStyle.NONE, 1, 1.18f, 0.60f)
+        "study-checklist" -> Look(GREEN, ListStyle.CHECK, 1, 1.15f, 0.58f)
+        "study-table" -> Look(BLUE, ListStyle.ROW, 1, 1.15f, 0.58f)
+        "study-mnemonic" -> Look(PURPLE, ListStyle.ROW, 1, 1.15f, 0.59f)
+        else -> Look(RED, ListStyle.DOT, 1, 1.15f, 0.58f)
     }
 
     // ---- dark backgrounds ----
@@ -184,7 +184,11 @@ internal object PostStudyGrid {
      * assets/fonts/hand/ (a file with "bold" in its name is the bold face), then the bundled Patrick Hand, then the phone's own casual font.
      */
     private fun hand(context: Context, doc: PostDoc, bold: Boolean, own: String? = null): Typeface {
+        // Explicit slot/document font wins; otherwise use bundled Patrick Hand as the study-sheet default.
         PostFonts.typeface(context, own ?: doc.fontEnglish)?.let { return it }
+        runCatching { Typeface.createFromAsset(context.assets, BUNDLED_HAND) }.getOrNull()?.let {
+            return if (bold) Typeface.create(it, Typeface.BOLD) else it
+        }
         synchronized(this) {
             if (!handLoaded) {
                 handLoaded = true

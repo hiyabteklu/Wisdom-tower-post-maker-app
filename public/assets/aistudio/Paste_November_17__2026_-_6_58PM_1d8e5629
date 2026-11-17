@@ -1,0 +1,186 @@
+ils
+Annotations
+1 error, 2 warnings, and 1 notice
+Build release APK only
+failed 1 minute ago in 1m 10s
+e: file
+1/100
+2s
+1s
+1s
+15s
+44s
+Run gradle assembleRelease --stacktrace --no-daemon
+  gradle assembleRelease --stacktrace --no-daemon
+  shell: /usr/bin/bash -e {0}
+  env:
+    JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+    JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+    GRADLE_ACTION_ID: gradle/actions/setup-gradle
+    GRADLE_USER_HOME: /home/runner/.gradle
+    GRADLE_BUILD_ACTION_SETUP_COMPLETED: true
+    GRADLE_BUILD_ACTION_CACHE_RESTORED: true
+    DEVELOCITY_INJECTION_INIT_SCRIPT_NAME: gradle-actions.inject-develocity.init.gradle
+    DEVELOCITY_INJECTION_CUSTOM_VALUE: gradle-actions
+    GITHUB_DEPENDENCY_GRAPH_ENABLED: false
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.9/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :app:buildKotlinToolingMetadata
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preReleaseBuild UP-TO-DATE
+> Task :app:generateReleaseResValues
+> Task :app:prepareReleaseLauncherLogo
+> Task :app:checkReleaseAarMetadata
+> Task :app:mapReleaseSourceSetPaths
+> Task :app:generateReleaseResources
+> Task :app:packageReleaseResources
+> Task :app:createReleaseCompatibleScreenManifests
+> Task :app:extractDeepLinksRelease
+> Task :app:parseReleaseLocalResources
+> Task :app:mergeReleaseResources
+> Task :app:processReleaseMainManifest
+> Task :app:processReleaseManifest
+> Task :app:processReleaseManifestForPackage
+> Task :app:javaPreCompileRelease
+> Task :app:extractProguardFiles
+> Task :app:mergeReleaseJniLibFolders
+> Task :app:mergeReleaseNativeLibs
+> Task :app:checkReleaseDuplicateClasses
+
+> Task :app:stripReleaseDebugSymbols
+Unable to strip the following libraries, packaging them as they are: libandroidx.graphics.path.so.
+
+> Task :app:mergeReleaseArtProfile
+> Task :app:extractReleaseNativeSymbolTables
+> Task :app:mergeReleaseStartupProfile
+> Task :app:mergeReleaseNativeDebugMetadata NO-SOURCE
+> Task :app:mergeReleaseShaders
+> Task :app:compileReleaseShaders NO-SOURCE
+> Task :app:generateReleaseAssets UP-TO-DATE
+> Task :app:processReleaseResources
+> Task :app:mergeReleaseAssets
+> Task :app:extractReleaseVersionControlInfo
+> Task :app:compressReleaseAssets
+> Task :app:collectReleaseDependencies
+> Task :app:sdkReleaseDependencyData
+> Task :app:validateSigningRelease
+> Task :app:convertLinkedResourcesToProtoRelease
+> Task :app:writeReleaseAppMetadata
+> Task :app:writeReleaseSigningConfigVersions
+
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostBrandScreen.kt:132:24 Unresolved reference 'all'.
+> Task :app:compileReleaseKotlin FAILED
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostBrandScreen.kt:132:38 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostBrandScreen.kt:133:35 Unresolved reference 'id'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostBrandScreen.kt:135:17 @Composable invocations can only happen from the context of a @Composable function
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostBrandScreen.kt:143:56 Unresolved reference 'id'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostBrandScreen.kt:144:53 Unresolved reference 'accentHex'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostBrandScreen.kt:145:55 Unresolved reference 'secondaryHex'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostBrandScreen.kt:146:50 Unresolved reference 'darkBgHex'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostBrandScreen.kt:147:51 Unresolved reference 'lightBgHex'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostBrandScreen.kt:162:87 Unresolved reference 'darkBg'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostBrandScreen.kt:163:87 Unresolved reference 'accent'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostBrandScreen.kt:167:35 Unresolved reference 'name'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:96:45 Cannot access 'fun JSONObject.text(key: String): String': it is private in file.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:164:9 Functions which invoke @Composable functions must be marked with the @Composable annotation
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:183:21 @Composable invocations can only happen from the context of a @Composable function
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:183:21 Function invocation 'PostTheme(...)' expected.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:183:31 Unresolved reference 'alpha'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:184:21 @Composable invocations can only happen from the context of a @Composable function
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:184:21 Function invocation 'PostTheme(...)' expected.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:184:31 Unresolved reference 'alpha'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:195:9 Functions which invoke @Composable functions must be marked with the @Composable annotation
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:210:21 @Composable invocations can only happen from the context of a @Composable function
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:210:21 Function invocation 'PostTheme(...)' expected.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:210:31 Unresolved reference 'alpha'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:211:57 @Composable invocations can only happen from the context of a @Composable function
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:211:57 Function invocation 'PostTheme(...)' expected.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:211:67 Unresolved reference 'alpha'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:217:21 @Composable invocations can only happen from the context of a @Composable function
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:217:21 Function invocation 'PostTheme(...)' expected.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:217:31 Unresolved reference 'alpha'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:225:9 Functions which invoke @Composable functions must be marked with the @Composable annotation
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:235:25 @Composable invocations can only happen from the context of a @Composable function
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:235:25 Function invocation 'PostTheme(...)' expected.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:235:35 Unresolved reference 'darken'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:236:27 @Composable invocations can only happen from the context of a @Composable function
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:236:27 Function invocation 'PostTheme(...)' expected.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:236:37 Unresolved reference 'darken'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:237:30 @Composable invocations can only happen from the context of a @Composable function
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:237:30 Function invocation 'PostTheme(...)' expected.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:237:40 Unresolved reference 'lighten'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:266:17 @Composable invocations can only happen from the context of a @Composable function
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:266:17 Function invocation 'PostTheme(...)' expected.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:266:27 Unresolved reference 'lighten'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:267:17 @Composable invocations can only happen from the context of a @Composable function
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:267:17 Function invocation 'PostTheme(...)' expected.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:267:27 Unresolved reference 'darken'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:281:17 @Composable invocations can only happen from the context of a @Composable function
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:281:17 Function invocation 'PostTheme(...)' expected.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:281:27 Unresolved reference 'alpha'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:282:17 @Composable invocations can only happen from the context of a @Composable function
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:282:17 Function invocation 'PostTheme(...)' expected.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:282:27 Unresolved reference 'alpha'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:289:9 Functions which invoke @Composable functions must be marked with the @Composable annotation
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:315:21 @Composable invocations can only happen from the context of a @Composable function
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:315:21 Function invocation 'PostTheme(...)' expected.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:315:31 Unresolved reference 'alpha'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:316:21 @Composable invocations can only happen from the context of a @Composable function
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:316:21 Function invocation 'PostTheme(...)' expected.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:316:31 Unresolved reference 'alpha'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:317:21 @Composable invocations can only happen from the context of a @Composable function
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:317:21 Function invocation 'PostTheme(...)' expected.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:317:31 Unresolved reference 'alpha'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:331:9 Functions which invoke @Composable functions must be marked with the @Composable annotation
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:345:17 @Composable invocations can only happen from the context of a @Composable function
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:345:17 Function invocation 'PostTheme(...)' expected.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:345:27 Unresolved reference 'alpha'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:358:17 @Composable invocations can only happen from the context of a @Composable function
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:358:17 Function invocation 'PostTheme(...)' expected.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:358:27 Unresolved reference 'alpha'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:366:9 Functions which invoke @Composable functions must be marked with the @Composable annotation
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:390:21 @Composable invocations can only happen from the context of a @Composable function
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:390:21 Function invocation 'PostTheme(...)' expected.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:390:31 Unresolved reference 'alpha'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:391:21 @Composable invocations can only happen from the context of a @Composable function
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:391:21 Function invocation 'PostTheme(...)' expected.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:391:31 Unresolved reference 'alpha'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:401:9 Functions which invoke @Composable functions must be marked with the @Composable annotation
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:429:17 @Composable invocations can only happen from the context of a @Composable function
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:429:17 Function invocation 'PostTheme(...)' expected.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:429:27 Unresolved reference 'alpha'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:454:17 @Composable invocations can only happen from the context of a @Composable function
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:454:17 Function invocation 'PostTheme(...)' expected.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:454:27 Unresolved reference 'lighten'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:455:17 @Composable invocations can only happen from the context of a @Composable function
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:455:17 Function invocation 'PostTheme(...)' expected.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:455:27 Unresolved reference 'mix'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:462:9 Functions which invoke @Composable functions must be marked with the @Composable annotation
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:482:29 @Composable invocations can only happen from the context of a @Composable function
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:482:29 Function invocation 'PostTheme(...)' expected.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:482:39 Unresolved reference 'alpha'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:498:25 @Composable invocations can only happen from the context of a @Composable function
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:498:25 Function invocation 'PostTheme(...)' expected.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:498:35 Unresolved reference 'alpha'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:498:41 @Composable invocations can only happen from the context of a @Composable function
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:498:41 Function invocation 'PostTheme(...)' expected.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:498:51 Unresolved reference 'lighten'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:499:25 @Composable invocations can only happen from the context of a @Composable function
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:499:25 Function invocation 'PostTheme(...)' expected.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:499:35 Unresolved reference 'alpha'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:516:25 @Composable invocations can only happen from the context of a @Composable function
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:516:25 Function invocation 'PostTheme(...)' expected.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:516:35 Unresolved reference 'alpha'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:565:9 Functions which invoke @Composable functions must be marked with the @Composable annotation
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:593:25 @Composable invocations can only happen from the context of a @Composable function
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:593:25 Function invocation 'PostTheme(...)' expected.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:593:35 Unresolved reference 'lighten'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:664:35 @Composable invocations can only happen from the context of a @Composable function
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:664:35 Function invocation 'PostTheme(...)' expected.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:664:45 Unresolved reference 'lighten'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:693:17 @Composable invocations can only happen from the context of a @Composable function
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:693:17 Function invocation 'PostTheme(...)' expected.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:693:27 Unresolved reference 'darken'.
+e: file:///home/runner/work/Wisdom-tower-post-maker-app/Wisdom-tower-post-maker-app/app/src/main/java/com/wisdomtower/post/PostDepth.kt:819:17 Functions which invoke @Composable functions must be marked with the @Composable annotation
+e: file:///home/runner/work/Wisdom-tower-

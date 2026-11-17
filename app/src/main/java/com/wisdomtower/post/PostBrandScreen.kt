@@ -159,8 +159,8 @@ internal fun GlobalThemeSwatchBar(
                             .border(1.dp, PostPalette.Line, CircleShape)
                     ) {
                         Row(Modifier.fillMaxSize()) {
-                            Box(Modifier.weight(1f).fillMaxSize().background(Color(gt.darkBg)))
-                            Box(Modifier.weight(1f).fillMaxSize().background(Color(gt.accent)))
+                            Box(Modifier.weight(1f).fillMaxSize().background(gt.darkBgColor))
+                            Box(Modifier.weight(1f).fillMaxSize().background(gt.accentColor))
                         }
                     }
                     Text(

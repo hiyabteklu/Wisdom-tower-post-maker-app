@@ -16,8 +16,13 @@ import kotlin.math.min
 import kotlin.math.sin
 
 object PostSafeArea {
+    const val STORY_SAFE_LEFT = 0.09f
+    const val STORY_SAFE_TOP = 0.13f
+    const val STORY_SAFE_RIGHT = 0.91f
+    const val STORY_SAFE_BOTTOM = 0.79f
+
     fun safeRect(size: PostSize): RectF = when (size) {
-        PostSize.STORY -> RectF(0.09f, 0.13f, 0.91f, 0.79f)
+        PostSize.STORY -> RectF(STORY_SAFE_LEFT, STORY_SAFE_TOP, STORY_SAFE_RIGHT, STORY_SAFE_BOTTOM)
         PostSize.LANDSCAPE -> RectF(0.05f, 0.05f, 0.95f, 0.95f)
         PostSize.WIDE -> RectF(0.05f, 0.05f, 0.95f, 0.95f)
     }
@@ -93,7 +98,7 @@ object PostSafeArea {
 
         for (slot in layout.slots) {
             if (slot.drawnByDecor) continue
-            val text = slot.literal ?: doc?.text(slot.slot).orEmpty()
+            val text = slot.literal ?: doc?.texts?.get(slot.slot)?.trim().orEmpty()
             if (doc != null && text.isBlank()) continue
             include(slot.x, slot.y, slot.w, slot.h)
         }
@@ -143,8 +148,10 @@ object PostSafeArea {
         return matrix
     }
 
-    fun isWithinStorySafeArea(spec: PostTemplateSpec): Boolean {
-        val layout = spec.layout(PostSize.STORY)
+    fun isWithinStorySafeArea(spec: PostTemplateSpec): Boolean =
+        isWithinStorySafeArea(spec.layout(PostSize.STORY))
+
+    fun isWithinStorySafeArea(layout: TemplateLayout): Boolean {
         if (layout.safeFit) return true
         val bounds = computeHeroBounds(layout, null) ?: return true
         val safe = safeRect(PostSize.STORY)
@@ -156,6 +163,42 @@ object PostSafeArea {
 }
 
 object PostDepth {
+    fun alpha(color: Int, factor: Float): Int {
+        val a = (factor.coerceIn(0f, 1f) * 255f).toInt().coerceIn(0, 255)
+        return Color.argb(a, Color.red(color), Color.green(color), Color.blue(color))
+    }
+
+    fun darken(color: Int, amount: Float): Int {
+        val f = (1f - amount.coerceIn(0f, 1f))
+        return Color.argb(
+            Color.alpha(color),
+            (Color.red(color) * f).toInt().coerceIn(0, 255),
+            (Color.green(color) * f).toInt().coerceIn(0, 255),
+            (Color.blue(color) * f).toInt().coerceIn(0, 255)
+        )
+    }
+
+    fun lighten(color: Int, amount: Float): Int {
+        val f = amount.coerceIn(0f, 1f)
+        return Color.argb(
+            Color.alpha(color),
+            (Color.red(color) + (255 - Color.red(color)) * f).toInt().coerceIn(0, 255),
+            (Color.green(color) + (255 - Color.green(color)) * f).toInt().coerceIn(0, 255),
+            (Color.blue(color) + (255 - Color.blue(color)) * f).toInt().coerceIn(0, 255)
+        )
+    }
+
+    fun mix(c1: Int, c2: Int, ratio: Float): Int {
+        val t = ratio.coerceIn(0f, 1f)
+        val inv = 1f - t
+        return Color.argb(
+            (Color.alpha(c1) * inv + Color.alpha(c2) * t).toInt().coerceIn(0, 255),
+            (Color.red(c1) * inv + Color.red(c2) * t).toInt().coerceIn(0, 255),
+            (Color.green(c1) * inv + Color.green(c2) * t).toInt().coerceIn(0, 255),
+            (Color.blue(c1) * inv + Color.blue(c2) * t).toInt().coerceIn(0, 255)
+        )
+    }
+
     fun lightVector(angleDeg: Float): Pair<Float, Float> {
         val rad = Math.toRadians(angleDeg.toDouble())
         return Pair((-cos(rad)).toFloat(), (-sin(rad)).toFloat())
@@ -180,8 +223,8 @@ object PostDepth {
                 0f,
                 rx,
                 intArrayOf(
-                    PostTheme.alpha(Color.BLACK, 0.56f * s),
-                    PostTheme.alpha(Color.BLACK, 0.24f * s),
+                    PostDepth.alpha(Color.BLACK, 0.56f * s),
+                    PostDepth.alpha(Color.BLACK, 0.24f * s),
                     Color.TRANSPARENT
                 ),
                 floatArrayOf(0f, 0.48f, 1f),
@@ -207,14 +250,14 @@ object PostDepth {
 
         val penumbra = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.FILL
-            color = PostTheme.alpha(Color.BLACK, 0.22f * s)
-            setShadowLayer(elevationPx * 1.15f, dx, dy, PostTheme.alpha(Color.BLACK, 0.38f * s))
+            color = PostDepth.alpha(Color.BLACK, 0.22f * s)
+            setShadowLayer(elevationPx * 1.15f, dx, dy, PostDepth.alpha(Color.BLACK, 0.38f * s))
         }
         canvas.drawPath(path, penumbra)
 
         val umbra = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.FILL
-            color = PostTheme.alpha(Color.BLACK, 0.30f * s)
+            color = PostDepth.alpha(Color.BLACK, 0.30f * s)
         }
         canvas.save()
         canvas.translate(dx * 0.28f, dy * 0.28f)
@@ -232,9 +275,9 @@ object PostDepth {
     ) {
         if (thicknessPx <= 0.5f) return
         val (vx, vy) = lightVector(lightAngleDeg)
-        val sideColor = PostTheme.darken(baseColor, 0.34f)
-        val bottomColor = PostTheme.darken(baseColor, 0.46f)
-        val highlightColor = PostTheme.lighten(baseColor, 0.32f)
+        val sideColor = PostDepth.darken(baseColor, 0.34f)
+        val bottomColor = PostDepth.darken(baseColor, 0.46f)
+        val highlightColor = PostDepth.lighten(baseColor, 0.32f)
 
         val extrude = RectF(
             rect.left + (-vx * thicknessPx * 0.45f),
@@ -263,8 +306,8 @@ object PostDepth {
                 rect.top,
                 rect.right,
                 rect.bottom,
-                PostTheme.lighten(baseColor, 0.08f),
-                PostTheme.darken(baseColor, 0.06f),
+                PostDepth.lighten(baseColor, 0.08f),
+                PostDepth.darken(baseColor, 0.06f),
                 Shader.TileMode.CLAMP
             )
         }
@@ -278,8 +321,8 @@ object PostDepth {
                 rect.top,
                 rect.right,
                 rect.bottom,
-                PostTheme.alpha(highlightColor, 0.72f),
-                PostTheme.alpha(bottomColor, 0.45f),
+                PostDepth.alpha(highlightColor, 0.72f),
+                PostDepth.alpha(bottomColor, 0.45f),
                 Shader.TileMode.CLAMP
             )
         }
@@ -312,9 +355,9 @@ object PostDepth {
                 y1,
                 intArrayOf(
                     Color.TRANSPARENT,
-                    PostTheme.alpha(Color.WHITE, alpha * 0.35f),
-                    PostTheme.alpha(Color.WHITE, alpha),
-                    PostTheme.alpha(Color.WHITE, alpha * 0.25f),
+                    PostDepth.alpha(Color.WHITE, alpha * 0.35f),
+                    PostDepth.alpha(Color.WHITE, alpha),
+                    PostDepth.alpha(Color.WHITE, alpha * 0.25f),
                     Color.TRANSPARENT
                 ),
                 floatArrayOf(0f, 0.38f, 0.48f, 0.58f, 1f),
@@ -342,7 +385,7 @@ object PostDepth {
                 rect.top,
                 rect.left,
                 rect.top + depthPx,
-                PostTheme.alpha(Color.BLACK, 0.42f * s),
+                PostDepth.alpha(Color.BLACK, 0.42f * s),
                 Color.TRANSPARENT,
                 Shader.TileMode.CLAMP
             )
@@ -355,7 +398,7 @@ object PostDepth {
                 rect.top,
                 rect.left + depthPx,
                 rect.top,
-                PostTheme.alpha(Color.BLACK, 0.34f * s),
+                PostDepth.alpha(Color.BLACK, 0.34f * s),
                 Color.TRANSPARENT,
                 Shader.TileMode.CLAMP
             )
@@ -387,8 +430,8 @@ object PostDepth {
                 x1,
                 y1,
                 intArrayOf(
-                    PostTheme.alpha(color, alpha),
-                    PostTheme.alpha(color, alpha * 0.25f),
+                    PostDepth.alpha(color, alpha),
+                    PostDepth.alpha(color, alpha * 0.25f),
                     Color.TRANSPARENT
                 ),
                 floatArrayOf(0f, 0.45f, 1f),
@@ -426,7 +469,7 @@ object PostDepth {
                 cornerRect.top,
                 cornerRect.right,
                 cornerRect.bottom,
-                PostTheme.alpha(Color.BLACK, 0.35f),
+                PostDepth.alpha(Color.BLACK, 0.35f),
                 Color.TRANSPARENT,
                 Shader.TileMode.CLAMP
             )
@@ -451,8 +494,8 @@ object PostDepth {
                 cornerRect.top,
                 cornerRect.right,
                 cornerRect.bottom,
-                PostTheme.lighten(paperColor, 0.14f),
-                PostTheme.mix(paperColor, accentColor, 0.22f),
+                PostDepth.lighten(paperColor, 0.14f),
+                PostDepth.mix(paperColor, accentColor, 0.22f),
                 Shader.TileMode.CLAMP
             )
         }
@@ -479,7 +522,7 @@ object PostDepth {
             canvas.drawRect(
                 bounds,
                 Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    color = PostTheme.alpha(tintColor, tintAlpha)
+                    color = PostDepth.alpha(tintColor, tintAlpha)
                 }
             )
         }
@@ -495,8 +538,8 @@ object PostDepth {
                     spillCy,
                     spillRadius,
                     intArrayOf(
-                        PostTheme.alpha(PostTheme.lighten(accentColor, 0.28f), 0.32f),
-                        PostTheme.alpha(accentColor, 0.10f),
+                        PostDepth.alpha(PostDepth.lighten(accentColor, 0.28f), 0.32f),
+                        PostDepth.alpha(accentColor, 0.10f),
                         Color.TRANSPARENT
                     ),
                     floatArrayOf(0f, 0.5f, 1f),
@@ -513,7 +556,7 @@ object PostDepth {
             val rimShadow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 style = Paint.Style.STROKE
                 strokeWidth = max(4f, depth * 0.35f)
-                color = PostTheme.alpha(Color.BLACK, 0.42f * s)
+                color = PostDepth.alpha(Color.BLACK, 0.42f * s)
             }
             canvas.drawPath(clipPath, rimShadow)
         }
@@ -590,7 +633,7 @@ object PostScenery {
         }
 
         val skinBase = Color.rgb(214, 158, 118)
-        val skinLight = PostTheme.lighten(skinBase, 0.18f)
+        val skinLight = PostDepth.lighten(skinBase, 0.18f)
         val hairColor = Color.rgb(26, 24, 30)
 
         fun limbPaint(color: Int, width: Float): Paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -661,7 +704,7 @@ object PostScenery {
         PostDepth.bevel(canvas, torsoRect, u * 0.10f, u * 0.035f, hoodieColor, lightAngleDeg)
 
         // Arms
-        val armStroke = limbPaint(PostTheme.lighten(hoodieColor, 0.06f), u * 0.082f)
+        val armStroke = limbPaint(PostDepth.lighten(hoodieColor, 0.06f), u * 0.082f)
         when (pose) {
             StudentPose.HANG -> {
                 canvas.drawLine(torsoRect.left + u * 0.03f, torsoRect.top + u * 0.04f, cx - u * 0.10f, rect.top + u * 0.05f, armStroke)
@@ -690,7 +733,7 @@ object PostScenery {
                 headCy - headR * 0.3f,
                 headR * 1.35f,
                 skinLight,
-                PostTheme.darken(skinBase, 0.22f),
+                PostDepth.darken(skinBase, 0.22f),
                 Shader.TileMode.CLAMP
             )
         }
@@ -842,7 +885,7 @@ object PostScenery {
                     baseWell.centerX(),
                     baseWell.centerY(),
                     baseWell.width() * 0.55f,
-                    PostTheme.alpha(accent, 0.52f),
+                    PostDepth.alpha(accent, 0.52f),
                     Color.TRANSPARENT,
                     Shader.TileMode.CLAMP
                 )
@@ -858,7 +901,7 @@ object PostScenery {
             )
             canvas.save()
             canvas.rotate(-11f, capRect.centerX(), capRect.centerY())
-            PostDepth.bevel(canvas, capRect, u * 0.06f, u * 0.055f * depthScale, PostTheme.lighten(secondary, 0.15f), lightAngle)
+            PostDepth.bevel(canvas, capRect, u * 0.06f, u * 0.055f * depthScale, PostDepth.lighten(secondary, 0.15f), lightAngle)
             PostDepth.specularStrip(canvas, capRect, u * 0.06f, lightAngle, 0.22f)
             canvas.restore()
 
@@ -897,7 +940,7 @@ object PostScenery {
             val ripplePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 style = Paint.Style.STROKE
                 strokeWidth = max(2f, u * 0.008f)
-                color = PostTheme.alpha(Color.WHITE, 0.55f)
+                color = PostDepth.alpha(Color.WHITE, 0.55f)
             }
             for (i in 1..3) {
                 val rx = u * (0.08f * i)
@@ -949,8 +992,8 @@ object PostScenery {
                         rect.top,
                         rect.centerX(),
                         rect.bottom,
-                        PostTheme.lighten(accent, 0.10f),
-                        PostTheme.darken(accent, 0.28f),
+                        PostDepth.lighten(accent, 0.10f),
+                        PostDepth.darken(accent, 0.28f),
                         Shader.TileMode.CLAMP
                     )
                 }
@@ -971,7 +1014,7 @@ object PostScenery {
                         rect.bottom - rect.height() * 0.18f,
                         rect.centerX(),
                         rect.bottom,
-                        PostTheme.alpha(accent, 0.42f),
+                        PostDepth.alpha(accent, 0.42f),
                         Color.TRANSPARENT,
                         Shader.TileMode.CLAMP
                     )
@@ -1005,7 +1048,7 @@ object PostScenery {
             val grainPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 style = Paint.Style.STROKE
                 strokeWidth = max(1.5f, u * 0.004f)
-                color = PostTheme.alpha(ink, 0.07f)
+                color = PostDepth.alpha(ink, 0.07f)
             }
             for (i in 1..7) {
                 val y = rect.top + rect.height() * (i / 8f)
@@ -1032,9 +1075,9 @@ object PostScenery {
 
             // Sticky note
             val stickyRect = RectF(rect.right - u * 0.34f, rect.bottom - u * 0.32f, rect.right - u * 0.08f, rect.bottom - u * 0.08f)
-            PostDepth.bevel(canvas, stickyRect, u * 0.015f, u * 0.018f * depthScale, PostTheme.lighten(accent, 0.25f), lightAngle)
+            PostDepth.bevel(canvas, stickyRect, u * 0.015f, u * 0.018f * depthScale, PostDepth.lighten(accent, 0.25f), lightAngle)
             val curlBox = RectF(stickyRect.right - u * 0.07f, stickyRect.bottom - u * 0.07f, stickyRect.right, stickyRect.bottom)
-            PostDepth.paperCurl(canvas, curlBox, PostTheme.lighten(accent, 0.25f), secondary, accent)
+            PostDepth.paperCurl(canvas, curlBox, PostDepth.lighten(accent, 0.25f), secondary, accent)
         }
     }
 
@@ -1054,7 +1097,7 @@ object PostScenery {
                     rect.centerX(),
                     rect.centerY(),
                     u * 0.56f,
-                    PostTheme.alpha(accent, 0.38f),
+                    PostDepth.alpha(accent, 0.38f),
                     Color.TRANSPARENT,
                     Shader.TileMode.CLAMP
                 )
@@ -1064,7 +1107,7 @@ object PostScenery {
             val profilePath = faceSilhouetteClip(rect)
             PostDepth.rimLight(canvas, profilePath, rect, lightAngle, accent, max(3f, u * 0.010f), 0.85f)
             // Floating light motes around forehead/mind
-            val motePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = PostTheme.alpha(PostTheme.lighten(accent, 0.35f), 0.78f) }
+            val motePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = PostDepth.alpha(PostDepth.lighten(accent, 0.35f), 0.78f) }
             val spots = arrayOf(
                 0.78f to 0.18f,
                 0.86f to 0.28f,
@@ -1128,7 +1171,7 @@ object PostScenery {
                 rect.right - rect.width() * 0.14f,
                 rect.bottom - rect.height() * 0.11f
             )
-            PostDepth.bevel(canvas, bridgeRect, u * 0.02f, u * 0.025f * depthScale, PostTheme.lighten(accent, 0.12f), lightAngle)
+            PostDepth.bevel(canvas, bridgeRect, u * 0.02f, u * 0.025f * depthScale, PostDepth.lighten(accent, 0.12f), lightAngle)
             val studentRect = RectF(
                 bridgeRect.centerX() - u * 0.10f,
                 bridgeRect.top - u * 0.22f,
@@ -1166,7 +1209,7 @@ object PostScenery {
             val dashPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 style = Paint.Style.STROKE
                 strokeWidth = max(3f, u * 0.012f)
-                color = PostTheme.lighten(accent, 0.32f)
+                color = PostDepth.lighten(accent, 0.32f)
                 pathEffect = android.graphics.DashPathEffect(floatArrayOf(u * 0.025f, u * 0.018f), 0f)
             }
             canvas.drawPath(portalPath, dashPaint)
@@ -1197,7 +1240,7 @@ object PostScenery {
             val tickPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 style = Paint.Style.STROKE
                 strokeWidth = max(2f, u * 0.008f)
-                color = PostTheme.alpha(ink, 0.65f)
+                color = PostDepth.alpha(ink, 0.65f)
             }
             for (i in 0 until 12) {
                 val a = Math.toRadians((i * 30).toDouble())
@@ -1250,7 +1293,7 @@ object PostScenery {
                 val dy = i * u * 0.03f
                 val lSheet = RectF(leftCliff.left, leftCliff.top + dy, leftCliff.right - i * u * 0.015f, leftCliff.bottom)
                 val rSheet = RectF(rightCliff.left + i * u * 0.015f, rightCliff.top + dy, rightCliff.right, rightCliff.bottom)
-                val c = if (i % 2 == 0) Color.rgb(246, 242, 232) else PostTheme.lighten(secondary, 0.55f)
+                val c = if (i % 2 == 0) Color.rgb(246, 242, 232) else PostDepth.lighten(secondary, 0.55f)
                 PostDepth.bevel(canvas, lSheet, u * 0.02f, u * 0.02f * depthScale, c, lightAngle)
                 PostDepth.bevel(canvas, rSheet, u * 0.02f, u * 0.02f * depthScale, c, lightAngle)
             }
@@ -1301,7 +1344,7 @@ object PostScenery {
                     rect.top + rect.height() * 0.22f,
                     cx,
                     rect.bottom,
-                    PostTheme.alpha(accent, 0.55f),
+                    PostDepth.alpha(accent, 0.55f),
                     Color.TRANSPARENT,
                     Shader.TileMode.CLAMP
                 )
@@ -1320,7 +1363,7 @@ object PostScenery {
                 close()
             }
             PostDepth.castShadow(canvas, diamond, lightAngle, u * 0.04f * depthScale, shadowStrength)
-            canvas.drawPath(diamond, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = PostTheme.darken(secondary, 0.25f) })
+            canvas.drawPath(diamond, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = PostDepth.darken(secondary, 0.25f) })
             PostDepth.rimLight(canvas, diamond, RectF(cx - capW, capCy - capH, cx + capW, capCy + capH), lightAngle, accent, 3f, 0.8f)
 
             // Gold tassel

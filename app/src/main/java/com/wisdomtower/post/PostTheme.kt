@@ -60,7 +60,25 @@ data class PostGlobalTheme(
     val text: String,
     val notesInk: String,
     val notesPaper: String
-)
+) {
+    val accentHex: String get() = accent
+    val secondaryHex: String get() = secondary
+    val darkBgHex: String get() = dark
+    val lightBgHex: String get() = light
+
+    val accentInt: Int get() = android.graphics.Color.parseColor(accent)
+    val secondaryInt: Int get() = android.graphics.Color.parseColor(secondary)
+    val textOnDarkInt: Int get() = android.graphics.Color.parseColor(text)
+    val bgDarkStartInt: Int get() = android.graphics.Color.parseColor(dark)
+    val bgDarkEndInt: Int get() = android.graphics.Color.parseColor(deep)
+    val bgLightInt: Int get() = android.graphics.Color.parseColor(soft)
+    val surfaceLightInt: Int get() = android.graphics.Color.parseColor(paper)
+    val textOnLightInt: Int get() = android.graphics.Color.parseColor(notesInk)
+    val notesInkInt: Int get() = android.graphics.Color.parseColor(notesInk)
+
+    val darkBgColor: Color get() = Color(bgDarkStartInt)
+    val accentColor: Color get() = Color(accentInt)
+}
 
 object PostThemes {
     const val TEMPLATE_DEFAULT_ID = "template-default"
@@ -170,6 +188,8 @@ object PostThemes {
             notesPaper = "#FDF7F2"
         )
     )
+
+    val all: List<PostGlobalTheme> get() = presets
 
     fun byId(id: String?): PostGlobalTheme? {
         if (id.isNullOrBlank() || id == TEMPLATE_DEFAULT_ID) return null

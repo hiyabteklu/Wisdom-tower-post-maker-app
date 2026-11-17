@@ -470,37 +470,37 @@ object PostRenderer {
 
         val accent = when {
             doc.manualAccent && !doc.accentHex.isNullOrBlank() -> parseColor(doc.accentHex)
-            globalTheme != null -> globalTheme.accent
+            globalTheme != null -> globalTheme.accentInt
             !doc.accentHex.isNullOrBlank() -> parseColor(doc.accentHex)
             chosenLook?.accentHex != null -> parseColor(chosenLook.accentHex)
             else -> parseColor(brand.primaryHex)
         } ?: Color.parseColor("#F59E0B")
 
-        val secondary = globalTheme?.secondary
+        val secondary = globalTheme?.secondaryInt
             ?: parseColor(brand.secondaryHex)
             ?: Color.parseColor("#FFD54A")
 
-        val light = globalTheme?.textOnDark
+        val light = globalTheme?.textOnDarkInt
             ?: parseColor(brand.lightHex)
             ?: Color.WHITE
 
-        val dark = globalTheme?.bgDarkStart
+        val dark = globalTheme?.bgDarkStartInt
             ?: (if (!doc.manualAccent && globalTheme == null && chosenLook?.bgHex != null && base == PostBase.DARK) parseColor(chosenLook.bgHex) else null)
             ?: parseColor(brand.darkHex)
             ?: Color.parseColor("#060B14")
 
-        val deep = globalTheme?.bgDarkEnd ?: blend(dark, accent, 0.24f)
+        val deep = globalTheme?.bgDarkEndInt ?: blend(dark, accent, 0.24f)
         val glow = blend(accent, Color.WHITE, 0.32f)
         val tint = blend(light, accent, 0.18f)
-        val soft = globalTheme?.bgLight
+        val soft = globalTheme?.bgLightInt
             ?: (if (!doc.manualAccent && globalTheme == null && chosenLook?.bgHex != null && base == PostBase.LIGHT) parseColor(chosenLook.bgHex) else null)
             ?: Color.parseColor("#F5F2EA")
-        val paper = globalTheme?.surfaceLight ?: Color.parseColor("#FBF9F3")
+        val paper = globalTheme?.surfaceLightInt ?: Color.parseColor("#FBF9F3")
         val page = if (base == PostBase.LIGHT) soft else dark
-        val defaultText = if (base == PostBase.LIGHT) (globalTheme?.textOnLight ?: dark) else light
+        val defaultText = if (base == PostBase.LIGHT) (globalTheme?.textOnLightInt ?: dark) else light
         val text = parseColor(doc.textHex) ?: defaultText
         val muted = blend(text, page, 0.36f)
-        val blue = globalTheme?.secondary ?: Color.rgb(23, 107, 206)
+        val blue = globalTheme?.secondaryInt ?: Color.rgb(23, 107, 206)
         val red = Color.rgb(209, 26, 38)
         return TonePalette(
             accent = accent,

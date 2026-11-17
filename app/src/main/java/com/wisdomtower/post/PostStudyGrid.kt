@@ -112,7 +112,7 @@ internal object PostStudyGrid {
     }
 
     /** What makes one of the six variants different: marker color, default row style, title size in cells and body size. */
-    private class Look(val marker: Int, val list: ListStyle, val headCells: Int, val headScale: Float, val bodyScale: Float)
+    private data class Look(val marker: Int, val list: ListStyle, val headCells: Int, val headScale: Float, val bodyScale: Float)
 
     private fun lookFor(id: String): Look = when (id) {
         "study-cover" -> Look(RED, ListStyle.NONE, 3, 1.9f, 0.72f)
@@ -352,7 +352,7 @@ internal object PostStudyGrid {
 
         /** The post's Text color, if one was picked. It colors the body and the headings. */
         val userInk: Int? = parseColor(doc.textHex)
-        val bodyInk: Int = userInk ?: tone(activeTheme?.notesInk ?: INK)
+        val bodyInk: Int = userInk ?: tone(activeTheme?.notesInkInt ?: INK)
         var cell = 0
         val overflow = LinkedHashSet<String>()
 
@@ -800,17 +800,13 @@ internal object PostStudyGrid {
         val activeTheme = if (!doc.themeLock) PostThemes.byId(brand.globalThemeId) else null
         val baseLook = lookFor(doc.templateId)
         val look = if (activeTheme != null) {
-            baseLook.copy(
-                marker = activeTheme.accent,
-                card = Color.argb(36, Color.red(activeTheme.accent), Color.green(activeTheme.accent), Color.blue(activeTheme.accent)),
-                border = activeTheme.accent
-            )
+            baseLook.copy(marker = activeTheme.accentInt)
         } else {
             baseLook
         }
-        val headMain = activeTheme?.notesInk ?: NAVY
-        val headSub = activeTheme?.secondary ?: BLUE
-        val headRule = activeTheme?.accent ?: RED
+        val headMain = activeTheme?.notesInkInt ?: NAVY
+        val headSub = activeTheme?.secondaryInt ?: BLUE
+        val headRule = activeTheme?.accentInt ?: RED
         val page = Page(context, canvas, doc, w, h, look, if (doc.showFooter) LAST_CELL - 1 else LAST_CELL, fitScale, brand)
 
         fun text(slot: String): String =
@@ -937,7 +933,7 @@ internal object PostStudyGrid {
             page.heading(PostSlots.HEADLINE, headline, look.headScale, headMain, look.headCells, 0.08f, headRule)
         }
         if (acronym.isNotEmpty()) {
-            page.heading(PostSlots.NUMBER, acronym, 1.45f, activeTheme?.secondary ?: PURPLE, 2, 0f)
+            page.heading(PostSlots.NUMBER, acronym, 1.45f, activeTheme?.secondaryInt ?: PURPLE, 2, 0f)
         }
 
         flow(PostSlots.BODY, text(PostSlots.BODY), ListStyle.NONE)

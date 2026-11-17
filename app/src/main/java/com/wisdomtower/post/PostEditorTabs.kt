@@ -616,37 +616,41 @@ internal fun EditorTabs(
                         }
 
                         PostSmallLabel("3D Scene blend & lighting")
+                        val shadowPct = (doc.sceneShadowStrength * 100f).roundToInt().coerceIn(0, 100)
+                        val lightDeg = doc.sceneLightAngle.roundToInt().coerceIn(0, 360)
+                        val warmthVal = ((doc.sceneWarmth - 0.5f) * 100f).roundToInt().coerceIn(-50, 50)
+                        val depthPct = (doc.sceneDepth * 100f).roundToInt().coerceIn(0, 100)
                         PostLabeledSlider(
                             label = "Shadow",
-                            value = doc.sceneShadowStrength.toFloat(),
+                            value = shadowPct.toFloat(),
                             range = 0f..100f,
-                            display = "${doc.sceneShadowStrength}%"
+                            display = "$shadowPct%"
                         ) { v ->
-                            onDoc(doc.copy(sceneShadowStrength = v.roundToInt().coerceIn(0, 100)))
+                            onDoc(doc.copy(sceneShadowStrength = (v / 100f).coerceIn(0f, 1f)))
                         }
                         PostLabeledSlider(
                             label = "Light angle",
-                            value = doc.sceneLightAngle.toFloat(),
+                            value = lightDeg.toFloat(),
                             range = 0f..360f,
-                            display = "${doc.sceneLightAngle}°"
+                            display = "$lightDeg°"
                         ) { v ->
-                            onDoc(doc.copy(sceneLightAngle = v.roundToInt().coerceIn(0, 360)))
+                            onDoc(doc.copy(sceneLightAngle = v.coerceIn(0f, 360f)))
                         }
                         PostLabeledSlider(
                             label = "Warmth",
-                            value = doc.sceneWarmth.toFloat(),
+                            value = warmthVal.toFloat(),
                             range = -50f..50f,
-                            display = if (doc.sceneWarmth >= 0) "+${doc.sceneWarmth}" else "${doc.sceneWarmth}"
+                            display = if (warmthVal >= 0) "+$warmthVal" else "$warmthVal"
                         ) { v ->
-                            onDoc(doc.copy(sceneWarmth = v.roundToInt().coerceIn(-50, 50)))
+                            onDoc(doc.copy(sceneWarmth = ((v / 100f) + 0.5f).coerceIn(0f, 1f)))
                         }
                         PostLabeledSlider(
                             label = "Depth",
-                            value = doc.sceneDepth.toFloat(),
+                            value = depthPct.toFloat(),
                             range = 0f..100f,
-                            display = "${doc.sceneDepth}%"
+                            display = "$depthPct%"
                         ) { v ->
-                            onDoc(doc.copy(sceneDepth = v.roundToInt().coerceIn(0, 100)))
+                            onDoc(doc.copy(sceneDepth = (v / 100f).coerceIn(0f, 1f)))
                         }
                     }
 
@@ -948,7 +952,7 @@ internal fun EditorTabs(
                                     val adj = doc.slotAdjust(slotIdx)
                                     val slotThumb by produceState<Bitmap?>(null, uri) {
                                         value = if (uri.isNullOrBlank()) null else withContext(Dispatchers.IO) {
-                                            PostStore.loadBitmap(context, uri, 160)
+                                            PostImageCache.get(context, uri, 160)
                                         }
                                     }
                                     Column(

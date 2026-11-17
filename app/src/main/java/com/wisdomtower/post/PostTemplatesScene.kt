@@ -597,7 +597,7 @@ internal val SceneTemplates: List<PostTemplateSpec> = listOf(
                 ),
                 slots = listOf(
                     SlotBox(PostSlots.EYEBROW, 0.12f, 0.14f, 0.76f, 0.04f, 22f, PostFont.BOLD, PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.14f),
-                    SlotBox(PostSlots.WORD, 0.20f, 0.20f, 0.60f, 0.08f, 28f, PostFont.DISPLAY, PostTone.ACCENT, centered = true, caps = true, fx = TextFx.ARC),
+                    SlotBox(PostSlots.WORD, 0.20f, 0.20f, 0.60f, 0.08f, 28f, PostFont.DISPLAY, PostTone.ACCENT, centered = true, caps = true, fx = TextFx.CURVE_ARC),
                     SlotBox(PostSlots.HEADLINE, 0.12f, 0.66f, 0.76f, 0.08f, 46f, PostFont.DISPLAY, PostTone.TEXT, centered = true, fit = FitMode.FILL, shadow = TextShadow(65, ShadowMode.SOFT)),
                     SlotBox(PostSlots.BODY, 0.14f, 0.75f, 0.72f, 0.04f, 24f, PostFont.REGULAR, PostTone.MUTED, centered = true, fit = FitMode.FILL)
                 )
@@ -611,7 +611,7 @@ internal val SceneTemplates: List<PostTemplateSpec> = listOf(
                 ),
                 slots = listOf(
                     SlotBox(PostSlots.EYEBROW, 0.10f, 0.05f, 0.80f, 0.04f, 22f, PostFont.BOLD, PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.14f),
-                    SlotBox(PostSlots.WORD, 0.24f, 0.12f, 0.52f, 0.10f, 32f, PostFont.DISPLAY, PostTone.ACCENT, centered = true, caps = true, fx = TextFx.ARC),
+                    SlotBox(PostSlots.WORD, 0.24f, 0.12f, 0.52f, 0.10f, 32f, PostFont.DISPLAY, PostTone.ACCENT, centered = true, caps = true, fx = TextFx.CURVE_ARC),
                     SlotBox(PostSlots.HEADLINE, 0.08f, 0.74f, 0.84f, 0.13f, 52f, PostFont.DISPLAY, PostTone.TEXT, centered = true, fit = FitMode.FILL, shadow = TextShadow(65, ShadowMode.SOFT)),
                     SlotBox(PostSlots.BODY, 0.14f, 0.89f, 0.72f, 0.05f, 24f, PostFont.REGULAR, PostTone.MUTED, centered = true, fit = FitMode.FILL)
                 )
@@ -625,7 +625,7 @@ internal val SceneTemplates: List<PostTemplateSpec> = listOf(
                 ),
                 slots = listOf(
                     SlotBox(PostSlots.EYEBROW, 0.06f, 0.18f, 0.36f, 0.05f, 22f, PostFont.BOLD, PostTone.ACCENT, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.14f),
-                    SlotBox(PostSlots.WORD, 0.52f, 0.10f, 0.34f, 0.10f, 30f, PostFont.DISPLAY, PostTone.ACCENT, centered = true, caps = true, fx = TextFx.ARC),
+                    SlotBox(PostSlots.WORD, 0.52f, 0.10f, 0.34f, 0.10f, 30f, PostFont.DISPLAY, PostTone.ACCENT, centered = true, caps = true, fx = TextFx.CURVE_ARC),
                     SlotBox(PostSlots.HEADLINE, 0.06f, 0.28f, 0.36f, 0.36f, 56f, PostFont.DISPLAY, PostTone.TEXT, fit = FitMode.FILL, shadow = TextShadow(65, ShadowMode.SOFT)),
                     SlotBox(PostSlots.BODY, 0.06f, 0.68f, 0.36f, 0.16f, 26f, PostFont.REGULAR, PostTone.MUTED, fit = FitMode.FILL)
                 )

@@ -28,12 +28,12 @@ This is the current operating contract for every AI agent/automation creating Wi
 - `level`: one level only.
 - `pillar`: **one of the 8 exact pillar names from Brand Kit `rules/PLAYBOOK.md`**: Academic Mastery, Study Systems, Commercial Offers, Community & Retention, Student Culture & Memes, Skills & Campus Life, Proof & Celebrations, Official Notices. The pillar decides the inbox folder (see below), so do not invent other pillar names.
 - `subfolder`: optional short label inside the folder (for example `Motivation` or `Department guides`). Leave it out and the database uses `level`. Maximum 120 characters.
-- `posts`: JSON array of poster objects using supported slots `eyebrow`, `headline`, `message`, `number`, `list`, `button`. Include all required slots; `list` is an array of strings.
-- `captions`: one caption per post, same order/index.
-- `status`: `draft`.
+- `posts`: JSON array of poster objects using the app-to-backend slot keys `letter`, `word`, `eyebrow`, `headline`, `message` (app BODY), `number`, `list` (array of strings), and `button`. Include every required slot for the chosen template and no unsupported slots. Exact current template IDs, required keys and live limits are in [SUPABASE_TEMPLATE_REGISTRY.md](SUPABASE_TEMPLATE_REGISTRY.md).
+- `captions`: exactly one non-empty caption per post, same order/index (required by `wt-mcp` v7).
+- `status`: `draft` only; `save_batch` cannot approve or publish.
 - `notes`: language and any manual action, e.g. photo required before Make posts.
 
-One poster is one batch with one post and one caption (a deck of related posters may be one batch). One batch uses one template. Maximum 50 posts. The backend stores structured text and captions, not the final poster bitmap.
+One poster is one batch with one post and one caption (a deck of related posters may be one batch). One batch uses one template. Maximum 50 posts. The backend stores structured text and captions, not the final poster bitmap. `device-hero` has no text slots and uses an empty post object; photo/device assets are selected manually in the app.
 
 ## Chapter summaries (handwritten dense notes)
 
@@ -61,7 +61,11 @@ The Poster inbox shows folders, not one long list. Folder list first, then the b
 
 ## Runtime flow
 
-`PostChat.kt` sends POST JSON-RPC requests to `wt-mcp` with `x-wt-key`. The function exposes `save_batch`, `list_batches`, `list_folders`, `set_batch_folder`, `get_batch`, `set_batch_status`, `log_post`, and `list_post_log`. `PostChatInboxScreen.kt` loads the list once (up to 1000 batches, no poster text), builds the folders on the phone, and opens a selected batch. The app fetches the post fields and captions, maps slot names, previews using the selected template and hands the post to the existing Make posts/render/export flow. Captions are available beside the rendered post. Status and publishing log actions use the corresponding backend tools. Inbox list can be cached for offline viewing (folders included); backend fetch requires internet.
+`PostChat.kt` sends POST JSON-RPC requests to `wt-mcp` with `x-wt-key`. The current deployed function is v7; its `save_batch` tool enumerates all 70 current app templates, validates official pillars and requires one caption per post. The function exposes `save_batch`, `list_batches`, `list_folders`, `set_batch_folder`, `get_batch`, `set_batch_status`, `log_post`, and `list_post_log`. `PostChatInboxScreen.kt` loads the list once (up to 1000 batches, no poster text), builds the folders on the phone, and opens a selected batch. The app fetches the post fields and captions, maps slot names, previews using the selected template and hands the post to the existing Make posts/render/export flow. Captions are available beside the rendered post. Status and publishing log actions use the corresponding backend tools. Inbox list can be cached for offline viewing (folders included); backend fetch requires internet.
+
+## Current template registry
+
+The current Android library contains 70 templates across Letter, Type, Photo, Information, Marketing, Chapter summaries, Device mockup and Scene families. The private `wt_post.template_registry` records their display names, families and current/legacy status. `wt_post.template_boxes` contains 250 exact slot definitions for the 69 templates with text; `device-hero` is registered with no text slots. Twenty-seven legacy IDs remain registered for historical compatibility. See [SUPABASE_TEMPLATE_REGISTRY.md](SUPABASE_TEMPLATE_REGISTRY.md) for the exact keys and limits. The separate Brand Kit `rules/TEMPLATES.md` still needs its own editorial catalog refresh for the newest designs; the backend registry does not invent copywriting rules.
 
 ## Security
 

@@ -84,7 +84,14 @@ private fun stSpareSlot(slot: String): SlotBox =
  */
 private fun stPaperLayout(size: PostSize, @Suppress("UNUSED_PARAMETER") decor: List<DecorBox>, slots: List<SlotBox>): TemplateLayout {
     val spare = ST_SLOT_ORDER.filter { name -> slots.none { it.slot == name } }.map { stSpareSlot(it) }
-    return TemplateLayout(PostBase.LIGHT, stPaper(size), slots + spare, footerLight = false, backdrop = ST_BACKDROP)
+    return TemplateLayout(
+        base = PostBase.LIGHT,
+        decor = stPaper(size),
+        slots = slots + spare,
+        footerLight = false,
+        backdrop = ST_BACKDROP,
+        logoAnchor = LogoAnchor.BOTTOM_RIGHT
+    )
 }
 
 internal val StudyTemplates: List<PostTemplateSpec> = listOf(

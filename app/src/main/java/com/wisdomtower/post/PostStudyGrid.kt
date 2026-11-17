@@ -82,7 +82,7 @@ internal object PostStudyGrid {
 
     /** LaTeX that needs two dimensions, so a row that is only such a formula is drawn as a display formula. */
     private val NEEDS_2D = Regex(
-        """\\(?:d?frac|tfrac|cfrac|binom|sqrt|sum|prod|iint|int|oint|lim|left|begin|over(?![A-Za-z])|underbrace|overbrace|overset|underset|substack)"""
+        """\\(?:d?frac|tfrac|cfrac|binom|sqrt|sum|prod|iint|int|oint|lim|left|begin|over(?![A-Za-z])|underbrace|overbrace|overset|underset|substack|xrightarrow|xleftarrow|xrightleftharpoons|rightleftharpoons|ce)"""
     )
 
     /**
@@ -337,7 +337,8 @@ internal object PostStudyGrid {
         val w: Int,
         val h: Int,
         val look: Look,
-        val lastCell: Int
+        val lastCell: Int,
+        val fitScale: Float = 1f
     ) {
         val step: Float = h * (LAST - FIRST) / (RULES - 1)
         val left: Float = w * 0.065f
@@ -358,8 +359,10 @@ internal object PostStudyGrid {
 
         fun tone(c: Int): Int = if (dark) lift(c) else c
 
-        /** The post's overall Text size times this box's own size. */
-        fun scaleOf(slot: String): Float = doc.textScale.coerceIn(0.6f, 1.8f) * (doc.slotStyles[slot]?.scale ?: 1f)
+        /** The post's overall Text size times this box's own size, clamped to the readable minimum floor (0.54 * step). */
+        fun scaleOf(slot: String): Float = doc.textScale.coerceIn(0.6f, 1.8f) * (doc.slotStyles[slot]?.scale ?: 1f) * fitScale
+
+        fun bodyPx(slot: String): Float = max(step * 0.54f, step * look.bodyScale * scaleOf(slot))
 
         fun ruleY(k: Int): Float = h * FIRST + k * step
         fun baseline(c: Int): Float = ruleY(c + 1) - step * LIFT
@@ -373,8 +376,8 @@ internal object PostStudyGrid {
             if (firstLeftOut.isEmpty()) firstLeftOut = plainLabel(raw)
         }
 
-        /** The first cell shares its line with the small logo in the top-right corner, so text there stops before it. */
-        fun room(c: Int, avail: Float): Float = if (c == 0 && doc.showLogo) avail - w * 0.15f else avail
+        /** Full width on every line (including cell 0), because the study sheet logo sits at BOTTOM_RIGHT outside the ruled lines. */
+        fun room(@Suppress("UNUSED_PARAMETER") c: Int, avail: Float): Float = avail
 
         fun paint(bold: Boolean, size: Float, color: Int, slot: String = ""): TextPaint {
             val p = TextPaint(Paint.ANTI_ALIAS_FLAG)
@@ -427,7 +430,7 @@ internal object PostStudyGrid {
             }
             val own = doc.slotStyles[slot]
             val ink = parseColor(own?.colorHex) ?: userInk ?: tone(color)
-            var size = step * scale * scaleOf(slot)
+            var size = step * scale * doc.textScale.coerceIn(0.6f, 1.8f) * (doc.slotStyles[slot]?.scale ?: 1f)
             val text = styled(slot, if (caps) raw.uppercase() else raw, false)
             val avail = room(cell, width)
             val p = paint(true, size, ink, slot)
@@ -469,7 +472,7 @@ internal object PostStudyGrid {
                 miss(slot, raw)
                 return
             }
-            val size = step * look.bodyScale * scaleOf(slot)
+            val size = bodyPx(slot)
             val nest = level * size * 0.9f
             val x0 = left + nest
             val digits = marker.firstOrNull()?.isDigit() == true
@@ -500,7 +503,7 @@ internal object PostStudyGrid {
                 return
             }
             val bar = tone(if (warn) RED else GREEN)
-            val size = step * look.bodyScale * scaleOf(slot)
+            val size = bodyPx(slot)
             val pad = size * 0.55f
             val indent = size * 1.4f
             val avail = room(cell, width) - pad - indent - size * 0.2f
@@ -541,7 +544,7 @@ internal object PostStudyGrid {
                 body = body.substring(bar + 3).trim()
             }
             val green = tone(GREEN)
-            val size = step * look.bodyScale * scaleOf(slot)
+            val size = bodyPx(slot)
             val pad = size * 0.6f
             val avail = room(cell, width) - pad * 2
             val lay = layout(styled(slot, body.ifEmpty { " " }), paint(false, size, bodyInk, slot), avail.toInt())
@@ -569,9 +572,7 @@ internal object PostStudyGrid {
 
         /**
          * A display formula on whole cells (Step B). PostTex typesets the LaTeX; a formula wider than the page is split at its relations
-         * and operators into several lines, and only a single huge block (a big matrix) is scaled down to the width. The block is centred
-         * on the page and vertically in its cells, over a soft panel, so the rules behind it do not cut through the fraction bars.
-         * LaTeX PostTex cannot read is drawn as a one-line inline formula instead, so words are never lost.
+         * and operators into several lines, and only a single huge block (a big matrix) is scaled down to the width.
          */
         fun math(slot: String, latex: String) {
             if (full()) {
@@ -579,7 +580,7 @@ internal object PostStudyGrid {
                 return
             }
             val own = doc.slotStyles[slot]
-            val size = step * look.bodyScale * scaleOf(slot) * 1.18f
+            val size = bodyPx(slot) * 1.16f
             val ink = parseColor(own?.colorHex) ?: tone(FORMULA)
             val usable = room(cell, width)
             val avail = max(usable - size * 0.9f, size * 4f)
@@ -625,10 +626,8 @@ internal object PostStudyGrid {
         }
 
         /**
-         * A real table on whole cells. The first row is the header (tinted, bold). Columns share the width by how long their text is,
-         * long cells wrap, and every row is as many cells high as its tallest cell, so the table lines are the notebook rules.
-         * The first column is bold and colored like a key term. Rows that do not fit are not drawn and the slot is reported as overflow;
-         * after such a table the page is closed (everything that follows counts as left out), so order is never mixed up.
+         * A real table on whole cells. Supports 2 to 8+ columns, uneven rows, long cells, and inline formulas inside cells.
+         * Dynamically scales font size and horizontal padding when columns >= 4 so wide tables never clip horizontally.
          */
         fun table(slot: String, rows: List<List<String>>) {
             if (rows.isEmpty()) return
@@ -637,17 +636,24 @@ internal object PostStudyGrid {
                 return
             }
             val columns = max(1, rows.maxOf { it.size })
-            val size = step * look.bodyScale * scaleOf(slot) * 0.94f
-            val padX = size * 0.32f
+            val colFactor = when {
+                columns >= 7 -> 0.64f
+                columns >= 5 -> 0.75f
+                columns == 4 -> 0.85f
+                else -> 0.94f
+            }
+            val size = max(step * 0.48f, bodyPx(slot) * colFactor)
+            val padX = size * (if (columns >= 5) 0.18f else 0.28f)
             val usable = room(cell, width)
             val weights = FloatArray(columns) { c ->
                 val longest = rows.maxOf { r -> r.getOrElse(c) { "" }.length }
-                max(6f, min(30f, longest.toFloat()))
+                max(4f, min(32f, longest.toFloat()))
             }
-            val total = weights.sum()
-            val widths = FloatArray(columns) { max(usable * 0.12f, usable * weights[it] / total) }
-            val fitScale = usable / widths.sum()
-            for (c in widths.indices) widths[c] *= fitScale
+            val total = max(1f, weights.sum())
+            val minColW = usable / max(2f, columns * 1.65f)
+            val widths = FloatArray(columns) { max(minColW, usable * weights[it] / total) }
+            val fitScaleW = usable / max(1f, widths.sum())
+            for (c in widths.indices) widths[c] *= fitScaleW
 
             val color = tone(BLUE)
             val laid = ArrayList<Pair<List<StaticLayout>, Int>>()
@@ -655,11 +661,16 @@ internal object PostStudyGrid {
                 val header = r == 0
                 val lays = (0 until columns).map { c ->
                     val ink = if (header) tone(NAVY) else if (c == 0) tone(look.marker) else bodyInk
-                    layout(
-                        styled(slot, row.getOrElse(c) { "" }.ifEmpty { " " }),
-                        paint(header || c == 0, size, ink, slot),
-                        max(1, (widths[c] - padX * 2).toInt())
-                    )
+                    val cellText = styled(slot, row.getOrElse(c) { "" }.ifEmpty { " " })
+                    val cellAvail = max(1, (widths[c] - padX * 2).toInt())
+                    var cellPaint = paint(header || c == 0, size, ink, slot)
+                    // Shrink cell font slightly if a single word (or header token) is wider than the column width
+                    val maxWord = cellText.toString().split(' ').maxOfOrNull { cellPaint.measureText(it) } ?: 0f
+                    if (maxWord > cellAvail && size > step * 0.46f) {
+                        val shrunk = max(step * 0.46f, size * (cellAvail / maxWord).coerceIn(0.68f, 1f))
+                        cellPaint = paint(header || c == 0, shrunk, ink, slot)
+                    }
+                    layout(cellText, cellPaint, cellAvail)
                 }
                 laid.add(lays to max(1, lays.maxOf { it.lineCount }))
             }
@@ -747,21 +758,45 @@ internal object PostStudyGrid {
         }
     }
 
-    /** Same as draw(), and also returns the Fit of the sheet (cells used, rows left out, the first one left out). */
+    /**
+     * Same as draw(), and also returns the Fit of the sheet (cells used, rows left out, the first one left out).
+     * Shrink-to-readable-minimum overflow policy: if the sheet overflows at 1.0x scale, automatically tries progressively
+     * tighter body scales down to the readable floor (0.54 * step) before leaving any rows out.
+     */
     fun drawFit(context: Context, canvas: Canvas, doc: PostDoc, w: Int, h: Int, slots: Set<String>): Fit {
+        val candidateScales = floatArrayOf(1.0f, 0.90f, 0.82f, 0.75f, 0.68f)
+        var chosenScale = 1.0f
+        for (sc in candidateScales) {
+            val probePic = Picture()
+            val probeCanvas = probePic.beginRecording(w, h)
+            val fit = try {
+                drawFitOnce(context, probeCanvas, doc, w, h, slots, sc)
+            } finally {
+                probePic.endRecording()
+            }
+            chosenScale = sc
+            if (fit.fits) break
+        }
+        return drawFitOnce(context, canvas, doc, w, h, slots, chosenScale)
+    }
+
+    private fun drawFitOnce(
+        context: Context,
+        canvas: Canvas,
+        doc: PostDoc,
+        w: Int,
+        h: Int,
+        slots: Set<String>,
+        fitScale: Float
+    ): Fit {
         val look = lookFor(doc.templateId)
-        val page = Page(context, canvas, doc, w, h, look, if (doc.showFooter) LAST_CELL - 1 else LAST_CELL)
+        val page = Page(context, canvas, doc, w, h, look, if (doc.showFooter) LAST_CELL - 1 else LAST_CELL, fitScale)
 
         fun text(slot: String): String =
             if (slot in slots && slot !in doc.hiddenTextSlots) doc.texts[slot].orEmpty().trim() else ""
 
         var labelIdx = 0
 
-        /**
-         * Turns "Term: explanation" into a colored bold label plus the explanation. On the ROW styles (table-notes, mnemonic) the label
-         * takes the variant's color and may also be split on a dash; on every other style a short term before a colon takes the next
-         * color of the rotation, so no sheet is one flat ink.
-         */
         fun lab(text: String, rowStyle: Boolean): String {
             val row = (if (rowStyle) splitRow(text) else splitColon(text)) ?: return text
             if (!rowStyle && !goodLabel(row.first)) return text
@@ -778,7 +813,6 @@ internal object PostStudyGrid {
                 val line = lines[i]
                 i++
                 if (page.full()) {
-                    // the page is closed: this row and every row after it are left out
                     val rest = lines.drop(i - 1).filter { it.trim() != "---" }
                     if (rest.isNotEmpty()) page.miss(slot, rest[0], rest.size)
                     return
@@ -822,7 +856,6 @@ internal object PostStudyGrid {
                     continue
                 }
                 if (t.startsWith("|")) {
-                    // gather every pipe row that follows into one table
                     val rows = ArrayList<List<String>>()
                     var current = t
                     while (true) {
@@ -875,16 +908,15 @@ internal object PostStudyGrid {
             }
         }
 
-        val eyebrow = text(PostSlots.EYEBROW)
-        if (eyebrow.isNotEmpty()) page.heading(PostSlots.EYEBROW, eyebrow, 0.46f, RED, 1, 0f, null, true, 0.08f)
-
+        // Title (HEADLINE) is ALWAYS drawn first on line 1 (cell = 0).
+        // EYEBROW is accepted by slots for backwards compatibility, but never drawn above the title.
         val acronym = text(PostSlots.NUMBER)
-        if (acronym.isNotEmpty()) page.heading(PostSlots.NUMBER, acronym, 1.7f, PURPLE, 2, 0f)
-
         val headline = text(PostSlots.HEADLINE)
         if (headline.isNotEmpty()) {
-            if (acronym.isNotEmpty()) page.heading(PostSlots.HEADLINE, headline, 0.95f, NAVY, 1, 0.07f, RED)
-            else page.heading(PostSlots.HEADLINE, headline, look.headScale, NAVY, look.headCells, 0.08f, RED)
+            page.heading(PostSlots.HEADLINE, headline, look.headScale, NAVY, look.headCells, 0.08f, RED)
+        }
+        if (acronym.isNotEmpty()) {
+            page.heading(PostSlots.NUMBER, acronym, 1.45f, PURPLE, 2, 0f)
         }
 
         flow(PostSlots.BODY, text(PostSlots.BODY), ListStyle.NONE)

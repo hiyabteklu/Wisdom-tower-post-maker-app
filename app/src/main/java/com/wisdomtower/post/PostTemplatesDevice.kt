@@ -202,5 +202,183 @@ internal val DeviceTemplates: List<PostTemplateSpec> = listOf(
                 )
             }
         )
+    },
+
+    // 3. device-cutout-hero — 3D Phone + Cutout
+    PostTemplateSpec(
+        id = "device-cutout-hero",
+        name = "3D Phone + Cutout",
+        family = "Device mockup",
+        slots = listOf(PostSlots.EYEBROW, PostSlots.HEADLINE, PostSlots.BUTTON),
+        sample = mapOf(
+            PostSlots.EYEBROW to "NEW FEATURE",
+            PostSlots.HEADLINE to "BUILT FOR SCHOLARS",
+            PostSlots.BUTTON to "TRY IT NOW"
+        ),
+        looks = listOf(
+            TemplateLook("Gold studio", "#F59E0B", "#070910", PostBase.DARK, cutoutStyle = CutoutStyle.RIM_GLOW),
+            TemplateLook("Mint studio", "#10B981", "#05100C", PostBase.DARK, cutoutStyle = CutoutStyle.STICKER_EDGE),
+            TemplateLook("Light showcase", "#2563EB", "#F8FAFC", PostBase.LIGHT, cutoutStyle = CutoutStyle.RIM_GLOW)
+        )
+    ) { size ->
+        size.pick3(
+            story = TemplateLayout(
+                base = PostBase.DARK,
+                backdrop = Backdrop.SPOT,
+                logoAnchor = LogoAnchor.TOP_LEFT,
+                cutoutShowDefault = true,
+                cutout = PostPhotoArea(0.46f, 0.36f, 0.48f, 0.48f, rounded = false, rimTone = PostTone.ACCENT, shadow = true),
+                decor = listOf(
+                    DecorBox(DecorShape.DEVICE_3D, 0.06f, 0.24f, 0.56f, 0.58f, PostTone.ACCENT, secondaryTone = PostTone.DEEP, tiltX = -14f, tiltY = 8f, variant = 0)
+                ),
+                slots = listOf(
+                    SlotBox(PostSlots.EYEBROW, 0.20f, 0.08f, 0.60f, 0.042f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.18f),
+                    SlotBox(PostSlots.HEADLINE, 0.08f, 0.13f, 0.84f, 0.10f, size = 84f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 0.94f),
+                    SlotBox(PostSlots.BUTTON, 0.22f, 0.84f, 0.56f, 0.058f, size = 22f, font = PostFont.BOLD, tone = PostTone.DARK, centered = true, caps = true, fit = FitMode.FILL, chip = PostTone.ACCENT)
+                )
+            ),
+            standard = TemplateLayout(
+                base = PostBase.DARK,
+                backdrop = Backdrop.SPOT,
+                logoAnchor = LogoAnchor.TOP_LEFT,
+                cutoutShowDefault = true,
+                cutout = PostPhotoArea(0.60f, 0.26f, 0.36f, 0.60f, rounded = false, rimTone = PostTone.ACCENT, shadow = true),
+                decor = listOf(
+                    DecorBox(DecorShape.DEVICE_3D, 0.36f, 0.12f, 0.38f, 0.74f, PostTone.ACCENT, secondaryTone = PostTone.DEEP, tiltX = -14f, tiltY = 8f, variant = 0)
+                ),
+                slots = listOf(
+                    SlotBox(PostSlots.EYEBROW, 0.06f, 0.22f, 0.28f, 0.048f, size = 19f, font = PostFont.BOLD, tone = PostTone.ACCENT, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.16f),
+                    SlotBox(PostSlots.HEADLINE, 0.06f, 0.29f, 0.30f, 0.34f, size = 78f, font = PostFont.DISPLAY, tone = PostTone.TEXT, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 0.94f),
+                    SlotBox(PostSlots.BUTTON, 0.06f, 0.68f, 0.28f, 0.08f, size = 21f, font = PostFont.BOLD, tone = PostTone.DARK, centered = true, caps = true, fit = FitMode.FILL, chip = PostTone.ACCENT)
+                )
+            ),
+            wide = TemplateLayout(
+                base = PostBase.DARK,
+                backdrop = Backdrop.SPOT,
+                logoAnchor = LogoAnchor.TOP_LEFT,
+                cutoutShowDefault = true,
+                cutout = PostPhotoArea(0.64f, 0.22f, 0.32f, 0.64f, rounded = false, rimTone = PostTone.ACCENT, shadow = true),
+                decor = listOf(
+                    DecorBox(DecorShape.DEVICE_3D, 0.40f, 0.10f, 0.34f, 0.78f, PostTone.ACCENT, secondaryTone = PostTone.DEEP, tiltX = -14f, tiltY = 8f, variant = 0)
+                ),
+                slots = listOf(
+                    SlotBox(PostSlots.EYEBROW, 0.06f, 0.22f, 0.30f, 0.052f, size = 19f, font = PostFont.BOLD, tone = PostTone.ACCENT, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.16f),
+                    SlotBox(PostSlots.HEADLINE, 0.06f, 0.29f, 0.32f, 0.36f, size = 84f, font = PostFont.DISPLAY, tone = PostTone.TEXT, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 0.94f),
+                    SlotBox(PostSlots.BUTTON, 0.06f, 0.70f, 0.26f, 0.085f, size = 21f, font = PostFont.BOLD, tone = PostTone.DARK, centered = true, caps = true, fit = FitMode.FILL, chip = PostTone.ACCENT)
+                )
+            )
+        )
+    },
+
+    // 4. device-tablet-duo — Tablet & Phone Pair
+    PostTemplateSpec(
+        id = "device-tablet-duo",
+        name = "Tablet & Phone Pair",
+        family = "Device mockup",
+        slots = listOf(PostSlots.EYEBROW, PostSlots.HEADLINE),
+        sample = mapOf(
+            PostSlots.EYEBROW to "CROSS-DEVICE SYNC",
+            PostSlots.HEADLINE to "STUDY ANYWHERE"
+        ),
+        looks = listOf(
+            TemplateLook("Gold duo", "#F59E0B", "#070910", PostBase.DARK),
+            TemplateLook("Emerald duo", "#10B981", "#05100C", PostBase.DARK),
+            TemplateLook("Light duo", "#2563EB", "#F8FAFC", PostBase.LIGHT)
+        )
+    ) { size ->
+        size.pick3(
+            story = TemplateLayout(
+                base = PostBase.DARK,
+                backdrop = Backdrop.SPOT,
+                logoAnchor = LogoAnchor.TOP_LEFT,
+                decor = listOf(
+                    DecorBox(DecorShape.DEVICE_3D, 0.06f, 0.26f, 0.88f, 0.58f, PostTone.ACCENT, secondaryTone = PostTone.DEEP, tiltX = -10f, tiltY = 6f, variant = 3)
+                ),
+                slots = listOf(
+                    SlotBox(PostSlots.EYEBROW, 0.20f, 0.09f, 0.60f, 0.042f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.18f),
+                    SlotBox(PostSlots.HEADLINE, 0.08f, 0.15f, 0.84f, 0.10f, size = 88f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER)
+                )
+            ),
+            standard = TemplateLayout(
+                base = PostBase.DARK,
+                backdrop = Backdrop.SPOT,
+                logoAnchor = LogoAnchor.TOP_LEFT,
+                decor = listOf(
+                    DecorBox(DecorShape.DEVICE_3D, 0.08f, 0.24f, 0.84f, 0.62f, PostTone.ACCENT, secondaryTone = PostTone.DEEP, tiltX = -10f, tiltY = 6f, variant = 3)
+                ),
+                slots = listOf(
+                    SlotBox(PostSlots.EYEBROW, 0.24f, 0.08f, 0.52f, 0.045f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.18f),
+                    SlotBox(PostSlots.HEADLINE, 0.10f, 0.14f, 0.80f, 0.10f, size = 84f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER)
+                )
+            ),
+            wide = TemplateLayout(
+                base = PostBase.DARK,
+                backdrop = Backdrop.SPOT,
+                logoAnchor = LogoAnchor.TOP_LEFT,
+                decor = listOf(
+                    DecorBox(DecorShape.DEVICE_3D, 0.12f, 0.24f, 0.76f, 0.64f, PostTone.ACCENT, secondaryTone = PostTone.DEEP, tiltX = -10f, tiltY = 6f, variant = 3)
+                ),
+                slots = listOf(
+                    SlotBox(PostSlots.EYEBROW, 0.28f, 0.08f, 0.44f, 0.05f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.18f),
+                    SlotBox(PostSlots.HEADLINE, 0.12f, 0.14f, 0.76f, 0.10f, size = 88f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER)
+                )
+            )
+        )
+    },
+
+    // 5. device-trio-scroll — Triple Phone Scroll
+    PostTemplateSpec(
+        id = "device-trio-scroll",
+        name = "Triple Phone Scroll",
+        family = "Device mockup",
+        slots = listOf(PostSlots.EYEBROW, PostSlots.HEADLINE),
+        sample = mapOf(
+            PostSlots.EYEBROW to "3-SCREEN PREVIEW",
+            PostSlots.HEADLINE to "ALL IN ONE APP"
+        ),
+        looks = listOf(
+            TemplateLook("Gold trio", "#F59E0B", "#070910", PostBase.DARK),
+            TemplateLook("Mint trio", "#10B981", "#05100C", PostBase.DARK),
+            TemplateLook("Light trio", "#2563EB", "#F8FAFC", PostBase.LIGHT)
+        )
+    ) { size ->
+        size.pick3(
+            story = TemplateLayout(
+                base = PostBase.DARK,
+                backdrop = Backdrop.SPOT,
+                logoAnchor = LogoAnchor.TOP_LEFT,
+                decor = listOf(
+                    DecorBox(DecorShape.DEVICE_3D, 0.04f, 0.26f, 0.92f, 0.58f, PostTone.ACCENT, secondaryTone = PostTone.DEEP, tiltX = -12f, tiltY = 6f, variant = 2)
+                ),
+                slots = listOf(
+                    SlotBox(PostSlots.EYEBROW, 0.20f, 0.09f, 0.60f, 0.042f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.18f),
+                    SlotBox(PostSlots.HEADLINE, 0.08f, 0.15f, 0.84f, 0.10f, size = 88f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER)
+                )
+            ),
+            standard = TemplateLayout(
+                base = PostBase.DARK,
+                backdrop = Backdrop.SPOT,
+                logoAnchor = LogoAnchor.TOP_LEFT,
+                decor = listOf(
+                    DecorBox(DecorShape.DEVICE_3D, 0.06f, 0.24f, 0.88f, 0.62f, PostTone.ACCENT, secondaryTone = PostTone.DEEP, tiltX = -12f, tiltY = 6f, variant = 2)
+                ),
+                slots = listOf(
+                    SlotBox(PostSlots.EYEBROW, 0.24f, 0.08f, 0.52f, 0.045f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.18f),
+                    SlotBox(PostSlots.HEADLINE, 0.10f, 0.14f, 0.80f, 0.10f, size = 84f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER)
+                )
+            ),
+            wide = TemplateLayout(
+                base = PostBase.DARK,
+                backdrop = Backdrop.SPOT,
+                logoAnchor = LogoAnchor.TOP_LEFT,
+                decor = listOf(
+                    DecorBox(DecorShape.DEVICE_3D, 0.10f, 0.24f, 0.80f, 0.64f, PostTone.ACCENT, secondaryTone = PostTone.DEEP, tiltX = -12f, tiltY = 6f, variant = 2)
+                ),
+                slots = listOf(
+                    SlotBox(PostSlots.EYEBROW, 0.28f, 0.08f, 0.44f, 0.05f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.18f),
+                    SlotBox(PostSlots.HEADLINE, 0.12f, 0.14f, 0.76f, 0.10f, size = 88f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER)
+                )
+            )
+        )
     }
 )

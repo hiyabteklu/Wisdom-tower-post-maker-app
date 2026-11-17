@@ -334,14 +334,16 @@ object PostRenderer {
             PostEngine.drawGrain(canvas, w, h, 22)
         }
 
-        // 5. Template decor shapes (panels respect panelOpacity; rotated decors supported)
+        // 5. Template decor shapes (panels respect panelOpacity; rotated decors and 3D devices supported)
+        val maxDim = max(outW, outH)
         for (decor in layout.decor) {
-            drawDecor(canvas, doc, layout, decor, tones, w, h, unit)
+            drawDecor(context, canvas, doc, layout, decor, tones, w, h, unit, maxDim)
         }
 
         // 6. Template photo window (or multi-cell triptych / rotated polaroid / brand placeholder)
+        val mainPhotoBitmap = PostImageCache.get(context, doc.photoUri, maxDim)
         if (layout.photo != null) {
-            drawPhotoArea(context, canvas, doc, layout.photo, tones, w, h, unit, max(outW, outH))
+            drawPhotoArea(context, canvas, doc, layout.photo, tones, w, h, unit, maxDim)
         }
         if (cancelled()) return Result(bitmap, emptyList())
 
@@ -359,29 +361,37 @@ object PostRenderer {
         }
 
         val overflow = linkedSetOf<String>()
+        val fillSourceBitmap = bgPhotoBitmap ?: mainPhotoBitmap
 
-        // 8. Chapter summaries (`study-*`) use PostStudyGrid (untouched per scope rule)
+        // 8. Chapter summaries (`study-*`) use PostStudyGrid
         if (doc.templateId.startsWith("study-")) {
             val studySlots = layout.slots.filter { it.literal == null }.map { it.slot }.toSet()
             overflow.addAll(PostStudyGrid.draw(context, canvas, doc, w, h, studySlots))
         } else {
-            val hasCutout = !doc.cutoutUri.isNullOrBlank()
+            val hasCutout = !doc.cutoutUri.isNullOrBlank() || layout.cutoutShowDefault
+            val behindSet = if (doc.textBehind.isNotEmpty()) {
+                doc.textBehind
+            } else if (layout.cutoutShowDefault) {
+                setOf(PostSlots.WORD, PostSlots.LETTER)
+            } else {
+                emptySet()
+            }
             val behindBoxes = if (hasCutout) {
-                layout.slots.filter { it.slot in doc.textBehind }
+                layout.slots.filter { it.slot in behindSet }
             } else {
                 emptyList()
             }
             val frontBoxes = if (hasCutout) {
-                layout.slots.filter { it.slot !in doc.textBehind }
+                layout.slots.filter { it.slot !in behindSet }
             } else {
                 layout.slots
             }
 
-            drawSlotPass(context, canvas, bitmap, doc, layout, behindBoxes, tones, bgPhotoBitmap, w, h, unit, overflow)
+            drawSlotPass(context, canvas, bitmap, doc, layout, behindBoxes, tones, fillSourceBitmap, w, h, unit, overflow)
             if (hasCutout) {
-                drawCutout(context, canvas, doc, w, h, max(outW, outH))
+                drawCutout(context, canvas, doc, layout, tones, w, h, maxDim)
             }
-            drawSlotPass(context, canvas, bitmap, doc, layout, frontBoxes, tones, bgPhotoBitmap, w, h, unit, overflow)
+            drawSlotPass(context, canvas, bitmap, doc, layout, frontBoxes, tones, fillSourceBitmap, w, h, unit, overflow)
         }
 
         // 9. Social grid cards (`mkt-follow`)
@@ -394,13 +404,13 @@ object PostRenderer {
             PostIconStore.draw(canvas, item, w, h, unit, tones.accent)
         }
 
-        // 11. Furniture: top-right logo header box and bottom footer row (skipped when layout.bare == true)
+        // 11. Furniture: transparent auto-contrast brand mark and slim footer (skipped when layout.bare == true)
         if (!layout.bare) {
             if (doc.showLogo) {
-                drawLogo(context, canvas, doc, brand, tones, w, h, unit)
+                drawLogo(context, canvas, bitmap, doc, brand, layout, tones, w, h)
             }
             if (doc.showFooter && layout.social == null) {
-                drawFooter(context, canvas, doc, brand, layout, tones, w, h, unit)
+                drawFooter(context, canvas, bitmap, doc, brand, layout, tones, w, h, unit)
             }
         }
 
@@ -578,6 +588,7 @@ object PostRenderer {
     }
 
     private fun drawDecor(
+        context: Context,
         canvas: Canvas,
         doc: PostDoc,
         layout: TemplateLayout,
@@ -585,7 +596,8 @@ object PostRenderer {
         tones: TonePalette,
         w: Int,
         h: Int,
-        unit: Float
+        unit: Float,
+        maxDim: Int
     ) {
         val panelFactor = if (decor.panel) doc.panelOpacity.coerceIn(0, 100) / 100f else 1f
         val alpha = (decor.alpha.coerceIn(0, 255) * panelFactor).roundToInt().coerceIn(0, 255)
@@ -722,6 +734,59 @@ object PostRenderer {
                     }
                 }
             }
+            DecorShape.DEVICE_3D -> {
+                if (rotated) canvas.restore()
+                val p1 = PostImageCache.get(context, doc.photoUri, maxDim)
+                val p2 = PostImageCache.get(context, doc.secondaryPhotoUri ?: doc.backgroundPhotoUri, maxDim)
+                val p3 = PostImageCache.get(context, doc.tertiaryPhotoUri, maxDim)
+                PostComposeKit.drawDevice3D(
+                    context = context,
+                    canvas = canvas,
+                    box = decor,
+                    rect = rect,
+                    doc = doc,
+                    primaryPhoto = p1,
+                    secondaryPhoto = p2,
+                    tertiaryPhoto = p3,
+                    accentColor = tones.accent,
+                    secondaryColor = tones.secondary,
+                    lightColor = tones.light,
+                    darkColor = tones.dark,
+                    deepColor = tones.deep,
+                    w = w.toFloat(),
+                    h = h.toFloat()
+                )
+                return
+            }
+            DecorShape.PORTAL_ARCH, DecorShape.SPOTLIGHT_CONE, DecorShape.SPEECH_STAGE,
+            DecorShape.PEEL_CORNER, DecorShape.CHECK_CARDS, DecorShape.CARD_FAN,
+            DecorShape.RIBBON_PATH, DecorShape.DATE_SLAB, DecorShape.MONUMENT_SLAB,
+            DecorShape.TAPE_BAND, DecorShape.DOC_STACK, DecorShape.STARBURST,
+            DecorShape.FLOATING_OBJECT -> {
+                if (rotated && decor.shape == DecorShape.TAPE_BAND) {
+                    canvas.restore()
+                }
+                val secCol = decor.secondaryTone?.let { tones.colorOf(it) } ?: tones.secondary
+                PostComposeKit.drawShowcaseDecor(
+                    context = context,
+                    canvas = canvas,
+                    box = decor,
+                    rect = rect,
+                    doc = doc,
+                    primaryColor = color,
+                    secondaryColor = secCol,
+                    accentColor = tones.accent,
+                    glowColor = tones.glow,
+                    lightColor = tones.light,
+                    darkColor = tones.dark,
+                    deepColor = tones.deep,
+                    unit = unit
+                )
+                if (rotated && decor.shape != DecorShape.TAPE_BAND) {
+                    canvas.restore()
+                }
+                return
+            }
             DecorShape.DOTS, DecorShape.STRIPES, DecorShape.WAVE, DecorShape.GEM,
             DecorShape.DIAMOND, DecorShape.TRIANGLE, DecorShape.HEXAGON -> Unit
         }
@@ -778,28 +843,45 @@ object PostRenderer {
             clipPath.addRect(rect, Path.Direction.CW)
         }
 
+        if (area.shadow && !isFullBleed) {
+            val sp = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.argb(135, 0, 0, 0)
+                maskFilter = BlurMaskFilter(max(8f, unit * 0.022f), BlurMaskFilter.Blur.NORMAL)
+            }
+            canvas.save()
+            canvas.translate(0f, unit * 0.014f)
+            canvas.drawPath(clipPath, sp)
+            canvas.restore()
+        }
+
         canvas.save()
         canvas.clipPath(clipPath)
-        if (doc.templateId == "photo-duo" && area.cells.size == 2) {
-            val bmp2 = PostImageCache.get(context, doc.backgroundPhotoUri ?: doc.photoUri, maxDim)
+        if (area.cells.isNotEmpty()) {
+            val bmp2 = PostImageCache.get(context, doc.secondaryPhotoUri ?: doc.backgroundPhotoUri ?: doc.photoUri, maxDim)
+            val bmp3 = PostImageCache.get(context, doc.tertiaryPhotoUri ?: doc.secondaryPhotoUri ?: doc.photoUri, maxDim)
             area.cells.forEachIndexed { idx, cell ->
                 val cr = RectF(cell.x * w, cell.y * h, (cell.x + cell.w) * w, (cell.y + cell.h) * h)
-                val cellBmp = if (idx == 0) bmp else (bmp2 ?: bmp)
+                val cellBmp = when (cell.photoIndex) {
+                    1 -> bmp2 ?: bmp
+                    2 -> bmp3 ?: bmp2 ?: bmp
+                    else -> if (doc.templateId == "photo-duo" && idx == 1) (bmp2 ?: bmp) else bmp
+                }
                 if (cellBmp != null) {
                     val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-                    val fx = if (idx == 0) (doc.photoFocusX * 0.7f).coerceIn(0f, 1f) else (0.3f + doc.photoFocusX * 0.7f).coerceIn(0f, 1f)
+                    val fx = (doc.photoFocusX + cell.panOffsetX).coerceIn(0f, 1f)
+                    val fy = (doc.photoFocusY + cell.panOffsetY).coerceIn(0f, 1f)
                     drawBitmapCenterCrop(
                         canvas = canvas,
                         bmp = cellBmp,
                         dest = cr,
                         zoom = doc.photoZoom.coerceIn(1f, 4f),
                         focusX = fx,
-                        focusY = doc.photoFocusY.coerceIn(0f, 1f),
+                        focusY = fy,
                         paint = paint
                     )
                 } else {
                     val ph = Paint(Paint.ANTI_ALIAS_FLAG)
-                    val cA = if (idx == 0) tones.accent else tones.glow
+                    val cA = if (idx % 2 == 0) tones.accent else tones.glow
                     ph.shader = LinearGradient(
                         cr.left, cr.top, cr.right, cr.bottom,
                         intArrayOf(tones.deep, blend(cA, tones.dark, 0.42f), tones.dark),
@@ -883,11 +965,12 @@ object PostRenderer {
         }
         canvas.restore()
 
-        if (doc.frameBorder && (!isFullBleed || area.cells.isNotEmpty())) {
+        val rimTone = area.rimTone
+        if ((doc.frameBorder || rimTone != null) && (!isFullBleed || area.cells.isNotEmpty())) {
             val border = Paint(Paint.ANTI_ALIAS_FLAG)
             border.style = Paint.Style.STROKE
             border.strokeWidth = max(3f, unit * 0.005f)
-            border.color = tones.light
+            border.color = rimTone?.let { tones.colorOf(it) } ?: tones.light
             canvas.drawPath(clipPath, border)
         }
 
@@ -900,20 +983,24 @@ object PostRenderer {
         context: Context,
         canvas: Canvas,
         doc: PostDoc,
+        layout: TemplateLayout,
+        tones: TonePalette,
         w: Int,
         h: Int,
         maxDim: Int
     ) {
-        val bmp = PostImageCache.get(context, doc.cutoutUri, maxDim) ?: return
-        val targetH = h * 0.62f * doc.cutoutScale.coerceIn(0.3f, 2.5f)
-        val scale = targetH / max(1, bmp.height).toFloat()
-        val drawW = bmp.width * scale
-        val drawH = bmp.height * scale
-        val cx = doc.cutoutX.coerceIn(0f, 1f) * w
-        val bottomY = doc.cutoutY.coerceIn(0.1f, 1.05f) * h
-        val dest = RectF(cx - drawW / 2f, bottomY - drawH, cx + drawW / 2f, bottomY)
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-        canvas.drawBitmap(bmp, null, dest, paint)
+        val bmp = PostImageCache.get(context, doc.cutoutUri, maxDim)
+        PostComposeKit.drawCutoutSubject(
+            canvas = canvas,
+            cutoutBitmap = bmp,
+            doc = doc,
+            layout = layout,
+            accentColor = tones.accent,
+            lightColor = tones.light,
+            darkColor = tones.dark,
+            w = w.toFloat(),
+            h = h.toFloat()
+        )
     }
 
     private fun drawSlotPass(
@@ -1092,11 +1179,14 @@ object PostRenderer {
             }
 
         val skipContrastGuard = isLiteral || box.chip != null ||
-            fx in setOf(TextFx.OUTLINE, TextFx.GRADIENT, TextFx.PHOTO_FILL, TextFx.ECHO, TextFx.EXTRUDE, TextFx.SPLIT_TONE)
+            fx in setOf(
+                TextFx.OUTLINE, TextFx.GRADIENT, TextFx.PHOTO_FILL, TextFx.ECHO,
+                TextFx.EXTRUDE, TextFx.SPLIT_TONE, TextFx.GLITCH_SPLIT, TextFx.OUTLINE_STACK
+            )
         val color = if (skipContrastGuard) {
             rawColor
         } else {
-            readable(canvasBitmap, rect, rawColor, tones.light, tones.dark)
+            readable(canvasBitmap, rect, rawColor, tones.light, tones.dark, w, h)
         }
 
         val shadow = resolveShadow(doc, box, if (isLiteral) null else slotStyle)
@@ -1886,6 +1976,24 @@ object PostRenderer {
                     canvas.restore()
                 }
             }
+            TextFx.GLITCH_SPLIT, TextFx.CURVE_ARC, TextFx.VERTICAL, TextFx.STRIKE_REVEAL, TextFx.OUTLINE_STACK -> {
+                PostComposeKit.drawSpecialSingleLineFx(
+                    canvas = canvas,
+                    text = text,
+                    drawX = drawX,
+                    drawY = drawY,
+                    paint = paint,
+                    rect = rect,
+                    color = color,
+                    accentColor = tones.accent,
+                    glowColor = tones.glow,
+                    darkColor = tones.dark,
+                    lightColor = tones.light,
+                    fx = fx,
+                    w = w,
+                    h = h
+                )
+            }
         }
     }
 
@@ -2180,6 +2288,62 @@ object PostRenderer {
                     canvas.restore()
                 }
             }
+            TextFx.STRIKE_REVEAL -> {
+                val p = TextPaint(paint).apply { this.color = withAlpha(color, 185) }
+                val sLay = buildStaticLayout(stripInlineMarkup(rawText), p, availW.toInt(), align, leading)
+                canvas.save()
+                canvas.translate(rect.left, topY)
+                sLay.draw(canvas)
+                canvas.restore()
+                val slashPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    this.color = tones.red
+                    strokeWidth = max(4f, finalSizePx * 0.085f)
+                    strokeCap = Paint.Cap.ROUND
+                }
+                val midY = topY + sLay.height / 2f
+                canvas.drawLine(
+                    rect.left + availW * 0.04f,
+                    midY + sLay.height * 0.22f,
+                    rect.left + availW * 0.96f,
+                    midY - sLay.height * 0.22f,
+                    slashPaint
+                )
+            }
+            TextFx.OUTLINE_STACK -> {
+                val op = TextPaint(paint).apply {
+                    style = Paint.Style.STROKE
+                    strokeWidth = max(2f, finalSizePx * 0.03f)
+                    this.color = withAlpha(tones.accent, 155)
+                }
+                val outLay = buildStaticLayout(stripInlineMarkup(rawText), op, availW.toInt(), align, leading)
+                val off = finalSizePx * 0.06f
+                canvas.save()
+                canvas.translate(rect.left + off, topY - off)
+                outLay.draw(canvas)
+                canvas.restore()
+                canvas.save()
+                canvas.translate(rect.left, topY)
+                lay.draw(canvas)
+                canvas.restore()
+            }
+            TextFx.GLITCH_SPLIT, TextFx.CURVE_ARC, TextFx.VERTICAL -> {
+                val pTop = TextPaint(paint).apply { this.color = color }
+                val pBot = TextPaint(paint).apply { this.color = tones.accent }
+                val layTop = buildStaticLayout(stripInlineMarkup(rawText), pTop, availW.toInt(), align, leading)
+                val layBot = buildStaticLayout(stripInlineMarkup(rawText), pBot, availW.toInt(), align, leading)
+                val midY = topY + lay.height / 2f
+                val shift = max(4f, finalSizePx * 0.045f)
+                canvas.save()
+                canvas.clipRect(0f, 0f, w.toFloat(), midY)
+                canvas.translate(rect.left - shift, topY)
+                layTop.draw(canvas)
+                canvas.restore()
+                canvas.save()
+                canvas.clipRect(0f, midY, w.toFloat(), h.toFloat())
+                canvas.translate(rect.left + shift, topY)
+                layBot.draw(canvas)
+                canvas.restore()
+            }
         }
     }
 
@@ -2319,7 +2483,7 @@ object PostRenderer {
         val textColor = if (userColor != null) {
             userColor
         } else {
-            readable(canvasBitmap, rect, baseInk, tones.light, tones.dark)
+            readable(canvasBitmap, rect, baseInk, tones.light, tones.dark, w, h)
         }
 
         val gap = textSize * 0.44f
@@ -2609,85 +2773,39 @@ object PostRenderer {
     }
 
     /**
-     * Top-right corner logo header box (docs/URGENT_PLAN.md item 5: untouched corner box design).
+     * Phase 1 Logo & Brand Mark System (docs/SHOWCASE_TEMPLATES_PLAN.md Section 3):
+     * - Strips baked dark background box from new_logo.png
+     * - Samples luminance under the logo rect and picks light/dark/accent contrast automatically
+     * - Supports 12 placements, 5 mark styles, and keep-out zone collision avoidance
      */
     private fun drawLogo(
         context: Context,
         canvas: Canvas,
+        canvasBitmap: Bitmap,
         doc: PostDoc,
         brand: PostBrand,
+        layout: TemplateLayout,
         tones: TonePalette,
         w: Int,
-        h: Int,
-        unit: Float
+        h: Int
     ) {
-        val bmp = loadLogoBitmap(context, brand) ?: return
-        val isStudy = doc.templateId.startsWith("study-")
-        val scale = (brand.logoScale * doc.logoSize).coerceIn(0.4f, 2.6f)
-        val logoH = if (isStudy) unit * 0.036f * scale else unit * 0.056f * scale
-        val ratio = bmp.width.toFloat() / max(1, bmp.height).toFloat()
-        val logoW = logoH * ratio
-        val padX = if (isStudy) unit * 0.018f else unit * 0.024f
-        val padY = if (isStudy) unit * 0.010f else unit * 0.018f
-        val boxW = logoW + padX * 2f
-        val boxH = logoH + padY * 2f
-
-        val detached = h >= w * 1.5f && !isStudy
-        val rightEdge = if (doc.logoCx != null) {
-            (doc.logoCx * w + boxW / 2f).coerceIn(boxW, w.toFloat())
-        } else {
-            w - unit * 0.045f
-        }
-        val topEdge = when {
-            doc.logoCy != null -> (doc.logoCy * h - boxH / 2f).coerceIn(0f, h - boxH)
-            isStudy -> h * 0.018f
-            detached -> h * 0.085f
-            else -> 0f
-        }
-        val boxRect = RectF(rightEdge - boxW, topEdge, rightEdge, topEdge + boxH)
-        val radius = unit * 0.022f
-
-        val boxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            shader = LinearGradient(
-                boxRect.left, boxRect.top, boxRect.right, boxRect.bottom,
-                intArrayOf(tones.deep, tones.dark),
-                null,
-                Shader.TileMode.CLAMP
-            )
-        }
-        if (detached || isStudy || doc.logoCy != null) {
-            canvas.drawRoundRect(boxRect, radius, radius, boxPaint)
-            val edge = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                style = Paint.Style.STROKE
-                strokeWidth = max(1.5f, unit * 0.002f)
-                color = withAlpha(tones.secondary, 130)
-            }
-            canvas.drawRoundRect(boxRect, radius, radius, edge)
-        } else {
-            val path = Path().apply {
-                addRoundRect(
-                    boxRect,
-                    floatArrayOf(0f, 0f, 0f, 0f, radius, radius, radius, radius),
-                    Path.Direction.CW
-                )
-            }
-            canvas.drawPath(path, boxPaint)
-            val edge = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                style = Paint.Style.STROKE
-                strokeWidth = max(1.5f, unit * 0.002f)
-                color = withAlpha(tones.secondary, 130)
-            }
-            canvas.drawPath(path, edge)
-        }
-
-        val logoRect = RectF(
-            boxRect.left + padX,
-            boxRect.top + padY,
-            boxRect.right - padX,
-            boxRect.bottom - padY
+        val bmp = loadLogoBitmap(context, brand)
+        val cacheKey = "${brand.logoPath.orEmpty()}@${brand.logoStamp}"
+        PostComposeKit.drawBrandMark(
+            context = context,
+            canvas = canvas,
+            canvasBitmap = canvasBitmap,
+            rawLogo = bmp,
+            logoCacheKey = cacheKey,
+            doc = doc,
+            brand = brand,
+            layout = layout,
+            accentColor = tones.accent,
+            lightColor = tones.light,
+            darkColor = tones.dark,
+            w = w.toFloat(),
+            h = h.toFloat()
         )
-        val imgPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-        canvas.drawBitmap(bmp, null, logoRect, imgPaint)
     }
 
     private fun loadLogoBitmap(context: Context, brand: PostBrand): Bitmap? {
@@ -2716,6 +2834,7 @@ object PostRenderer {
     private fun drawFooter(
         context: Context,
         canvas: Canvas,
+        canvasBitmap: Bitmap,
         doc: PostDoc,
         brand: PostBrand,
         layout: TemplateLayout,
@@ -2728,57 +2847,64 @@ object PostRenderer {
         if (items.isEmpty()) return
 
         val isStudy = doc.templateId.startsWith("study-")
-        val ruleY = if (isStudy) h * 0.942f else h * 0.912f
-        val centerY = if (isStudy) h * 0.962f else h * 0.946f
+        val centerY = if (isStudy) h * 0.964f else h * 0.952f
+        val footerRect = RectF(w * 0.08f, centerY - unit * 0.025f, w * 0.92f, centerY + unit * 0.025f)
         val footerOverride = parseColor(doc.slotStyles[PostSlots.FOOTER]?.colorHex)
-        val textColor = footerOverride ?: if (layout.footerLight && !isStudy) tones.light else tones.dark
+        val defaultFooterTone = if (layout.footerLight && !isStudy) tones.light else tones.dark
+        val textColor = footerOverride ?: readable(canvasBitmap, footerRect, defaultFooterTone, tones.light, tones.dark, w, h)
 
-        if (!isStudy) {
+        if (!isStudy && !brand.footerMinimal) {
+            val ruleY = h * 0.918f
             val rulePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = withAlpha(textColor, 55)
-                strokeWidth = max(1.5f, unit * 0.0018f)
+                color = withAlpha(textColor, 48)
+                strokeWidth = max(1.2f, unit * 0.0015f)
             }
-            canvas.drawLine(w * 0.06f, ruleY, w * 0.94f, ruleY, rulePaint)
+            canvas.drawLine(w * 0.08f, ruleY, w * 0.92f, ruleY, rulePaint)
         }
 
-        val scale = brand.iconScale.coerceIn(0.6f, 1.6f)
-        val textSize = (if (isStudy) unit * 0.020f else unit * 0.022f) * scale
-        val iconD = textSize * 1.38f
+        val scale = brand.iconScale.coerceIn(0.6f, 1.5f)
+        val textSize = (if (isStudy) unit * 0.019f else unit * 0.020f) * scale
+        val iconD = textSize * 1.28f
         val tf = PostFonts.get(context, PostFont.BOLD, "wisdom", doc, null)
         val textPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
             typeface = tf
             this.textSize = textSize
-            color = textColor
+            color = withAlpha(textColor, 225)
+            letterSpacing = 0.02f
         }
         val fm = textPaint.fontMetrics
-        val gapBetweenItems = unit * 0.028f
-        val innerGap = textSize * 0.35f
-        val pillPadX = textSize * 0.55f
-        val pillH = iconD + textSize * 0.42f
+        val gapBetweenItems = unit * 0.026f
+        val innerGap = textSize * 0.34f
+        val pillPadX = textSize * 0.50f
+        val pillH = iconD + textSize * 0.36f
+        val usePill = brand.footerStyle == FooterStyle.PILL && !brand.footerMinimal
 
         val widths = items.map { item ->
             val tw = textPaint.measureText(item.label)
-            iconD + innerGap + tw + (if (brand.footerStyle == FooterStyle.PILL) pillPadX * 2f else 0f)
+            iconD + innerGap + tw + (if (usePill) pillPadX * 2f else 0f)
         }
         val totalW = widths.sum() + gapBetweenItems * max(0, items.size - 1)
-        var curX = (w - totalW) / 2f
+        val inlineLogoOffset = if (PostComposeKit.resolveLogoAnchor(doc, brand, layout) == LogoAnchor.INLINE_FOOTER) {
+            unit * 0.045f
+        } else 0f
+        var curX = ((w - totalW) / 2f + inlineLogoOffset).coerceAtLeast(w * 0.06f)
 
         items.forEachIndexed { idx, item ->
             val iw = widths[idx]
             val itemColor = parseColor(item.colorHex)
-            if (brand.footerStyle == FooterStyle.PILL) {
+            if (usePill) {
                 val pillRect = RectF(curX, centerY - pillH / 2f, curX + iw, centerY + pillH / 2f)
                 val pillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    color = withAlpha(if (layout.footerLight && !isStudy) tones.deep else tones.dark, 185)
+                    color = withAlpha(if (luminance(textColor) > 0.45f) tones.deep else tones.soft, 175)
                 }
                 canvas.drawRoundRect(pillRect, pillH / 2f, pillH / 2f, pillPaint)
             }
 
-            val startX = if (brand.footerStyle == FooterStyle.PILL) curX + pillPadX else curX
+            val startX = if (usePill) curX + pillPadX else curX
             val icx = startX + iconD / 2f
             when (brand.iconLook) {
                 IconLook.PLAIN -> {
-                    PostIcons.draw(canvas, item.kind, icx, centerY, iconD * 0.86f, itemColor ?: tones.accent)
+                    PostIcons.draw(canvas, item.kind, icx, centerY, iconD * 0.85f, itemColor ?: tones.accent)
                 }
                 IconLook.BADGE -> {
                     PostIcons.drawBadge(
@@ -2798,11 +2924,7 @@ object PostRenderer {
                 }
             }
 
-            val labelColor = if (brand.footerStyle == FooterStyle.PILL) {
-                footerOverride ?: itemColor ?: tones.light
-            } else {
-                footerOverride ?: itemColor ?: textColor
-            }
+            val labelColor = footerOverride ?: itemColor ?: withAlpha(textColor, 232)
             textPaint.color = labelColor
             val baseline = centerY - (fm.ascent + fm.descent) / 2f
             canvas.drawText(item.label, startX + iconD + innerGap, baseline, textPaint)
@@ -2851,7 +2973,12 @@ object PostRenderer {
     }
 
     private fun stripInlineMarkup(text: String): String =
-        text.replace("**", "").replace("==", "")
+        text.replace("**", "")
+            .replace("==", "")
+            .replace(Regex("\\[\\[#[0-9A-Fa-f]{3,8}\\]\\]"), "")
+            .replace("[[/]]", "")
+            .replace("MYTH_TAG", "MYTH")
+            .replace("FACT_TAG", "FACT")
 
     private fun buildStaticLayout(
         text: CharSequence,
@@ -2940,16 +3067,27 @@ object PostRenderer {
         )
     }
 
-    private fun readable(bitmap: Bitmap, rect: RectF, color: Int, light: Int, dark: Int): Int {
+    private fun readable(
+        bitmap: Bitmap,
+        rect: RectF,
+        color: Int,
+        light: Int,
+        dark: Int,
+        canvasW: Int = bitmap.width,
+        canvasH: Int = bitmap.height
+    ): Int {
         val bw = bitmap.width
         val bh = bitmap.height
         if (bw <= 4 || bh <= 4) return color
-        val sx = ((rect.centerX() / max(1f, rect.right.coerceAtLeast(bw.toFloat()))) * bw).toInt().coerceIn(0, bw - 1)
-        val sy = ((rect.centerY() / max(1f, rect.bottom.coerceAtLeast(bh.toFloat()))) * bh).toInt().coerceIn(0, bh - 1)
-        val bgPixel = bitmap.getPixel(sx, sy)
-        val ratio = contrastRatio(color, bgPixel)
-        if (ratio >= 3.2f) return color
-        return if (contrastRatio(light, bgPixel) >= contrastRatio(dark, bgPixel)) light else dark
+        val bgLum = PostComposeKit.sampleRectLuminance(bitmap, rect, canvasW.toFloat(), canvasH.toFloat())
+        val colorLum = luminance(color)
+        val ratio = (max(colorLum, bgLum) + 0.05f) / (min(colorLum, bgLum) + 0.05f)
+        if (ratio >= 3.4f) return color
+        val lightLum = luminance(light)
+        val darkLum = luminance(dark)
+        val lightRatio = (max(lightLum, bgLum) + 0.05f) / (min(lightLum, bgLum) + 0.05f)
+        val darkRatio = (max(darkLum, bgLum) + 0.05f) / (min(darkLum, bgLum) + 0.05f)
+        return if (lightRatio >= darkRatio) light else dark
     }
 
     private fun luminance(c: Int): Float {

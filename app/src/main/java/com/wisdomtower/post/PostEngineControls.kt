@@ -99,7 +99,7 @@ fun EngineControls(
 
         Heading("Cut-out subject")
         Text(
-            "Add a PNG of a person or object with the background already removed. Words can sit behind it.",
+            "Add a PNG of a person or object with the background removed, or style the template's subject.",
             color = PostPalette.Muted,
             fontSize = 12.sp
         )
@@ -113,7 +113,26 @@ fun EngineControls(
                 }
             }
         }
-        if (doc.cutoutUri != null) {
+        Row(
+            Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            CompactChip(
+                label = "Template style",
+                selected = doc.cutoutStyle == null,
+                onClick = { onDoc(doc.copy(cutoutStyle = null)) }
+            )
+            CutoutStyle.values().forEach { cs ->
+                CompactChip(
+                    label = cs.label,
+                    selected = doc.cutoutStyle == cs,
+                    onClick = { onDoc(doc.copy(cutoutStyle = cs)) }
+                )
+            }
+        }
+        val hasActiveCutout = doc.cutoutUri != null || postTemplate(doc.templateId).layout(doc.size).cutoutShowDefault
+        if (hasActiveCutout) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("Subject size", color = PostPalette.Text, fontSize = 13.sp, modifier = Modifier.weight(1f))
                 Text("${(doc.cutoutScale * 100).toInt()}%", color = PostPalette.Muted, fontSize = 13.sp)

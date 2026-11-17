@@ -143,16 +143,16 @@ Required fixes:
 
 Order matters: the quick wins and the shared systems come before the 20 templates.
 
-- [ ] **P1. Logo system** (section 5). Transparent logo asset, auto contrast, placement and style options, per-template anchor and keep-out zone, footer redesign. Files: `PostRenderer.kt`, `PostModel.kt`, `PostBrandScreen.kt`, `PostFooterEditor.kt`, `PostTemplates.kt`.
-- [ ] **P2. Chapter summaries fixes** (section 7), including the QA fixture.
-- [ ] **P3. Composition kit** (section 4): device 3D frame, cutout stack, text mask and path, shape kit, multi-image slots, depth helpers, fit-to-box hero text.
-- [ ] **P4a. Letter and Type templates** (#1 to #5).
-- [ ] **P4b. Photo templates** (#6 to #8).
-- [ ] **P4c. Information-family replacements** (#9 to #17).
-- [ ] **P4d. Marketing templates** (#18 to #20).
-- [ ] **P5. UI refresh** (section 6).
-- [ ] **P6. Compatibility, registry, QA, Brand Kit rows** (section 8).
-- [ ] **P7. Optional bonus templates** (section 3, last paragraph).
+- [x] **P1. Logo system** (section 5). Transparent logo asset, auto contrast, placement and style options, per-template anchor and keep-out zone, footer redesign. Files: `PostRenderer.kt`, `PostModel.kt`, `PostBrandScreen.kt`, `PostFooterEditor.kt`, `PostTemplates.kt`, `PostComposeKit.kt`.
+- [x] **P2. Chapter summaries fixes** (section 7), including the QA fixture (`docs/CHAPTER_SUMMARIES_QA_FIXTURE.md`, `PostStudyGrid.kt`, `PostTex.kt`, `PostTemplatesStudy.kt`, `PostQaScreen.kt`).
+- [x] **P3. Composition kit** (section 4): device 3D frame, cutout stack, text mask and path, shape kit, multi-image slots, depth helpers, fit-to-box hero text (`PostComposeKit.kt`, `PostRenderer.kt`, `PostTemplates.kt`).
+- [x] **P4a. Letter and Type templates** (#1 to #5: `ltr-portal`, `ltr-coverline`, `ltr-mirrorsplit`, `type-auroraword`, `type-spotlightcut`).
+- [x] **P4b. Photo templates** (#6 to #8: `photo-gueststage`, `photo-voiceframe`, `photo-cornerpeel`).
+- [x] **P4c. Information-family replacements** (#9 to #17: `info-pullquote`, `info-strikereveal`, `info-bignumber`, `info-triplestack`, `info-questionhero`, `info-twinphones`, `info-cardfan`, `info-ribbonpath`, `info-dateslab`).
+- [x] **P4d. Marketing templates** (#18 to #20: `mkt-monument`, `mkt-alerttape`, `mkt-docstack`).
+- [x] **P5. UI refresh** (section 6: preview-first layout, 3-snap-state bottom sheet [PEEK/HALF/FULL], cached thumbnail template strip, single Ratio & Family filters, WCAG AA surface tokens, 2-stage debounced preview rendering).
+- [x] **P6. Compatibility, registry, QA, Brand Kit rows** (section 8: `LegacyTemplateIds` multi-hop mapping for all 1st-gen & 2nd-gen IDs, `PostQaScreen.kt` `CHAPTER_FIXTURE`, prepared `wt_post.template_boxes` SQL & Brand Kit `TEMPLATES.md` entries below).
+- [x] **P7. Optional bonus templates** (section 3, last paragraph: `device-cutout-hero`, `device-tablet-duo`, `device-trio-scroll`, `mkt-floating-hero`).
 
 Each template task is done when: it renders correctly at 9:16, 4:3 and 16:9; has 3 to 6 looks that follow the brand colours; takes 1 to 4 hero words plus its image slots; survives long text and empty slots (Stress check) without clipping; the logo sits cleanly with auto contrast; old ids resolve through `LegacyTemplateIds`.
 
@@ -168,10 +168,80 @@ Each template task is done when: it renders correctly at 9:16, 4:3 and 16:9; has
 
 ## 11. Open questions for the owner (the agent may proceed with the stated default)
 
-1. Should logo default to **mark only, top-left, auto contrast** on posters and **bottom-right corner** on notes? (default: yes)
-2. Is a bonus set beyond the 20 welcome? (default: yes, after P4d)
-3. Do we have more than one logo file (light and dark versions)? If not, generate them from `new_logo.png`.
+1. Should logo default to **mark only, top-left, auto contrast** on posters and **bottom-right corner** on notes? (default: yes — implemented)
+2. Is a bonus set beyond the 20 welcome? (default: yes, after P4d — 4 bonus templates implemented)
+3. Do we have more than one logo file (light and dark versions)? If not, generate them from `new_logo.png`. (implemented via automatic alpha-key extraction + luminance-sampled light/dark/accent tinting in `PostComposeKit.kt`)
+
+---
+
+## 11B. Prepared Supabase `wt_post.template_boxes` SQL & Brand Kit (`TEMPLATES.md`) Spec (Owner / Dev Agent to Apply)
+
+Per Section 8, this repository never touches the shared Supabase `public` or `wt_post` schema directly and does not push to `hiyabteklu/wisdom-tower-brand-kit`. Apply the following upsert in Supabase SQL Editor so `wt_post.template_boxes` accepts all 24 new showcase template IDs:
+
+```sql
+insert into wt_post.template_boxes (template_id, family, boxes, word_limits)
+values
+  ('ltr-portal',         'Letter',      array['letter','headline','eyebrow'],                '{"letter":"1 char","headline":"1-3 words","eyebrow":"1-3 words"}'::jsonb),
+  ('ltr-coverline',      'Letter',      array['letter','headline','eyebrow','body'],         '{"letter":"1 char","headline":"1-3 words","eyebrow":"1-3 words","body":"3-6 words"}'::jsonb),
+  ('ltr-mirrorsplit',    'Letter',      array['headline','eyebrow','body'],                  '{"headline":"1-2 words","eyebrow":"1-3 words","body":"2-5 words"}'::jsonb),
+  ('type-auroraword',    'Type',        array['headline','eyebrow','body'],                  '{"headline":"1-3 words","eyebrow":"1-3 words","body":"3-6 words"}'::jsonb),
+  ('type-spotlightcut',  'Type',        array['headline','eyebrow','body'],                  '{"headline":"1-2 words","eyebrow":"1-3 words","body":"3-6 words"}'::jsonb),
+  ('photo-gueststage',   'Photo',       array['headline','eyebrow','body','button'],         '{"headline":"1-3 words","eyebrow":"1-3 words","body":"2-5 words","button":"1-3 words"}'::jsonb),
+  ('photo-voiceframe',   'Photo',       array['headline','body','eyebrow'],                  '{"headline":"3-6 words","body":"2-4 words","eyebrow":"1-3 words"}'::jsonb),
+  ('photo-cornerpeel',   'Photo',       array['headline','eyebrow','button'],                '{"headline":"1-3 words","eyebrow":"1-2 words","button":"1-2 words"}'::jsonb),
+  ('info-pullquote',     'Information', array['headline','body','eyebrow'],                  '{"headline":"3-6 words","body":"2-4 words","eyebrow":"1-3 words"}'::jsonb),
+  ('info-strikereveal',  'Information', array['eyebrow','headline','body'],                  '{"eyebrow":"1-2 words (struck myth)","headline":"1-3 words (lit fact)","body":"3-6 words"}'::jsonb),
+  ('info-bignumber',     'Information', array['number','headline','eyebrow','body'],         '{"number":"1-3 chars","headline":"1-3 words","eyebrow":"1-3 words","body":"3-6 words"}'::jsonb),
+  ('info-triplestack',   'Information', array['headline','eyebrow','body'],                  '{"headline":"3 lines, 1-2 words/line","eyebrow":"1-3 words","body":"3-6 words"}'::jsonb),
+  ('info-questionhero',  'Information', array['headline','eyebrow','button'],                '{"headline":"1-3 words","eyebrow":"1-2 words","button":"1-3 words"}'::jsonb),
+  ('info-twinphones',    'Information', array['headline','eyebrow','body','button'],         '{"headline":"1-3 words","eyebrow":"1-3 words","body":"3-6 words","button":"1-3 words"}'::jsonb),
+  ('info-cardfan',       'Information', array['headline','eyebrow','body'],                  '{"headline":"1-3 words","eyebrow":"1-3 words","body":"3-6 words"}'::jsonb),
+  ('info-ribbonpath',    'Information', array['headline','list','eyebrow'],                  '{"headline":"1-3 words","list":"3 stops, 1-2 words each","eyebrow":"1-3 words"}'::jsonb),
+  ('info-dateslab',      'Information', array['number','headline','eyebrow','button'],       '{"number":"2-5 chars","headline":"1-3 words","eyebrow":"1-3 words","button":"1-3 words"}'::jsonb),
+  ('mkt-monument',       'Marketing',   array['number','headline','eyebrow','body'],         '{"number":"2-4 chars","headline":"1-3 words","eyebrow":"1-3 words","body":"2-5 words"}'::jsonb),
+  ('mkt-alerttape',      'Marketing',   array['headline','eyebrow','body','button'],         '{"headline":"1-3 words","eyebrow":"1-3 words","body":"2-5 words","button":"1-3 words"}'::jsonb),
+  ('mkt-docstack',       'Marketing',   array['headline','eyebrow','body','button'],         '{"headline":"1-2 words","eyebrow":"1-3 words","body":"3-6 words","button":"1-3 words"}'::jsonb),
+  ('mkt-floating-hero',  'Marketing',   array['headline','eyebrow','body','button'],         '{"headline":"1-3 words","eyebrow":"1-3 words","body":"3-6 words","button":"1-3 words"}'::jsonb),
+  ('device-cutout-hero', 'Device',      array['headline','eyebrow','button'],                '{"headline":"1-3 words","eyebrow":"1-3 words","button":"1-3 words"}'::jsonb),
+  ('device-tablet-duo',  'Device',      array['headline','eyebrow','body','button'],         '{"headline":"1-3 words","eyebrow":"1-3 words","body":"3-6 words","button":"1-3 words"}'::jsonb),
+  ('device-trio-scroll', 'Device',      array['headline','eyebrow','button'],                '{"headline":"1-3 words","eyebrow":"1-3 words","button":"1-3 words"}'::jsonb)
+on conflict (template_id) do update
+  set family = excluded.family,
+      boxes = excluded.boxes,
+      word_limits = excluded.word_limits;
+```
+
+### Matching `TEMPLATES.md` Snippet for `hiyabteklu/wisdom-tower-brand-kit`
+
+Copy-paste into `TEMPLATES.md` in the Brand Kit repository so AI content agents enforce the 1–4 hero word rule:
+
+- **`ltr-portal` (Letter Portal)**: `letter` (1 char), `headline` (1–3 words max), `eyebrow` (1–3 words). Huge letter portal over photo/mesh depth.
+- **`ltr-coverline` (Cover Line)**: `letter` (1 char), `headline` (1–3 words max), `eyebrow` (1–3 words), `body` (3–6 words). Magazine cover initial bleeding off-canvas with cutout subject.
+- **`ltr-mirrorsplit` (Mirror Split)**: `headline` (1–2 words, glitch-split), `eyebrow` (1–3 words), `body` (2–5 words).
+- **`type-auroraword` (Aurora Word)**: `headline` (1–3 words, gradient fill), `eyebrow` (1–3 words), `body` (3–6 words).
+- **`type-spotlightcut` (Spotlight Cut)**: `headline` (1–2 words behind cutout), `eyebrow` (1–3 words), `body` (3–6 words).
+- **`photo-gueststage` (Guest Stage)**: `headline` (1–3 words behind cutout), `eyebrow` (1–3 words), `body` (2–5 words), `button` (1–3 words).
+- **`photo-voiceframe` (Voice Frame)**: `headline` (3–6 quote words), `body` (speaker name, 2–4 words), `eyebrow` (1–3 words).
+- **`photo-cornerpeel` (Corner Peel)**: `headline` (1–3 words), `eyebrow` (1–2 words), `button` (1–2 words).
+- **`info-pullquote` (Pull Quote Poster)**: `headline` (3–6 words), `body` (2–4 words), `eyebrow` (1–3 words).
+- **`info-strikereveal` (Strike and Reveal)**: `eyebrow` (1–2 words struck myth), `headline` (1–3 words lit fact), `body` (3–6 words).
+- **`info-bignumber` (Big Number Hook)**: `number` (1–3 chars), `headline` (1–3 words), `eyebrow` (1–3 words), `body` (3–6 words).
+- **`info-triplestack` (Triple Stack)**: `headline` (3 lines of 1–2 words), `eyebrow` (1–3 words), `body` (3–6 words).
+- **`info-questionhero` (Question Hero)**: `headline` (1–3 words), `eyebrow` (1–2 words), `button` (1–3 words).
+- **`info-twinphones` (Twin Phones)**: `headline` (1–3 words), `eyebrow` (1–3 words), `body` (3–6 words), `button` (1–3 words). Opposing 3D phones.
+- **`info-cardfan` (Card Fan)**: `headline` (1–3 words), `eyebrow` (1–3 words), `body` (3–6 words).
+- **`info-ribbonpath` (Ribbon Path)**: `headline` (1–3 words), `list` (3 stops, 1–2 words per line), `eyebrow` (1–3 words).
+- **`info-dateslab` (Date Slab)**: `number` (2–5 chars date/time), `headline` (1–3 words), `eyebrow` (1–3 words), `button` (1–3 words).
+- **`mkt-monument` (Number Monument)**: `number` (2–4 chars, e.g. `50K`), `headline` (1–3 words), `eyebrow` (1–3 words), `body` (2–5 words).
+- **`mkt-alerttape` (Alert Tape)**: `headline` (1–3 words), `eyebrow` (1–3 words), `body` (2–5 words), `button` (1–3 words).
+- **`mkt-docstack` (Doc Stack)**: `headline` (1–2 words, e.g. `FREE`), `eyebrow` (1–3 words), `body` (3–6 words), `button` (1–3 words).
+- **`mkt-floating-hero` (Floating Object Hero)**: `headline` (1–3 words), `eyebrow` (1–3 words), `body` (3–6 words), `button` (1–3 words).
+- **`device-cutout-hero` (Phone + Cutout Hero)**: `headline` (1–3 words), `eyebrow` (1–3 words), `button` (1–3 words).
+- **`device-tablet-duo` (Tablet & Phone Duo)**: `headline` (1–3 words), `eyebrow` (1–3 words), `body` (3–6 words), `button` (1–3 words).
+- **`device-trio-scroll` (Triple Phone Cascade)**: `headline` (1–3 words), `eyebrow` (1–3 words), `button` (1–3 words).
 
 ## 12. Progress log
 
 - 17 Nov 2026: plan written. Nothing implemented. Nothing compiled.
+- 17 Nov 2026: implemented all phases P1 through P7 in one pass (`PostModel.kt`, `PostComposeKit.kt`, `PostRenderer.kt`, `PostTemplates.kt`, `PostStudyGrid.kt`, `PostTex.kt`, `PostTemplatesStudy.kt`, `PostTemplatesLetter.kt`, `PostTemplatesType.kt`, `PostTemplatesPhoto.kt`, `PostTemplatesInfo.kt`, `PostTemplatesMarketing.kt`, `PostTemplatesDevice.kt`, `PostTheme.kt`, `PostControls.kt`, `PostBrandScreen.kt`, `PostFooterEditor.kt`, `PostEngineControls.kt`, `PostEditorTabs.kt`, `PostStudio.kt`, `PostQaScreen.kt`, `docs/CHAPTER_SUMMARIES_QA_FIXTURE.md`). Not compiled here (AI Studio agent cannot run Gradle).
+

@@ -114,22 +114,25 @@ internal fun CompactChip(
     accent: Color = PostPalette.Mint,
     onClick: () -> Unit
 ) {
+    val bg = if (selected) accent else PostPalette.Raised
+    val fg = if (selected) Color(0xFF051817) else PostPalette.Text
+    val iconTint = if (selected) Color(0xFF051817) else PostPalette.Muted
     Row(
         modifier = modifier
-            .height(32.dp)
+            .height(34.dp)
             .clip(RoundedCornerShape(8.dp))
-            .background(if (selected) accent.copy(alpha = 0.20f) else PostPalette.Raised)
+            .background(bg)
             .border(1.dp, if (selected) accent else PostPalette.Line, RoundedCornerShape(8.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 9.dp),
+            .padding(horizontal = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
+        horizontalArrangement = Arrangement.spacedBy(5.dp)
     ) {
         if (icon != null) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = if (selected) accent else PostPalette.Muted,
+                tint = iconTint,
                 modifier = Modifier.size(14.dp)
             )
         }
@@ -137,7 +140,7 @@ internal fun CompactChip(
             text = label,
             fontSize = 12.sp,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-            color = if (selected) accent else PostPalette.Text,
+            color = fg,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )

@@ -1,5 +1,6 @@
 package com.wisdomtower.post
 
+import android.graphics.RectF
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
@@ -90,7 +91,21 @@ enum class DecorShape {
     GEM,
     DIAMOND,
     TRIANGLE,
-    HEXAGON
+    HEXAGON,
+    DEVICE_3D,
+    DOC_STACK,
+    PEEL_CORNER,
+    TAPE_BAND,
+    RIBBON_PATH,
+    CARD_FAN,
+    MONUMENT_SLAB,
+    SPOTLIGHT_CONE,
+    PORTAL_ARCH,
+    STARBURST,
+    SPEECH_STAGE,
+    CHECK_CARDS,
+    DATE_SLAB,
+    FLOATING_OBJECT
 }
 
 data class DecorBox(
@@ -103,7 +118,11 @@ data class DecorBox(
     val alpha: Int = 255,
     val frameBack: Int = 0,
     val panel: Boolean = false,
-    val rotate: Float = 0f
+    val rotate: Float = 0f,
+    val tiltX: Float = 0f,
+    val tiltY: Float = 0f,
+    val variant: Int = 0,
+    val secondaryTone: PostTone? = null
 )
 
 class SlotBox(
@@ -209,7 +228,12 @@ data class PhotoCell(
     val panOffsetX: Float = 0f,
     val panOffsetY: Float = 0f,
     val rotate: Float = 0f,
-    val radius: Float = 0.028f
+    val radius: Float = 0.028f,
+    val tiltX: Float = 0f,
+    val tiltY: Float = 0f,
+    val photoIndex: Int = 0,
+    val rimTone: PostTone? = null,
+    val shadow: Boolean = false
 )
 
 data class PostPhotoArea(
@@ -224,10 +248,14 @@ data class PostPhotoArea(
     val fadeRight: Boolean = false,
     val cells: List<PhotoCell> = emptyList(),
     val rotate: Float = 0f,
-    val dim: Int = 0
+    val dim: Int = 0,
+    val arch: Boolean = false,
+    val rimTone: PostTone? = null,
+    val shadow: Boolean = false
 ) {
     val mask: PhotoFrame?
         get() = when {
+            arch -> PhotoFrame.ARCH
             circle -> PhotoFrame.CIRCLE
             rounded -> PhotoFrame.ROUNDED
             else -> null
@@ -252,7 +280,11 @@ data class TemplateLayout(
     val clean: Boolean = false,
     val bare: Boolean = false,
     val social: SocialArea? = null,
-    val bleed: Boolean = false
+    val bleed: Boolean = false,
+    val logoAnchor: LogoAnchor = LogoAnchor.TOP_LEFT,
+    val logoKeepOut: RectF? = null,
+    val cutoutShowDefault: Boolean = false,
+    val cutoutStyle: CutoutStyle = CutoutStyle.RIM_GLOW
 )
 
 data class TemplateLook(
@@ -268,7 +300,8 @@ data class TemplateLook(
     val textBehind: Set<String> = emptySet(),
     val cutoutX: Float = 0.5f,
     val cutoutY: Float = 0.94f,
-    val cutoutScale: Float = 1f
+    val cutoutScale: Float = 1f,
+    val cutoutStyle: CutoutStyle? = null
 )
 
 class PostTemplateSpec(
@@ -317,7 +350,8 @@ fun PostDoc.withLook(look: TemplateLook): PostDoc = copy(
     grain = look.grain || grain,
     photoFrame = look.frame ?: photoFrame,
     frameBorder = look.frameBorder || frameBorder,
-    textBehind = if (look.textBehind.isNotEmpty()) look.textBehind else textBehind
+    textBehind = if (look.textBehind.isNotEmpty()) look.textBehind else textBehind,
+    cutoutStyle = look.cutoutStyle ?: cutoutStyle
 )
 
 fun PostDoc.withTemplate(spec: PostTemplateSpec): PostDoc {
@@ -351,49 +385,50 @@ fun PostTemplateSpec.withLookIndex(index: Int): PostTemplateSpec {
 }
 
 /**
- * Legacy template ID mapping (Section 6 of docs/TEMPLATE_REDESIGN_PLAN.md).
- * Old drafts and inbox batches saved under any removed template ID resolve cleanly to their new replacement.
+ * Legacy template ID mapping (Section 6 of docs/TEMPLATE_REDESIGN_PLAN.md + Section 8 of docs/SHOWCASE_TEMPLATES_PLAN.md).
+ * Old drafts and inbox batches saved under any removed template ID resolve cleanly to their new showcase replacement.
  */
 val LegacyTemplateIds: Map<String, String> = mapOf(
-    "bold-quote" to "info-quote",
+    // First-generation legacy IDs -> current showcase IDs
+    "bold-quote" to "info-pullquote",
     "bold-stat" to "info-stat",
-    "bold-tip" to "info-tip",
-    "bold-words" to "type-spotlight",
-    "bold-minimal" to "type-aurora",
+    "bold-tip" to "info-bignumber",
+    "bold-words" to "type-spotlightcut",
+    "bold-minimal" to "type-auroraword",
     "bold-ribbon" to "ltr-bigword",
-    "bold-versus" to "info-versus",
-    "bold-callout" to "mkt-notice",
-    "bold-steps" to "info-tip",
+    "bold-versus" to "info-strikereveal",
+    "bold-callout" to "mkt-alerttape",
+    "bold-steps" to "info-bignumber",
     "bold-banner" to "type-ink",
 
-    "split-left" to "ltr-split",
+    "split-left" to "ltr-mirrorsplit",
     "split-top" to "ltr-number",
     "split-corner" to "type-grid",
     "split-diagonal" to "ltr-bigword",
     "split-band" to "type-chips",
-    "split-pillar" to "ltr-dropcap",
+    "split-pillar" to "ltr-coverline",
     "split-card" to "info-definition",
     "split-frame" to "mkt-poster",
-    "split-step" to "info-qa",
-    "split-arch" to "ltr-window",
+    "split-step" to "info-twinphones",
+    "split-arch" to "ltr-portal",
 
     "photo-full" to "photo-floor",
-    "photo-circle" to "photo-testimonial",
+    "photo-circle" to "photo-voiceframe",
     "photo-card" to "photo-polaroid",
-    "photo-left" to "photo-tag",
+    "photo-left" to "photo-cornerpeel",
     "photo-top" to "photo-cover",
-    "photo-badge" to "photo-idcard",
+    "photo-badge" to "photo-gueststage",
     "photo-frame" to "photo-cover",
     "photo-strip" to "photo-triptych",
     "photo-arch" to "photo-behind",
-    "photo-quote" to "photo-testimonial",
-    "photo-corner" to "photo-tag",
+    "photo-quote" to "photo-voiceframe",
+    "photo-corner" to "photo-cornerpeel",
     "photo-split" to "photo-triptych",
     "photo-spotlight" to "photo-behind",
     "photo-banner" to "photo-floor",
 
-    "info-list" to "info-tip",
-    "info-compare" to "info-versus",
+    "info-list" to "info-bignumber",
+    "info-compare" to "info-strikereveal",
     "info-fact" to "info-stat",
     "info-glossary" to "info-definition",
     "info-rule" to "info-formula",
@@ -402,13 +437,35 @@ val LegacyTemplateIds: Map<String, String> = mapOf(
     "mkt-announce" to "mkt-poster",
     "mkt-event" to "mkt-ticket",
     "mkt-offer" to "mkt-poster",
-    "mkt-cta" to "mkt-download",
-    "mkt-quote" to "info-quote",
-    "mkt-stat" to "mkt-milestone",
+    "mkt-cta" to "mkt-docstack",
+    "mkt-quote" to "info-pullquote",
+    "mkt-stat" to "mkt-monument",
     "mkt-launch" to "mkt-poster",
-    "mkt-alert" to "mkt-notice",
-    "mkt-card" to "mkt-download",
-    "social-follow" to "mkt-follow"
+    "mkt-alert" to "mkt-alerttape",
+    "mkt-card" to "mkt-docstack",
+    "social-follow" to "mkt-follow",
+
+    // Second-generation 20 replaced IDs -> new showcase IDs (SHOWCASE_TEMPLATES_PLAN.md Section 8)
+    "ltr-window" to "ltr-portal",
+    "ltr-dropcap" to "ltr-coverline",
+    "ltr-split" to "ltr-mirrorsplit",
+    "type-aurora" to "type-auroraword",
+    "type-spotlight" to "type-spotlightcut",
+    "photo-idcard" to "photo-gueststage",
+    "photo-testimonial" to "photo-voiceframe",
+    "photo-tag" to "photo-cornerpeel",
+    "info-quote" to "info-pullquote",
+    "info-versus" to "info-strikereveal",
+    "info-tip" to "info-bignumber",
+    "info-checklist" to "info-triplestack",
+    "info-quiz" to "info-questionhero",
+    "info-qa" to "info-twinphones",
+    "info-flashcard" to "info-cardfan",
+    "info-timeline" to "info-ribbonpath",
+    "info-timetable" to "info-dateslab",
+    "mkt-milestone" to "mkt-monument",
+    "mkt-notice" to "mkt-alerttape",
+    "mkt-download" to "mkt-docstack"
 )
 
 val PostTemplates: List<PostTemplateSpec> by lazy {
@@ -422,7 +479,12 @@ val PostTemplates: List<PostTemplateSpec> by lazy {
 }
 
 fun postTemplate(id: String): PostTemplateSpec {
-    val mappedId = LegacyTemplateIds[id] ?: id
+    var mappedId = id
+    var hops = 0
+    while (LegacyTemplateIds.containsKey(mappedId) && hops < 4) {
+        mappedId = LegacyTemplateIds[mappedId] ?: break
+        hops++
+    }
     return PostTemplates.firstOrNull { it.id == mappedId }
         ?: PostTemplates.firstOrNull { it.id == id }
         ?: PostTemplates.first()

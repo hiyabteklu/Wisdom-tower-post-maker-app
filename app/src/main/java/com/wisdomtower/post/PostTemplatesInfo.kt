@@ -300,283 +300,141 @@ internal val InfoTemplates: List<PostTemplateSpec> = listOf(
         )
     },
 
-    // 3. info-tip — Numbered tip card
+    // 3. info-bignumber — Big Number Hook (replaces info-tip)
     PostTemplateSpec(
-        id = "info-tip",
-        name = "Numbered tip card",
+        id = "info-bignumber",
+        name = "Big Number Hook",
         family = "Information",
-        slots = listOf(PostSlots.NUMBER, PostSlots.EYEBROW, PostSlots.HEADLINE, PostSlots.BODY, PostSlots.LIST),
+        slots = listOf(PostSlots.NUMBER, PostSlots.EYEBROW, PostSlots.HEADLINE, PostSlots.BODY),
         sample = mapOf(
-            PostSlots.NUMBER to "07",
-            PostSlots.EYEBROW to "STUDY HABIT",
-            PostSlots.HEADLINE to "Write a 3-sentence summary at the end of every page.",
-            PostSlots.BODY to "If you cannot explain the page simply, re-read the key paragraph before turning it.",
-            PostSlots.LIST to "Read one section\nClose the book\nWrite 3 clear lines"
+            PostSlots.NUMBER to "01",
+            PostSlots.EYEBROW to "TIP OF THE DAY",
+            PostSlots.HEADLINE to "ACTIVE RECALL",
+            PostSlots.BODY to "TEST BEFORE RE-READING"
         ),
         looks = listOf(
             TemplateLook("Gold badge", "#F59E0B", "#080C15", PostBase.DARK),
             TemplateLook("Mint badge", "#10B981", "#06110D", PostBase.DARK),
-            TemplateLook("Clean notebook", "#EA580C", "#FAF6EE", PostBase.LIGHT)
+            TemplateLook("Clean notebook", "#EA580C", "#FAF6EE", PostBase.LIGHT),
+            TemplateLook("Electric violet", "#A855F7", "#090614", PostBase.DARK)
         )
     ) { size ->
         size.pick3(
             story = TemplateLayout(
                 base = PostBase.DARK,
-                backdrop = Backdrop.CORNER,
+                backdrop = Backdrop.SPOT,
+                logoAnchor = LogoAnchor.TOP_LEFT,
                 decor = listOf(
-                    DecorBox(DecorShape.CARD, 0.06f, 0.14f, 0.88f, 0.75f, PostTone.SOFT, alpha = 235, panel = true),
-                    DecorBox(DecorShape.PILL, 0.11f, 0.10f, 0.22f, 0.09f, PostTone.ACCENT, panel = true)
+                    DecorBox(DecorShape.RING, 0.14f, 0.14f, 0.72f, 0.42f, PostTone.ACCENT, alpha = 190),
+                    DecorBox(DecorShape.MONUMENT_SLAB, 0.18f, 0.16f, 0.64f, 0.38f, PostTone.ACCENT, secondaryTone = PostTone.DEEP, alpha = 235),
+                    DecorBox(DecorShape.PILL, 0.24f, 0.80f, 0.52f, 0.055f, PostTone.SOFT, alpha = 230, panel = true)
                 ),
                 slots = listOf(
-                    SlotBox(
-                        slot = PostSlots.NUMBER,
-                        x = 0.12f, y = 0.105f, w = 0.20f, h = 0.08f,
-                        size = 64f, font = PostFont.CONDENSED, tone = PostTone.DARK,
-                        centered = true, fit = FitMode.FILL, anchor = VAnchor.CENTER
-                    ),
-                    SlotBox(
-                        slot = PostSlots.EYEBROW,
-                        x = 0.36f, y = 0.155f, w = 0.52f, h = 0.04f,
-                        size = 21f, font = PostFont.BOLD, tone = PostTone.ACCENT,
-                        caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.12f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.HEADLINE,
-                        x = 0.11f, y = 0.23f, w = 0.78f, h = 0.20f,
-                        size = 46f, font = PostFont.DISPLAY, tone = PostTone.TEXT,
-                        fit = FitMode.FILL, anchor = VAnchor.TOP, leading = 1.05f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.BODY,
-                        x = 0.11f, y = 0.45f, w = 0.78f, h = 0.13f,
-                        size = 25f, font = PostFont.REGULAR, tone = PostTone.MUTED,
-                        fit = FitMode.FILL, anchor = VAnchor.TOP, leading = 1.22f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.LIST,
-                        x = 0.11f, y = 0.61f, w = 0.78f, h = 0.24f,
-                        size = 26f, font = PostFont.BOLD, tone = PostTone.TEXT,
-                        list = ListStyle.NUMBER, fit = FitMode.FILL, anchor = VAnchor.TOP, leading = 1.28f
-                    )
+                    SlotBox(PostSlots.EYEBROW, 0.20f, 0.09f, 0.60f, 0.042f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.18f),
+                    SlotBox(PostSlots.NUMBER, 0.16f, 0.16f, 0.68f, 0.38f, size = 340f, font = PostFont.CONDENSED, tone = PostTone.ACCENT, centered = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, fx = TextFx.EXTRUDE, fxTo = PostTone.DARK),
+                    SlotBox(PostSlots.HEADLINE, 0.08f, 0.58f, 0.84f, 0.18f, size = 110f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 0.94f, shadow = TextShadow(strength = 75, mode = ShadowMode.GLOW)),
+                    SlotBox(PostSlots.BODY, 0.26f, 0.805f, 0.48f, 0.045f, size = 22f, font = PostFont.BOLD, tone = PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL_WIDTH, anchor = VAnchor.CENTER, maxLines = 1)
                 )
             ),
             standard = TemplateLayout(
                 base = PostBase.DARK,
-                backdrop = Backdrop.CORNER,
+                backdrop = Backdrop.SPOT,
+                logoAnchor = LogoAnchor.TOP_RIGHT,
                 decor = listOf(
-                    DecorBox(DecorShape.CARD, 0.06f, 0.15f, 0.88f, 0.74f, PostTone.SOFT, alpha = 235, panel = true),
-                    DecorBox(DecorShape.PILL, 0.10f, 0.10f, 0.18f, 0.11f, PostTone.ACCENT, panel = true)
+                    DecorBox(DecorShape.MONUMENT_SLAB, 0.06f, 0.14f, 0.42f, 0.72f, PostTone.ACCENT, secondaryTone = PostTone.DEEP, alpha = 235),
+                    DecorBox(DecorShape.BAR, 0.52f, 0.56f, 0.18f, 0.010f, PostTone.ACCENT)
                 ),
                 slots = listOf(
-                    SlotBox(
-                        slot = PostSlots.NUMBER,
-                        x = 0.11f, y = 0.105f, w = 0.16f, h = 0.10f,
-                        size = 64f, font = PostFont.CONDENSED, tone = PostTone.DARK,
-                        centered = true, fit = FitMode.FILL, anchor = VAnchor.CENTER
-                    ),
-                    SlotBox(
-                        slot = PostSlots.EYEBROW,
-                        x = 0.31f, y = 0.17f, w = 0.56f, h = 0.045f,
-                        size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT,
-                        caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.12f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.HEADLINE,
-                        x = 0.10f, y = 0.25f, w = 0.80f, h = 0.20f,
-                        size = 44f, font = PostFont.DISPLAY, tone = PostTone.TEXT,
-                        fit = FitMode.FILL, anchor = VAnchor.TOP, leading = 1.05f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.BODY,
-                        x = 0.10f, y = 0.47f, w = 0.80f, h = 0.12f,
-                        size = 24f, font = PostFont.REGULAR, tone = PostTone.MUTED,
-                        fit = FitMode.FILL, anchor = VAnchor.TOP
-                    ),
-                    SlotBox(
-                        slot = PostSlots.LIST,
-                        x = 0.10f, y = 0.61f, w = 0.80f, h = 0.24f,
-                        size = 24f, font = PostFont.BOLD, tone = PostTone.TEXT,
-                        list = ListStyle.NUMBER, fit = FitMode.FILL, anchor = VAnchor.TOP, leading = 1.25f
-                    )
+                    SlotBox(PostSlots.NUMBER, 0.08f, 0.16f, 0.38f, 0.68f, size = 340f, font = PostFont.CONDENSED, tone = PostTone.ACCENT, centered = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, fx = TextFx.EXTRUDE, fxTo = PostTone.DARK),
+                    SlotBox(PostSlots.EYEBROW, 0.52f, 0.22f, 0.40f, 0.05f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.16f),
+                    SlotBox(PostSlots.HEADLINE, 0.52f, 0.29f, 0.42f, h = 0.24f, size = 96f, font = PostFont.DISPLAY, tone = PostTone.TEXT, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 0.94f),
+                    SlotBox(PostSlots.BODY, 0.52f, 0.61f, 0.42f, 0.10f, size = 26f, font = PostFont.BOLD, tone = PostTone.MUTED, caps = true, fit = FitMode.FILL_WIDTH, anchor = VAnchor.TOP)
                 )
             ),
             wide = TemplateLayout(
                 base = PostBase.DARK,
-                backdrop = Backdrop.CORNER,
+                backdrop = Backdrop.SPOT,
+                logoAnchor = LogoAnchor.TOP_RIGHT,
                 decor = listOf(
-                    DecorBox(DecorShape.CARD, 0.05f, 0.15f, 0.90f, 0.74f, PostTone.SOFT, alpha = 235, panel = true),
-                    DecorBox(DecorShape.PILL, 0.09f, 0.10f, 0.15f, 0.12f, PostTone.ACCENT, panel = true)
+                    DecorBox(DecorShape.MONUMENT_SLAB, 0.05f, 0.12f, 0.38f, 0.76f, PostTone.ACCENT, secondaryTone = PostTone.DEEP, alpha = 235),
+                    DecorBox(DecorShape.BAR, 0.48f, 0.58f, 0.16f, 0.012f, PostTone.ACCENT)
                 ),
                 slots = listOf(
-                    SlotBox(
-                        slot = PostSlots.NUMBER,
-                        x = 0.10f, y = 0.105f, w = 0.13f, h = 0.11f,
-                        size = 64f, font = PostFont.CONDENSED, tone = PostTone.DARK,
-                        centered = true, fit = FitMode.FILL, anchor = VAnchor.CENTER
-                    ),
-                    SlotBox(
-                        slot = PostSlots.EYEBROW,
-                        x = 0.27f, y = 0.18f, w = 0.40f, h = 0.05f,
-                        size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT,
-                        caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.12f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.HEADLINE,
-                        x = 0.09f, y = 0.27f, w = 0.44f, h = 0.34f,
-                        size = 44f, font = PostFont.DISPLAY, tone = PostTone.TEXT,
-                        fit = FitMode.FILL, anchor = VAnchor.TOP, leading = 1.05f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.BODY,
-                        x = 0.09f, y = 0.64f, w = 0.44f, h = 0.20f,
-                        size = 23f, font = PostFont.REGULAR, tone = PostTone.MUTED,
-                        fit = FitMode.FILL, anchor = VAnchor.TOP
-                    ),
-                    SlotBox(
-                        slot = PostSlots.LIST,
-                        x = 0.57f, y = 0.27f, w = 0.34f, h = 0.56f,
-                        size = 25f, font = PostFont.BOLD, tone = PostTone.TEXT,
-                        list = ListStyle.NUMBER, fit = FitMode.FILL, anchor = VAnchor.TOP, leading = 1.28f
-                    )
+                    SlotBox(PostSlots.NUMBER, 0.07f, 0.14f, 0.34f, 0.72f, size = 340f, font = PostFont.CONDENSED, tone = PostTone.ACCENT, centered = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, fx = TextFx.EXTRUDE, fxTo = PostTone.DARK),
+                    SlotBox(PostSlots.EYEBROW, 0.48f, 0.20f, 0.44f, 0.055f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.16f),
+                    SlotBox(PostSlots.HEADLINE, 0.48f, 0.28f, 0.46f, 0.26f, size = 104f, font = PostFont.DISPLAY, tone = PostTone.TEXT, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 0.94f),
+                    SlotBox(PostSlots.BODY, 0.48f, 0.62f, 0.44f, 0.10f, size = 26f, font = PostFont.BOLD, tone = PostTone.MUTED, caps = true, fit = FitMode.FILL_WIDTH, anchor = VAnchor.TOP)
                 )
             )
         )
     },
 
-    // 4. info-versus — Myth vs Fact / Before vs After
+    // 4. info-strikereveal — Strike and Reveal (replaces info-versus)
     PostTemplateSpec(
-        id = "info-versus",
-        name = "Myth vs Fact",
+        id = "info-strikereveal",
+        name = "Strike and Reveal",
         family = "Information",
-        slots = listOf(PostSlots.EYEBROW, PostSlots.HEADLINE, PostSlots.BODY, PostSlots.LIST),
+        slots = listOf(PostSlots.EYEBROW, PostSlots.WORD, PostSlots.HEADLINE, PostSlots.BODY),
         sample = mapOf(
-            PostSlots.EYEBROW to "MYTH VS FACT",
-            PostSlots.HEADLINE to "Highlighting whole pages is the fastest way to study.",
-            PostSlots.BODY to "Testing yourself from memory builds durable neural pathways.",
-            PostSlots.LIST to "Close the book after reading\nWrite down 3 key ideas\nCheck what you missed"
+            PostSlots.EYEBROW to "MYTH VS TRUTH",
+            PostSlots.WORD to "RE-READING",
+            PostSlots.HEADLINE to "SELF-TESTING",
+            PostSlots.BODY to "3X MEMORY RETENTION"
         ),
         looks = listOf(
             TemplateLook("Gold vs Slate", "#F59E0B", "#080B12", PostBase.DARK),
             TemplateLook("Emerald vs Ink", "#10B981", "#050E0B", PostBase.DARK),
-            TemplateLook("Paper contrast", "#2563EB", "#F8FAFC", PostBase.LIGHT)
+            TemplateLook("Paper contrast", "#2563EB", "#F8FAFC", PostBase.LIGHT),
+            TemplateLook("Signal red", "#EF4444", "#0B0608", PostBase.DARK)
         )
     ) { size ->
         size.pick3(
             story = TemplateLayout(
                 base = PostBase.DARK,
+                backdrop = Backdrop.DIAG,
+                logoAnchor = LogoAnchor.TOP_LEFT,
                 decor = listOf(
-                    DecorBox(DecorShape.CARD, 0.06f, 0.16f, 0.88f, 0.32f, PostTone.DEEP, alpha = 235, panel = true),
-                    DecorBox(DecorShape.BAR, 0.06f, 0.16f, 0.88f, 0.008f, PostTone.RED, panel = true),
-                    DecorBox(DecorShape.CARD, 0.06f, 0.51f, 0.88f, 0.38f, PostTone.SOFT, alpha = 240, panel = true),
-                    DecorBox(DecorShape.BAR, 0.06f, 0.51f, 0.88f, 0.008f, PostTone.ACCENT, panel = true)
+                    DecorBox(DecorShape.CARD, 0.08f, 0.18f, 0.84f, 0.26f, PostTone.DEEP, alpha = 225, panel = true),
+                    DecorBox(DecorShape.CARD, 0.06f, 0.48f, 0.88f, 0.34f, PostTone.SOFT, alpha = 240, panel = true),
+                    DecorBox(DecorShape.FRAME, 0.06f, 0.48f, 0.88f, 0.34f, PostTone.ACCENT, alpha = 220)
                 ),
                 slots = listOf(
-                    SlotBox(
-                        slot = PostSlots.EYEBROW,
-                        x = 0.06f, y = 0.10f, w = 0.88f, h = 0.042f,
-                        size = 22f, font = PostFont.BOLD, tone = PostTone.ACCENT,
-                        centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.16f
-                    ),
-                    SlotBox(
-                        slot = "myth_tag",
-                        x = 0.10f, y = 0.19f, w = 0.24f, h = 0.038f,
-                        size = 18f, font = PostFont.BOLD, tone = PostTone.LIGHT,
-                        centered = true, caps = true, literal = true, fit = FitMode.FILL_WIDTH, chip = PostTone.RED
-                    ),
-                    SlotBox(
-                        slot = PostSlots.HEADLINE,
-                        x = 0.10f, y = 0.25f, w = 0.80f, h = 0.20f,
-                        size = 38f, font = PostFont.DISPLAY, tone = PostTone.MUTED,
-                        fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.08f
-                    ),
-                    SlotBox(
-                        slot = "fact_tag",
-                        x = 0.10f, y = 0.54f, w = 0.24f, h = 0.038f,
-                        size = 18f, font = PostFont.BOLD, tone = PostTone.DARK,
-                        centered = true, caps = true, literal = true, fit = FitMode.FILL_WIDTH, chip = PostTone.ACCENT
-                    ),
-                    SlotBox(
-                        slot = PostSlots.BODY,
-                        x = 0.10f, y = 0.60f, w = 0.80f, h = 0.12f,
-                        size = 34f, font = PostFont.DISPLAY, tone = PostTone.TEXT,
-                        fit = FitMode.FILL, anchor = VAnchor.TOP, leading = 1.08f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.LIST,
-                        x = 0.10f, y = 0.74f, w = 0.80f, h = 0.13f,
-                        size = 23f, font = PostFont.BOLD, tone = PostTone.TEXT,
-                        list = ListStyle.CHECK, fit = FitMode.FILL, anchor = VAnchor.TOP, leading = 1.22f
-                    )
+                    SlotBox(PostSlots.EYEBROW, 0.20f, 0.10f, 0.60f, 0.045f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.18f),
+                    SlotBox(PostSlots.WORD, 0.12f, 0.21f, 0.76f, 0.20f, size = 130f, font = PostFont.CONDENSED, tone = PostTone.MUTED, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, fx = TextFx.STRIKE_REVEAL, fxTo = PostTone.RED),
+                    SlotBox(PostSlots.HEADLINE, 0.10f, 0.51f, 0.80f, 0.20f, size = 140f, font = PostFont.DISPLAY, tone = PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, fx = TextFx.GRADIENT, fxTo = PostTone.GLOW, shadow = TextShadow(strength = 80, mode = ShadowMode.GLOW)),
+                    SlotBox(PostSlots.BODY, 0.20f, 0.73f, 0.60f, 0.055f, size = 22f, font = PostFont.BOLD, tone = PostTone.DARK, centered = true, caps = true, fit = FitMode.FILL_WIDTH, chip = PostTone.ACCENT)
                 )
             ),
             standard = TemplateLayout(
                 base = PostBase.DARK,
+                backdrop = Backdrop.DIAG,
+                logoAnchor = LogoAnchor.TOP_LEFT,
                 decor = listOf(
-                    DecorBox(DecorShape.CARD, 0.06f, 0.17f, 0.42f, 0.71f, PostTone.DEEP, alpha = 235, panel = true),
-                    DecorBox(DecorShape.BAR, 0.06f, 0.17f, 0.42f, 0.010f, PostTone.RED, panel = true),
-                    DecorBox(DecorShape.CARD, 0.52f, 0.17f, 0.42f, 0.71f, PostTone.SOFT, alpha = 240, panel = true),
-                    DecorBox(DecorShape.BAR, 0.52f, 0.17f, 0.42f, 0.010f, PostTone.ACCENT, panel = true)
+                    DecorBox(DecorShape.CARD, 0.06f, 0.18f, 0.88f, 0.26f, PostTone.DEEP, alpha = 225, panel = true),
+                    DecorBox(DecorShape.CARD, 0.06f, 0.48f, 0.88f, 0.36f, PostTone.SOFT, alpha = 240, panel = true),
+                    DecorBox(DecorShape.FRAME, 0.06f, 0.48f, 0.88f, 0.36f, PostTone.ACCENT, alpha = 220)
                 ),
                 slots = listOf(
-                    SlotBox(
-                        slot = PostSlots.EYEBROW,
-                        x = 0.06f, y = 0.10f, w = 0.88f, h = 0.048f,
-                        size = 22f, font = PostFont.BOLD, tone = PostTone.ACCENT,
-                        centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.16f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.HEADLINE,
-                        x = 0.10f, y = 0.24f, w = 0.34f, h = 0.58f,
-                        size = 38f, font = PostFont.DISPLAY, tone = PostTone.MUTED,
-                        fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.08f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.BODY,
-                        x = 0.56f, y = 0.24f, w = 0.34f, h = 0.28f,
-                        size = 34f, font = PostFont.DISPLAY, tone = PostTone.TEXT,
-                        fit = FitMode.FILL, anchor = VAnchor.TOP, leading = 1.08f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.LIST,
-                        x = 0.56f, y = 0.55f, w = 0.34f, h = 0.29f,
-                        size = 23f, font = PostFont.BOLD, tone = PostTone.TEXT,
-                        list = ListStyle.CHECK, fit = FitMode.FILL, anchor = VAnchor.TOP, leading = 1.24f
-                    )
+                    SlotBox(PostSlots.EYEBROW, 0.24f, 0.10f, 0.52f, 0.048f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.18f),
+                    SlotBox(PostSlots.WORD, 0.10f, 0.20f, 0.80f, 0.22f, size = 130f, font = PostFont.CONDENSED, tone = PostTone.MUTED, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, fx = TextFx.STRIKE_REVEAL, fxTo = PostTone.RED),
+                    SlotBox(PostSlots.HEADLINE, 0.10f, 0.51f, 0.80f, 0.20f, size = 140f, font = PostFont.DISPLAY, tone = PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, fx = TextFx.GRADIENT, fxTo = PostTone.GLOW, shadow = TextShadow(strength = 80, mode = ShadowMode.GLOW)),
+                    SlotBox(PostSlots.BODY, 0.26f, 0.74f, 0.48f, 0.062f, size = 22f, font = PostFont.BOLD, tone = PostTone.DARK, centered = true, caps = true, fit = FitMode.FILL_WIDTH, chip = PostTone.ACCENT)
                 )
             ),
             wide = TemplateLayout(
                 base = PostBase.DARK,
+                backdrop = Backdrop.DIAG,
+                logoAnchor = LogoAnchor.TOP_LEFT,
                 decor = listOf(
-                    DecorBox(DecorShape.CARD, 0.05f, 0.18f, 0.43f, 0.70f, PostTone.DEEP, alpha = 235, panel = true),
-                    DecorBox(DecorShape.BAR, 0.05f, 0.18f, 0.43f, 0.010f, PostTone.RED, panel = true),
-                    DecorBox(DecorShape.CARD, 0.52f, 0.18f, 0.43f, 0.70f, PostTone.SOFT, alpha = 240, panel = true),
-                    DecorBox(DecorShape.BAR, 0.52f, 0.18f, 0.43f, 0.010f, PostTone.ACCENT, panel = true)
+                    DecorBox(DecorShape.CARD, 0.05f, 0.18f, 0.42f, 0.68f, PostTone.DEEP, alpha = 225, panel = true),
+                    DecorBox(DecorShape.CARD, 0.51f, 0.18f, 0.44f, 0.68f, PostTone.SOFT, alpha = 240, panel = true),
+                    DecorBox(DecorShape.FRAME, 0.51f, 0.18f, 0.44f, 0.68f, PostTone.ACCENT, alpha = 220)
                 ),
                 slots = listOf(
-                    SlotBox(
-                        slot = PostSlots.EYEBROW,
-                        x = 0.05f, y = 0.10f, w = 0.90f, h = 0.05f,
-                        size = 21f, font = PostFont.BOLD, tone = PostTone.ACCENT,
-                        centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.16f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.HEADLINE,
-                        x = 0.09f, y = 0.25f, w = 0.35f, h = 0.56f,
-                        size = 40f, font = PostFont.DISPLAY, tone = PostTone.MUTED,
-                        fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.08f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.BODY,
-                        x = 0.56f, y = 0.25f, w = 0.35f, h = 0.26f,
-                        size = 34f, font = PostFont.DISPLAY, tone = PostTone.TEXT,
-                        fit = FitMode.FILL, anchor = VAnchor.TOP, leading = 1.08f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.LIST,
-                        x = 0.56f, y = 0.54f, w = 0.35f, h = 0.30f,
-                        size = 23f, font = PostFont.BOLD, tone = PostTone.TEXT,
-                        list = ListStyle.CHECK, fit = FitMode.FILL, anchor = VAnchor.TOP, leading = 1.24f
-                    )
+                    SlotBox(PostSlots.EYEBROW, 0.28f, 0.09f, 0.44f, 0.055f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.18f),
+                    SlotBox(PostSlots.WORD, 0.08f, 0.28f, 0.36f, 0.48f, size = 120f, font = PostFont.CONDENSED, tone = PostTone.MUTED, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, fx = TextFx.STRIKE_REVEAL, fxTo = PostTone.RED),
+                    SlotBox(PostSlots.HEADLINE, 0.54f, 0.26f, 0.38f, 0.36f, size = 120f, font = PostFont.DISPLAY, tone = PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, fx = TextFx.GRADIENT, fxTo = PostTone.GLOW),
+                    SlotBox(PostSlots.BODY, 0.58f, 0.68f, 0.30f, 0.09f, size = 21f, font = PostFont.BOLD, tone = PostTone.DARK, centered = true, caps = true, fit = FitMode.FILL_WIDTH, chip = PostTone.ACCENT)
                 )
             )
         )
@@ -709,903 +567,448 @@ internal val InfoTemplates: List<PostTemplateSpec> = listOf(
         )
     },
 
-    // 6. info-quote — Editorial pull-quote
+    // 6. info-pullquote — Pull Quote Poster (replaces info-quote)
     PostTemplateSpec(
-        id = "info-quote",
-        name = "Editorial pull-quote",
+        id = "info-pullquote",
+        name = "Pull Quote Poster",
         family = "Information",
         slots = listOf(PostSlots.EYEBROW, PostSlots.HEADLINE, PostSlots.BODY),
         sample = mapOf(
             PostSlots.EYEBROW to "TIMELESS WISDOM",
-            PostSlots.HEADLINE to "Education is not the filling of a pail, but the lighting of a fire.",
-            PostSlots.BODY to "— William Butler Yeats"
+            PostSlots.HEADLINE to "LIGHT A FIRE.",
+            PostSlots.BODY to "— W. B. YEATS"
         ),
         looks = listOf(
-            TemplateLook("Literary paper", "#B45309", "#FAF5EC", PostBase.LIGHT),
             TemplateLook("Midnight gold", "#F59E0B", "#080B12", PostBase.DARK),
-            TemplateLook("Sage classic", "#10B981", "#06110D", PostBase.DARK)
+            TemplateLook("Literary paper", "#B45309", "#FAF5EC", PostBase.LIGHT),
+            TemplateLook("Sage classic", "#10B981", "#06110D", PostBase.DARK),
+            TemplateLook("Crimson stage", "#E11D48", "#0C0609", PostBase.DARK)
         )
     ) { size ->
         size.pick3(
             story = TemplateLayout(
-                base = PostBase.LIGHT,
-                backdrop = Backdrop.PAPER,
+                base = PostBase.DARK,
+                backdrop = Backdrop.SPOT,
+                logoAnchor = LogoAnchor.TOP_LEFT,
                 decor = listOf(
-                    DecorBox(DecorShape.QUOTE, 0.08f, 0.14f, 0.24f, 0.14f, PostTone.ACCENT, alpha = 150, panel = true),
-                    DecorBox(DecorShape.BAR, 0.08f, 0.74f, 0.20f, 0.006f, PostTone.ACCENT, panel = true)
+                    DecorBox(DecorShape.QUOTE, 0.06f, 0.14f, 0.56f, 0.40f, PostTone.ACCENT, alpha = 95, panel = true),
+                    DecorBox(DecorShape.BAR, 0.08f, 0.76f, 0.24f, 0.008f, PostTone.ACCENT, panel = true)
                 ),
                 slots = listOf(
-                    SlotBox(
-                        slot = PostSlots.EYEBROW,
-                        x = 0.08f, y = 0.11f, w = 0.60f, h = 0.04f,
-                        size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT,
-                        caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.16f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.HEADLINE,
-                        x = 0.08f, y = 0.26f, w = 0.84f, h = 0.44f,
-                        size = 64f, font = PostFont.SERIF, tone = PostTone.TEXT,
-                        fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.08f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.BODY,
-                        x = 0.08f, y = 0.77f, w = 0.84f, h = 0.08f,
-                        size = 26f, font = PostFont.BOLD, tone = PostTone.MUTED,
-                        fit = FitMode.FILL_WIDTH, anchor = VAnchor.TOP
-                    )
+                    SlotBox(PostSlots.EYEBROW, 0.08f, 0.12f, 0.64f, 0.042f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.18f),
+                    SlotBox(PostSlots.HEADLINE, 0.08f, 0.28f, 0.84f, 0.42f, size = 132f, font = PostFont.SERIF, tone = PostTone.TEXT, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 0.96f, shadow = TextShadow(strength = 75, mode = ShadowMode.GLOW)),
+                    SlotBox(PostSlots.BODY, 0.08f, 0.79f, 0.64f, 0.055f, size = 26f, font = PostFont.BOLD, tone = PostTone.ACCENT, caps = true, fit = FitMode.FILL_WIDTH, anchor = VAnchor.TOP)
                 )
             ),
             standard = TemplateLayout(
-                base = PostBase.LIGHT,
-                backdrop = Backdrop.PAPER,
+                base = PostBase.DARK,
+                backdrop = Backdrop.SPOT,
+                logoAnchor = LogoAnchor.TOP_LEFT,
                 decor = listOf(
-                    DecorBox(DecorShape.QUOTE, 0.08f, 0.14f, 0.20f, 0.16f, PostTone.ACCENT, alpha = 150, panel = true),
-                    DecorBox(DecorShape.BAR, 0.08f, 0.74f, 0.18f, 0.007f, PostTone.ACCENT, panel = true)
+                    DecorBox(DecorShape.QUOTE, 0.06f, 0.14f, 0.48f, 0.42f, PostTone.ACCENT, alpha = 95, panel = true),
+                    DecorBox(DecorShape.BAR, 0.08f, 0.76f, 0.22f, 0.009f, PostTone.ACCENT, panel = true)
                 ),
                 slots = listOf(
-                    SlotBox(
-                        slot = PostSlots.EYEBROW,
-                        x = 0.08f, y = 0.10f, w = 0.50f, h = 0.045f,
-                        size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT,
-                        caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.16f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.HEADLINE,
-                        x = 0.08f, y = 0.26f, w = 0.84f, h = 0.44f,
-                        size = 60f, font = PostFont.SERIF, tone = PostTone.TEXT,
-                        fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.08f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.BODY,
-                        x = 0.08f, y = 0.77f, w = 0.84f, h = 0.08f,
-                        size = 25f, font = PostFont.BOLD, tone = PostTone.MUTED,
-                        fit = FitMode.FILL_WIDTH, anchor = VAnchor.TOP
-                    )
+                    SlotBox(PostSlots.EYEBROW, 0.08f, 0.11f, 0.56f, 0.045f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.18f),
+                    SlotBox(PostSlots.HEADLINE, 0.08f, 0.26f, 0.84f, 0.44f, size = 124f, font = PostFont.SERIF, tone = PostTone.TEXT, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 0.96f, shadow = TextShadow(strength = 75, mode = ShadowMode.GLOW)),
+                    SlotBox(PostSlots.BODY, 0.08f, 0.79f, 0.64f, 0.06f, size = 25f, font = PostFont.BOLD, tone = PostTone.ACCENT, caps = true, fit = FitMode.FILL_WIDTH, anchor = VAnchor.TOP)
                 )
             ),
             wide = TemplateLayout(
-                base = PostBase.LIGHT,
-                backdrop = Backdrop.PAPER,
+                base = PostBase.DARK,
+                backdrop = Backdrop.SPOT,
+                logoAnchor = LogoAnchor.TOP_LEFT,
                 decor = listOf(
-                    DecorBox(DecorShape.QUOTE, 0.07f, 0.15f, 0.16f, 0.18f, PostTone.ACCENT, alpha = 150, panel = true),
-                    DecorBox(DecorShape.BAR, 0.07f, 0.75f, 0.15f, 0.008f, PostTone.ACCENT, panel = true)
+                    DecorBox(DecorShape.QUOTE, 0.06f, 0.14f, 0.40f, 0.46f, PostTone.ACCENT, alpha = 95, panel = true),
+                    DecorBox(DecorShape.BAR, 0.08f, 0.76f, 0.18f, 0.010f, PostTone.ACCENT, panel = true)
                 ),
                 slots = listOf(
-                    SlotBox(
-                        slot = PostSlots.EYEBROW,
-                        x = 0.07f, y = 0.10f, w = 0.45f, h = 0.048f,
-                        size = 19f, font = PostFont.BOLD, tone = PostTone.ACCENT,
-                        caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.16f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.HEADLINE,
-                        x = 0.07f, y = 0.27f, w = 0.86f, h = 0.44f,
-                        size = 62f, font = PostFont.SERIF, tone = PostTone.TEXT,
-                        fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.06f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.BODY,
-                        x = 0.07f, y = 0.78f, w = 0.86f, h = 0.08f,
-                        size = 24f, font = PostFont.BOLD, tone = PostTone.MUTED,
-                        fit = FitMode.FILL_WIDTH, anchor = VAnchor.TOP
-                    )
+                    SlotBox(PostSlots.EYEBROW, 0.08f, 0.11f, 0.48f, 0.05f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.18f),
+                    SlotBox(PostSlots.HEADLINE, 0.08f, 0.25f, 0.84f, 0.45f, size = 126f, font = PostFont.SERIF, tone = PostTone.TEXT, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 0.96f),
+                    SlotBox(PostSlots.BODY, 0.08f, 0.79f, 0.56f, 0.065f, size = 24f, font = PostFont.BOLD, tone = PostTone.ACCENT, caps = true, fit = FitMode.FILL_WIDTH, anchor = VAnchor.TOP)
                 )
             )
         )
     },
 
-    // 7. info-qa — Question & answer
+    // 7. info-twinphones — Twin Phones (replaces info-qa)
     PostTemplateSpec(
-        id = "info-qa",
-        name = "Question & answer",
+        id = "info-twinphones",
+        name = "Twin Phones",
         family = "Information",
-        slots = listOf(PostSlots.EYEBROW, PostSlots.HEADLINE, PostSlots.BODY),
+        slots = listOf(PostSlots.EYEBROW, PostSlots.WORD, PostSlots.HEADLINE),
         sample = mapOf(
             PostSlots.EYEBROW to "STUDENT Q&A",
-            PostSlots.HEADLINE to "How long should a focused study block last before taking a break?",
-            PostSlots.BODY to "Aim for 45 to 50 minutes of zero-distraction study followed by a 10-minute walk away from screens."
+            PostSlots.WORD to "HOW LONG?",
+            PostSlots.HEADLINE to "50 MIN BLOCKS"
         ),
         looks = listOf(
             TemplateLook("Gold Q&A", "#F59E0B", "#080C14", PostBase.DARK),
             TemplateLook("Mint Q&A", "#10B981", "#05100C", PostBase.DARK),
-            TemplateLook("Paper Q&A", "#2563EB", "#F8FAFC", PostBase.LIGHT)
+            TemplateLook("Paper Q&A", "#2563EB", "#F8FAFC", PostBase.LIGHT),
+            TemplateLook("Violet Q&A", "#A855F7", "#090614", PostBase.DARK)
         )
     ) { size ->
         size.pick3(
             story = TemplateLayout(
                 base = PostBase.DARK,
+                backdrop = Backdrop.SPOT,
+                logoAnchor = LogoAnchor.TOP_LEFT,
                 decor = listOf(
-                    DecorBox(DecorShape.CARD, 0.06f, 0.16f, 0.88f, 0.34f, PostTone.SOFT, alpha = 235, panel = true),
-                    DecorBox(DecorShape.CARD, 0.06f, 0.53f, 0.88f, 0.36f, PostTone.DEEP, alpha = 235, panel = true),
-                    DecorBox(DecorShape.BAR, 0.06f, 0.53f, 0.88f, 0.008f, PostTone.ACCENT, panel = true)
+                    DecorBox(DecorShape.DEVICE_3D, 0.06f, 0.16f, 0.88f, 0.62f, PostTone.ACCENT, secondaryTone = PostTone.DEEP, tiltX = -12f, tiltY = 8f, variant = 1),
+                    DecorBox(DecorShape.PILL, 0.08f, 0.24f, 0.46f, 0.10f, PostTone.SOFT, alpha = 245, panel = true),
+                    DecorBox(DecorShape.PILL, 0.46f, 0.64f, 0.46f, 0.10f, PostTone.ACCENT, alpha = 250, panel = true)
                 ),
                 slots = listOf(
-                    SlotBox(
-                        slot = PostSlots.EYEBROW,
-                        x = 0.06f, y = 0.10f, w = 0.88f, h = 0.042f,
-                        size = 21f, font = PostFont.BOLD, tone = PostTone.ACCENT,
-                        centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.14f
-                    ),
-                    SlotBox(
-                        slot = "Q",
-                        x = 0.10f, y = 0.19f, w = 0.14f, h = 0.10f,
-                        size = 86f, font = PostFont.CONDENSED, tone = PostTone.ACCENT,
-                        centered = true, literal = true, fit = FitMode.FILL
-                    ),
-                    SlotBox(
-                        slot = PostSlots.HEADLINE,
-                        x = 0.26f, y = 0.20f, w = 0.64f, h = 0.26f,
-                        size = 40f, font = PostFont.DISPLAY, tone = PostTone.TEXT,
-                        fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.06f
-                    ),
-                    SlotBox(
-                        slot = "A",
-                        x = 0.10f, y = 0.57f, w = 0.14f, h = 0.10f,
-                        size = 86f, font = PostFont.CONDENSED, tone = PostTone.ACCENT,
-                        centered = true, literal = true, fit = FitMode.FILL
-                    ),
-                    SlotBox(
-                        slot = PostSlots.BODY,
-                        x = 0.26f, y = 0.58f, w = 0.64f, h = 0.27f,
-                        size = 28f, font = PostFont.REGULAR, tone = PostTone.TEXT,
-                        fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.22f
-                    )
+                    SlotBox(PostSlots.EYEBROW, 0.20f, 0.09f, 0.60f, 0.042f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.18f),
+                    SlotBox(PostSlots.WORD, 0.11f, 0.255f, 0.40f, 0.07f, size = 44f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER),
+                    SlotBox(PostSlots.HEADLINE, 0.49f, 0.655f, 0.40f, 0.07f, size = 44f, font = PostFont.DISPLAY, tone = PostTone.DARK, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER)
                 )
             ),
             standard = TemplateLayout(
                 base = PostBase.DARK,
+                backdrop = Backdrop.SPOT,
+                logoAnchor = LogoAnchor.TOP_LEFT,
                 decor = listOf(
-                    DecorBox(DecorShape.CARD, 0.06f, 0.16f, 0.88f, 0.34f, PostTone.SOFT, alpha = 235, panel = true),
-                    DecorBox(DecorShape.CARD, 0.06f, 0.53f, 0.88f, 0.36f, PostTone.DEEP, alpha = 235, panel = true),
-                    DecorBox(DecorShape.BAR, 0.06f, 0.53f, 0.88f, 0.008f, PostTone.ACCENT, panel = true)
+                    DecorBox(DecorShape.DEVICE_3D, 0.08f, 0.14f, 0.84f, 0.68f, PostTone.ACCENT, secondaryTone = PostTone.DEEP, tiltX = -12f, tiltY = 8f, variant = 1),
+                    DecorBox(DecorShape.PILL, 0.08f, 0.22f, 0.44f, 0.11f, PostTone.SOFT, alpha = 245, panel = true),
+                    DecorBox(DecorShape.PILL, 0.48f, 0.66f, 0.44f, 0.11f, PostTone.ACCENT, alpha = 250, panel = true)
                 ),
                 slots = listOf(
-                    SlotBox(
-                        slot = PostSlots.EYEBROW,
-                        x = 0.06f, y = 0.10f, w = 0.88f, h = 0.045f,
-                        size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT,
-                        centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.14f
-                    ),
-                    SlotBox(
-                        slot = "Q",
-                        x = 0.09f, y = 0.19f, w = 0.12f, h = 0.12f,
-                        size = 86f, font = PostFont.CONDENSED, tone = PostTone.ACCENT,
-                        centered = true, literal = true, fit = FitMode.FILL
-                    ),
-                    SlotBox(
-                        slot = PostSlots.HEADLINE,
-                        x = 0.23f, y = 0.19f, w = 0.67f, h = 0.28f,
-                        size = 38f, font = PostFont.DISPLAY, tone = PostTone.TEXT,
-                        fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.06f
-                    ),
-                    SlotBox(
-                        slot = "A",
-                        x = 0.09f, y = 0.57f, w = 0.12f, h = 0.12f,
-                        size = 86f, font = PostFont.CONDENSED, tone = PostTone.ACCENT,
-                        centered = true, literal = true, fit = FitMode.FILL
-                    ),
-                    SlotBox(
-                        slot = PostSlots.BODY,
-                        x = 0.23f, y = 0.57f, w = 0.67f, h = 0.28f,
-                        size = 26f, font = PostFont.REGULAR, tone = PostTone.TEXT,
-                        fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.20f
-                    )
+                    SlotBox(PostSlots.EYEBROW, 0.24f, 0.08f, 0.52f, 0.045f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.18f),
+                    SlotBox(PostSlots.WORD, 0.11f, 0.235f, 0.38f, 0.08f, size = 42f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER),
+                    SlotBox(PostSlots.HEADLINE, 0.51f, 0.675f, 0.38f, 0.08f, size = 42f, font = PostFont.DISPLAY, tone = PostTone.DARK, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER)
                 )
             ),
             wide = TemplateLayout(
                 base = PostBase.DARK,
+                backdrop = Backdrop.SPOT,
+                logoAnchor = LogoAnchor.TOP_LEFT,
                 decor = listOf(
-                    DecorBox(DecorShape.CARD, 0.05f, 0.18f, 0.43f, 0.70f, PostTone.SOFT, alpha = 235, panel = true),
-                    DecorBox(DecorShape.CARD, 0.52f, 0.18f, 0.43f, 0.70f, PostTone.DEEP, alpha = 235, panel = true),
-                    DecorBox(DecorShape.BAR, 0.52f, 0.18f, 0.43f, 0.010f, PostTone.ACCENT, panel = true)
+                    DecorBox(DecorShape.DEVICE_3D, 0.14f, 0.12f, 0.72f, 0.72f, PostTone.ACCENT, secondaryTone = PostTone.DEEP, tiltX = -12f, tiltY = 8f, variant = 1),
+                    DecorBox(DecorShape.PILL, 0.08f, 0.22f, 0.38f, 0.12f, PostTone.SOFT, alpha = 245, panel = true),
+                    DecorBox(DecorShape.PILL, 0.54f, 0.66f, 0.38f, 0.12f, PostTone.ACCENT, alpha = 250, panel = true)
                 ),
                 slots = listOf(
-                    SlotBox(
-                        slot = PostSlots.EYEBROW,
-                        x = 0.05f, y = 0.10f, w = 0.90f, h = 0.05f,
-                        size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT,
-                        centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.14f
-                    ),
-                    SlotBox(
-                        slot = "Q",
-                        x = 0.08f, y = 0.22f, w = 0.12f, h = 0.14f,
-                        size = 88f, font = PostFont.CONDENSED, tone = PostTone.ACCENT,
-                        centered = true, literal = true, fit = FitMode.FILL
-                    ),
-                    SlotBox(
-                        slot = PostSlots.HEADLINE,
-                        x = 0.08f, y = 0.38f, w = 0.37f, h = 0.45f,
-                        size = 38f, font = PostFont.DISPLAY, tone = PostTone.TEXT,
-                        fit = FitMode.FILL, anchor = VAnchor.TOP, leading = 1.06f
-                    ),
-                    SlotBox(
-                        slot = "A",
-                        x = 0.55f, y = 0.22f, w = 0.12f, h = 0.14f,
-                        size = 88f, font = PostFont.CONDENSED, tone = PostTone.ACCENT,
-                        centered = true, literal = true, fit = FitMode.FILL
-                    ),
-                    SlotBox(
-                        slot = PostSlots.BODY,
-                        x = 0.55f, y = 0.38f, w = 0.37f, h = 0.45f,
-                        size = 26f, font = PostFont.REGULAR, tone = PostTone.TEXT,
-                        fit = FitMode.FILL, anchor = VAnchor.TOP, leading = 1.22f
-                    )
+                    SlotBox(PostSlots.EYEBROW, 0.28f, 0.07f, 0.44f, 0.05f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.18f),
+                    SlotBox(PostSlots.WORD, 0.10f, 0.24f, 0.34f, 0.08f, size = 42f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER),
+                    SlotBox(PostSlots.HEADLINE, 0.56f, 0.68f, 0.34f, 0.08f, size = 42f, font = PostFont.DISPLAY, tone = PostTone.DARK, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER)
                 )
             )
         )
     },
 
-    // 8. KEPT: info-quiz — Multiple choice
+    // 8. info-questionhero — Question Hero (replaces info-quiz)
     PostTemplateSpec(
-        id = "info-quiz",
-        name = "Multiple choice",
+        id = "info-questionhero",
+        name = "Question Hero",
         family = "Information",
-        slots = listOf(PostSlots.EYEBROW, PostSlots.HEADLINE, PostSlots.LIST, PostSlots.BUTTON),
+        slots = listOf(PostSlots.NUMBER, PostSlots.EYEBROW, PostSlots.HEADLINE, PostSlots.BUTTON),
         sample = mapOf(
-            PostSlots.EYEBROW to "DAILY QUIZ",
-            PostSlots.HEADLINE to "Which organelle is responsible for generating most of the cell's ATP?",
-            PostSlots.LIST to "Ribosome\nMitochondrion\nGolgi apparatus\nEndoplasmic reticulum",
-            PostSlots.BUTTON to "Comment A, B, C or D"
+            PostSlots.NUMBER to "?",
+            PostSlots.EYEBROW to "DAILY CHALLENGE",
+            PostSlots.HEADLINE to "POWERHOUSE OF CELL?",
+            PostSlots.BUTTON to "A · B · C"
         ),
         looks = listOf(
             TemplateLook("Quiz gold", "#F59E0B", "#080B14", PostBase.DARK),
             TemplateLook("Classroom light", "#2563EB", "#F8FAFC", PostBase.LIGHT),
-            TemplateLook("Emerald quiz", "#10B981", "#05100C", PostBase.DARK)
+            TemplateLook("Emerald quiz", "#10B981", "#05100C", PostBase.DARK),
+            TemplateLook("Magenta quiz", "#EC4899", "#0C0610", PostBase.DARK)
         )
     ) { size ->
         size.pick3(
             story = TemplateLayout(
                 base = PostBase.DARK,
-                backdrop = Backdrop.GRID,
+                backdrop = Backdrop.RAYS,
+                logoAnchor = LogoAnchor.TOP_LEFT,
                 decor = listOf(
-                    DecorBox(DecorShape.CARD, 0.06f, 0.15f, 0.88f, 0.24f, PostTone.SOFT, alpha = 235, panel = true),
-                    DecorBox(DecorShape.CARD, 0.06f, 0.42f, 0.88f, 0.38f, PostTone.DEEP, alpha = 235, panel = true)
+                    DecorBox(DecorShape.DISC, 0.18f, 0.14f, 0.64f, 0.38f, PostTone.SOFT, alpha = 225, panel = true),
+                    DecorBox(DecorShape.RING, 0.15f, 0.12f, 0.70f, 0.42f, PostTone.ACCENT, alpha = 210)
                 ),
                 slots = listOf(
-                    SlotBox(
-                        slot = PostSlots.EYEBROW,
-                        x = 0.06f, y = 0.09f, w = 0.42f, h = 0.042f,
-                        size = 20f, font = PostFont.BOLD, tone = PostTone.DARK,
-                        caps = true, fit = FitMode.FILL_WIDTH, chip = PostTone.ACCENT
-                    ),
-                    SlotBox(
-                        slot = PostSlots.HEADLINE,
-                        x = 0.10f, y = 0.18f, w = 0.80f, h = 0.18f,
-                        size = 38f, font = PostFont.DISPLAY, tone = PostTone.TEXT,
-                        fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.08f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.LIST,
-                        x = 0.10f, y = 0.45f, w = 0.80f, h = 0.32f,
-                        size = 27f, font = PostFont.BOLD, tone = PostTone.TEXT,
-                        list = ListStyle.LETTER, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.32f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.BUTTON,
-                        x = 0.18f, y = 0.82f, w = 0.64f, h = 0.055f,
-                        size = 22f, font = PostFont.BOLD, tone = PostTone.DARK,
-                        centered = true, caps = true, fit = FitMode.FILL, chip = PostTone.ACCENT
-                    )
+                    SlotBox(PostSlots.EYEBROW, 0.22f, 0.08f, 0.56f, 0.042f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.18f),
+                    SlotBox(PostSlots.NUMBER, 0.24f, 0.14f, 0.52f, 0.38f, size = 380f, font = PostFont.DISPLAY, tone = PostTone.ACCENT, centered = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, fx = TextFx.EXTRUDE, fxTo = PostTone.DARK),
+                    SlotBox(PostSlots.HEADLINE, 0.08f, 0.56f, 0.84f, 0.18f, size = 104f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 0.94f),
+                    SlotBox(PostSlots.BUTTON, 0.20f, 0.78f, 0.60f, 0.065f, size = 30f, font = PostFont.BOLD, tone = PostTone.DARK, centered = true, caps = true, fit = FitMode.FILL, chip = PostTone.ACCENT)
                 )
             ),
             standard = TemplateLayout(
                 base = PostBase.DARK,
-                backdrop = Backdrop.GRID,
+                backdrop = Backdrop.RAYS,
+                logoAnchor = LogoAnchor.TOP_RIGHT,
                 decor = listOf(
-                    DecorBox(DecorShape.CARD, 0.06f, 0.16f, 0.88f, 0.24f, PostTone.SOFT, alpha = 235, panel = true),
-                    DecorBox(DecorShape.CARD, 0.06f, 0.43f, 0.88f, 0.36f, PostTone.DEEP, alpha = 235, panel = true)
+                    DecorBox(DecorShape.DISC, 0.06f, 0.16f, 0.42f, 0.68f, PostTone.SOFT, alpha = 225, panel = true),
+                    DecorBox(DecorShape.RING, 0.04f, 0.13f, 0.46f, 0.74f, PostTone.ACCENT, alpha = 210)
                 ),
                 slots = listOf(
-                    SlotBox(
-                        slot = PostSlots.EYEBROW,
-                        x = 0.06f, y = 0.09f, w = 0.36f, h = 0.048f,
-                        size = 20f, font = PostFont.BOLD, tone = PostTone.DARK,
-                        caps = true, fit = FitMode.FILL_WIDTH, chip = PostTone.ACCENT
-                    ),
-                    SlotBox(
-                        slot = PostSlots.HEADLINE,
-                        x = 0.10f, y = 0.19f, w = 0.80f, h = 0.18f,
-                        size = 36f, font = PostFont.DISPLAY, tone = PostTone.TEXT,
-                        fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.06f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.LIST,
-                        x = 0.10f, y = 0.46f, w = 0.80f, h = 0.30f,
-                        size = 25f, font = PostFont.BOLD, tone = PostTone.TEXT,
-                        list = ListStyle.LETTER, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.28f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.BUTTON,
-                        x = 0.24f, y = 0.81f, w = 0.52f, h = 0.065f,
-                        size = 21f, font = PostFont.BOLD, tone = PostTone.DARK,
-                        centered = true, caps = true, fit = FitMode.FILL, chip = PostTone.ACCENT
-                    )
+                    SlotBox(PostSlots.NUMBER, 0.10f, 0.18f, 0.34f, 0.64f, size = 380f, font = PostFont.DISPLAY, tone = PostTone.ACCENT, centered = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, fx = TextFx.EXTRUDE, fxTo = PostTone.DARK),
+                    SlotBox(PostSlots.EYEBROW, 0.54f, 0.20f, 0.38f, 0.048f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.16f),
+                    SlotBox(PostSlots.HEADLINE, 0.54f, 0.28f, 0.40f, 0.32f, size = 92f, font = PostFont.DISPLAY, tone = PostTone.TEXT, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 0.94f),
+                    SlotBox(PostSlots.BUTTON, 0.54f, 0.66f, 0.34f, 0.085f, size = 28f, font = PostFont.BOLD, tone = PostTone.DARK, centered = true, caps = true, fit = FitMode.FILL, chip = PostTone.ACCENT)
                 )
             ),
             wide = TemplateLayout(
                 base = PostBase.DARK,
-                backdrop = Backdrop.GRID,
+                backdrop = Backdrop.RAYS,
+                logoAnchor = LogoAnchor.TOP_RIGHT,
                 decor = listOf(
-                    DecorBox(DecorShape.CARD, 0.05f, 0.18f, 0.44f, 0.68f, PostTone.SOFT, alpha = 235, panel = true),
-                    DecorBox(DecorShape.CARD, 0.52f, 0.18f, 0.43f, 0.68f, PostTone.DEEP, alpha = 235, panel = true)
+                    DecorBox(DecorShape.DISC, 0.06f, 0.14f, 0.38f, 0.72f, PostTone.SOFT, alpha = 225, panel = true),
+                    DecorBox(DecorShape.RING, 0.04f, 0.11f, 0.42f, 0.78f, PostTone.ACCENT, alpha = 210)
                 ),
                 slots = listOf(
-                    SlotBox(
-                        slot = PostSlots.EYEBROW,
-                        x = 0.05f, y = 0.10f, w = 0.28f, h = 0.055f,
-                        size = 19f, font = PostFont.BOLD, tone = PostTone.DARK,
-                        caps = true, fit = FitMode.FILL_WIDTH, chip = PostTone.ACCENT
-                    ),
-                    SlotBox(
-                        slot = PostSlots.HEADLINE,
-                        x = 0.09f, y = 0.24f, w = 0.36f, h = 0.40f,
-                        size = 36f, font = PostFont.DISPLAY, tone = PostTone.TEXT,
-                        fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.06f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.BUTTON,
-                        x = 0.09f, y = 0.70f, w = 0.36f, h = 0.09f,
-                        size = 20f, font = PostFont.BOLD, tone = PostTone.DARK,
-                        centered = true, caps = true, fit = FitMode.FILL, chip = PostTone.ACCENT
-                    ),
-                    SlotBox(
-                        slot = PostSlots.LIST,
-                        x = 0.56f, y = 0.24f, w = 0.35f, h = 0.56f,
-                        size = 26f, font = PostFont.BOLD, tone = PostTone.TEXT,
-                        list = ListStyle.LETTER, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.32f
-                    )
+                    SlotBox(PostSlots.NUMBER, 0.09f, 0.16f, 0.32f, 0.68f, size = 380f, font = PostFont.DISPLAY, tone = PostTone.ACCENT, centered = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, fx = TextFx.EXTRUDE, fxTo = PostTone.DARK),
+                    SlotBox(PostSlots.EYEBROW, 0.50f, 0.20f, 0.42f, 0.052f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.16f),
+                    SlotBox(PostSlots.HEADLINE, 0.50f, 0.28f, 0.44f, 0.34f, size = 96f, font = PostFont.DISPLAY, tone = PostTone.TEXT, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 0.94f),
+                    SlotBox(PostSlots.BUTTON, 0.50f, 0.68f, 0.32f, 0.09f, size = 28f, font = PostFont.BOLD, tone = PostTone.DARK, centered = true, caps = true, fit = FitMode.FILL, chip = PostTone.ACCENT)
                 )
             )
         )
     },
 
-    // 9. KEPT: info-checklist — Checklist
+    // 9. info-triplestack — Triple Stack (replaces info-checklist)
     PostTemplateSpec(
-        id = "info-checklist",
-        name = "Checklist",
+        id = "info-triplestack",
+        name = "Triple Stack",
         family = "Information",
-        slots = listOf(PostSlots.EYEBROW, PostSlots.HEADLINE, PostSlots.LIST, PostSlots.BODY),
+        slots = listOf(PostSlots.EYEBROW, PostSlots.HEADLINE, PostSlots.LIST),
         sample = mapOf(
-            PostSlots.EYEBROW to "EXAM READINESS",
-            PostSlots.HEADLINE to "5 things to pack the night before your exam",
-            PostSlots.LIST to "Admission card & ID\nTwo black pens & pencils\nApproved calculator\nWater bottle\nWatch (no smartwatches)",
-            PostSlots.BODY to "Save this checklist and share it with your study group."
+            PostSlots.EYEBROW to "EXAM READY",
+            PostSlots.HEADLINE to "PACK TONIGHT",
+            PostSlots.LIST to "ID CARD\nBLACK PENS\nANALOG WATCH"
         ),
         looks = listOf(
             TemplateLook("Gold check", "#F59E0B", "#080C14", PostBase.DARK),
             TemplateLook("Emerald check", "#10B981", "#05100C", PostBase.DARK),
-            TemplateLook("Paper check", "#2563EB", "#F8FAFC", PostBase.LIGHT)
+            TemplateLook("Paper check", "#2563EB", "#F8FAFC", PostBase.LIGHT),
+            TemplateLook("Violet stack", "#A855F7", "#090614", PostBase.DARK)
         )
     ) { size ->
         size.pick3(
             story = TemplateLayout(
                 base = PostBase.DARK,
+                backdrop = Backdrop.SPOT,
+                logoAnchor = LogoAnchor.TOP_LEFT,
                 decor = listOf(
-                    DecorBox(DecorShape.CARD, 0.06f, 0.12f, 0.88f, 0.76f, PostTone.SOFT, alpha = 238, panel = true),
-                    DecorBox(DecorShape.BAR, 0.06f, 0.12f, 0.88f, 0.008f, PostTone.ACCENT, panel = true)
+                    DecorBox(DecorShape.CHECK_CARDS, 0.06f, 0.32f, 0.88f, 0.54f, PostTone.ACCENT, secondaryTone = PostTone.SOFT)
                 ),
                 slots = listOf(
-                    SlotBox(
-                        slot = PostSlots.EYEBROW,
-                        x = 0.11f, y = 0.16f, w = 0.50f, h = 0.04f,
-                        size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT,
-                        caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.14f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.HEADLINE,
-                        x = 0.11f, y = 0.22f, w = 0.78f, h = 0.14f,
-                        size = 42f, font = PostFont.DISPLAY, tone = PostTone.TEXT,
-                        fit = FitMode.FILL, anchor = VAnchor.TOP, leading = 1.06f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.LIST,
-                        x = 0.11f, y = 0.39f, w = 0.78f, h = 0.37f,
-                        size = 27f, font = PostFont.BOLD, tone = PostTone.TEXT,
-                        list = ListStyle.CHECK, fit = FitMode.FILL, anchor = VAnchor.TOP, leading = 1.32f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.BODY,
-                        x = 0.11f, y = 0.79f, w = 0.78f, h = 0.07f,
-                        size = 22f, font = PostFont.REGULAR, tone = PostTone.MUTED,
-                        fit = FitMode.FILL, anchor = VAnchor.TOP
-                    )
+                    SlotBox(PostSlots.EYEBROW, 0.20f, 0.09f, 0.60f, 0.042f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.18f),
+                    SlotBox(PostSlots.HEADLINE, 0.08f, 0.15f, 0.84f, 0.14f, size = 96f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 0.94f),
+                    SlotBox(PostSlots.LIST, 0.26f, 0.34f, 0.62f, 0.50f, size = 44f, font = PostFont.DISPLAY, tone = PostTone.TEXT, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.65f)
                 )
             ),
             standard = TemplateLayout(
                 base = PostBase.DARK,
+                backdrop = Backdrop.SPOT,
+                logoAnchor = LogoAnchor.TOP_LEFT,
                 decor = listOf(
-                    DecorBox(DecorShape.CARD, 0.06f, 0.11f, 0.88f, 0.78f, PostTone.SOFT, alpha = 238, panel = true),
-                    DecorBox(DecorShape.BAR, 0.06f, 0.11f, 0.88f, 0.009f, PostTone.ACCENT, panel = true)
+                    DecorBox(DecorShape.CHECK_CARDS, 0.44f, 0.14f, 0.50f, 0.72f, PostTone.ACCENT, secondaryTone = PostTone.SOFT)
                 ),
                 slots = listOf(
-                    SlotBox(
-                        slot = PostSlots.EYEBROW,
-                        x = 0.10f, y = 0.15f, w = 0.45f, h = 0.045f,
-                        size = 19f, font = PostFont.BOLD, tone = PostTone.ACCENT,
-                        caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.14f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.HEADLINE,
-                        x = 0.10f, y = 0.21f, w = 0.80f, h = 0.14f,
-                        size = 40f, font = PostFont.DISPLAY, tone = PostTone.TEXT,
-                        fit = FitMode.FILL, anchor = VAnchor.TOP, leading = 1.06f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.LIST,
-                        x = 0.10f, y = 0.38f, w = 0.80f, h = 0.38f,
-                        size = 25f, font = PostFont.BOLD, tone = PostTone.TEXT,
-                        list = ListStyle.CHECK, fit = FitMode.FILL, anchor = VAnchor.TOP, leading = 1.28f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.BODY,
-                        x = 0.10f, y = 0.79f, w = 0.80f, h = 0.07f,
-                        size = 21f, font = PostFont.REGULAR, tone = PostTone.MUTED,
-                        fit = FitMode.FILL, anchor = VAnchor.TOP
-                    )
+                    SlotBox(PostSlots.EYEBROW, 0.07f, 0.22f, 0.34f, 0.048f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.16f),
+                    SlotBox(PostSlots.HEADLINE, 0.07f, 0.29f, 0.34f, 0.36f, size = 88f, font = PostFont.DISPLAY, tone = PostTone.TEXT, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 0.94f),
+                    SlotBox(PostSlots.LIST, 0.56f, 0.16f, 0.34f, 0.68f, size = 38f, font = PostFont.DISPLAY, tone = PostTone.TEXT, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.70f)
                 )
             ),
             wide = TemplateLayout(
                 base = PostBase.DARK,
+                backdrop = Backdrop.SPOT,
+                logoAnchor = LogoAnchor.TOP_LEFT,
                 decor = listOf(
-                    DecorBox(DecorShape.CARD, 0.05f, 0.12f, 0.90f, 0.76f, PostTone.SOFT, alpha = 238, panel = true),
-                    DecorBox(DecorShape.BAR, 0.05f, 0.12f, 0.90f, 0.009f, PostTone.ACCENT, panel = true)
+                    DecorBox(DecorShape.CHECK_CARDS, 0.44f, 0.12f, 0.50f, 0.76f, PostTone.ACCENT, secondaryTone = PostTone.SOFT)
                 ),
                 slots = listOf(
-                    SlotBox(
-                        slot = PostSlots.EYEBROW,
-                        x = 0.09f, y = 0.18f, w = 0.36f, h = 0.05f,
-                        size = 19f, font = PostFont.BOLD, tone = PostTone.ACCENT,
-                        caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.14f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.HEADLINE,
-                        x = 0.09f, y = 0.26f, w = 0.38f, h = 0.34f,
-                        size = 42f, font = PostFont.DISPLAY, tone = PostTone.TEXT,
-                        fit = FitMode.FILL, anchor = VAnchor.TOP, leading = 1.06f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.BODY,
-                        x = 0.09f, y = 0.64f, w = 0.38f, h = 0.18f,
-                        size = 22f, font = PostFont.REGULAR, tone = PostTone.MUTED,
-                        fit = FitMode.FILL, anchor = VAnchor.TOP
-                    ),
-                    SlotBox(
-                        slot = PostSlots.LIST,
-                        x = 0.51f, y = 0.20f, w = 0.40f, h = 0.62f,
-                        size = 26f, font = PostFont.BOLD, tone = PostTone.TEXT,
-                        list = ListStyle.CHECK, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.32f
-                    )
+                    SlotBox(PostSlots.EYEBROW, 0.07f, 0.22f, 0.34f, 0.052f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.16f),
+                    SlotBox(PostSlots.HEADLINE, 0.07f, 0.29f, 0.34f, 0.38f, size = 92f, font = PostFont.DISPLAY, tone = PostTone.TEXT, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 0.94f),
+                    SlotBox(PostSlots.LIST, 0.56f, 0.14f, 0.34f, 0.72f, size = 38f, font = PostFont.DISPLAY, tone = PostTone.TEXT, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.70f)
                 )
             )
         )
     },
 
-    // 10. KEPT: info-timetable — Timetable
+    // 10. info-dateslab — Date Slab (replaces info-timetable)
     PostTemplateSpec(
-        id = "info-timetable",
-        name = "Timetable",
+        id = "info-dateslab",
+        name = "Date Slab",
         family = "Information",
-        slots = listOf(PostSlots.EYEBROW, PostSlots.HEADLINE, PostSlots.LIST, PostSlots.BODY),
+        slots = listOf(PostSlots.EYEBROW, PostSlots.NUMBER, PostSlots.HEADLINE, PostSlots.BUTTON),
         sample = mapOf(
-            PostSlots.EYEBROW to "WEEKLY SCHEDULE",
-            PostSlots.HEADLINE to "Live Revision Sessions",
-            PostSlots.LIST to "Mon 19:00 · Mathematics\nWed 19:00 · Physics\nFri 19:00 · Chemistry\nSat 10:00 · Mock Exam Review",
-            PostSlots.BODY to "All sessions stream live on Telegram and YouTube."
+            PostSlots.EYEBROW to "NOVEMBER",
+            PostSlots.NUMBER to "21",
+            PostSlots.HEADLINE to "MOCK EXAM LIVE",
+            PostSlots.BUTTON to "SAT · 9:00 AM"
         ),
         looks = listOf(
             TemplateLook("Schedule gold", "#F59E0B", "#080B14", PostBase.DARK),
             TemplateLook("Schedule paper", "#2563EB", "#F8FAFC", PostBase.LIGHT),
-            TemplateLook("Schedule mint", "#10B981", "#05100C", PostBase.DARK)
+            TemplateLook("Schedule mint", "#10B981", "#05100C", PostBase.DARK),
+            TemplateLook("Crimson date", "#EF4444", "#0C0608", PostBase.DARK)
         )
     ) { size ->
         size.pick3(
             story = TemplateLayout(
                 base = PostBase.DARK,
-                backdrop = Backdrop.GRID,
+                backdrop = Backdrop.SPOT,
+                logoAnchor = LogoAnchor.TOP_LEFT,
                 decor = listOf(
-                    DecorBox(DecorShape.CARD, 0.06f, 0.12f, 0.88f, 0.76f, PostTone.SOFT, alpha = 238, panel = true),
-                    DecorBox(DecorShape.BAR, 0.06f, 0.12f, 0.88f, 0.008f, PostTone.ACCENT, panel = true)
+                    DecorBox(DecorShape.DATE_SLAB, 0.16f, 0.14f, 0.68f, 0.42f, PostTone.ACCENT, secondaryTone = PostTone.SOFT)
                 ),
                 slots = listOf(
-                    SlotBox(
-                        slot = PostSlots.EYEBROW,
-                        x = 0.11f, y = 0.16f, w = 0.50f, h = 0.04f,
-                        size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT,
-                        caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.14f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.HEADLINE,
-                        x = 0.11f, y = 0.22f, w = 0.78f, h = 0.11f,
-                        size = 44f, font = PostFont.DISPLAY, tone = PostTone.TEXT,
-                        fit = FitMode.FILL, anchor = VAnchor.TOP
-                    ),
-                    SlotBox(
-                        slot = PostSlots.LIST,
-                        x = 0.11f, y = 0.36f, w = 0.78f, h = 0.39f,
-                        size = 27f, font = PostFont.BOLD, tone = PostTone.TEXT,
-                        list = ListStyle.ROW, fit = FitMode.FILL, anchor = VAnchor.TOP, leading = 1.35f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.BODY,
-                        x = 0.11f, y = 0.78f, w = 0.78f, h = 0.07f,
-                        size = 22f, font = PostFont.REGULAR, tone = PostTone.MUTED,
-                        fit = FitMode.FILL, anchor = VAnchor.TOP
-                    )
+                    SlotBox(PostSlots.EYEBROW, 0.22f, 0.165f, 0.56f, 0.06f, size = 28f, font = PostFont.BOLD, tone = PostTone.DARK, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.18f),
+                    SlotBox(PostSlots.NUMBER, 0.22f, 0.25f, 0.56f, 0.27f, size = 280f, font = PostFont.CONDENSED, tone = PostTone.TEXT, centered = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, fx = TextFx.EXTRUDE, fxTo = PostTone.ACCENT),
+                    SlotBox(PostSlots.HEADLINE, 0.08f, 0.60f, 0.84f, 0.16f, size = 104f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 0.94f),
+                    SlotBox(PostSlots.BUTTON, 0.22f, 0.79f, 0.56f, 0.062f, size = 24f, font = PostFont.BOLD, tone = PostTone.DARK, centered = true, caps = true, fit = FitMode.FILL, chip = PostTone.ACCENT)
                 )
             ),
             standard = TemplateLayout(
                 base = PostBase.DARK,
-                backdrop = Backdrop.GRID,
+                backdrop = Backdrop.SPOT,
+                logoAnchor = LogoAnchor.TOP_RIGHT,
                 decor = listOf(
-                    DecorBox(DecorShape.CARD, 0.06f, 0.11f, 0.88f, 0.78f, PostTone.SOFT, alpha = 238, panel = true),
-                    DecorBox(DecorShape.BAR, 0.06f, 0.11f, 0.88f, 0.009f, PostTone.ACCENT, panel = true)
+                    DecorBox(DecorShape.DATE_SLAB, 0.06f, 0.14f, 0.42f, 0.72f, PostTone.ACCENT, secondaryTone = PostTone.SOFT)
                 ),
                 slots = listOf(
-                    SlotBox(
-                        slot = PostSlots.EYEBROW,
-                        x = 0.10f, y = 0.15f, w = 0.45f, h = 0.045f,
-                        size = 19f, font = PostFont.BOLD, tone = PostTone.ACCENT,
-                        caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.14f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.HEADLINE,
-                        x = 0.10f, y = 0.21f, w = 0.80f, h = 0.11f,
-                        size = 40f, font = PostFont.DISPLAY, tone = PostTone.TEXT,
-                        fit = FitMode.FILL, anchor = VAnchor.TOP
-                    ),
-                    SlotBox(
-                        slot = PostSlots.LIST,
-                        x = 0.10f, y = 0.35f, w = 0.80f, h = 0.41f,
-                        size = 25f, font = PostFont.BOLD, tone = PostTone.TEXT,
-                        list = ListStyle.ROW, fit = FitMode.FILL, anchor = VAnchor.TOP, leading = 1.32f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.BODY,
-                        x = 0.10f, y = 0.79f, w = 0.80f, h = 0.07f,
-                        size = 21f, font = PostFont.REGULAR, tone = PostTone.MUTED,
-                        fit = FitMode.FILL, anchor = VAnchor.TOP
-                    )
+                    SlotBox(PostSlots.EYEBROW, 0.10f, 0.18f, 0.34f, 0.08f, size = 26f, font = PostFont.BOLD, tone = PostTone.DARK, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.16f),
+                    SlotBox(PostSlots.NUMBER, 0.10f, 0.32f, 0.34f, 0.46f, size = 280f, font = PostFont.CONDENSED, tone = PostTone.TEXT, centered = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, fx = TextFx.EXTRUDE, fxTo = PostTone.ACCENT),
+                    SlotBox(PostSlots.HEADLINE, 0.54f, 0.24f, 0.40f, 0.34f, size = 92f, font = PostFont.DISPLAY, tone = PostTone.TEXT, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 0.94f),
+                    SlotBox(PostSlots.BUTTON, 0.54f, 0.64f, 0.36f, 0.085f, size = 24f, font = PostFont.BOLD, tone = PostTone.DARK, centered = true, caps = true, fit = FitMode.FILL, chip = PostTone.ACCENT)
                 )
             ),
             wide = TemplateLayout(
                 base = PostBase.DARK,
-                backdrop = Backdrop.GRID,
+                backdrop = Backdrop.SPOT,
+                logoAnchor = LogoAnchor.TOP_RIGHT,
                 decor = listOf(
-                    DecorBox(DecorShape.CARD, 0.05f, 0.12f, 0.90f, 0.76f, PostTone.SOFT, alpha = 238, panel = true),
-                    DecorBox(DecorShape.BAR, 0.05f, 0.12f, 0.90f, 0.009f, PostTone.ACCENT, panel = true)
+                    DecorBox(DecorShape.DATE_SLAB, 0.06f, 0.12f, 0.38f, 0.76f, PostTone.ACCENT, secondaryTone = PostTone.SOFT)
                 ),
                 slots = listOf(
-                    SlotBox(
-                        slot = PostSlots.EYEBROW,
-                        x = 0.09f, y = 0.18f, w = 0.34f, h = 0.05f,
-                        size = 19f, font = PostFont.BOLD, tone = PostTone.ACCENT,
-                        caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.14f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.HEADLINE,
-                        x = 0.09f, y = 0.26f, w = 0.36f, h = 0.32f,
-                        size = 42f, font = PostFont.DISPLAY, tone = PostTone.TEXT,
-                        fit = FitMode.FILL, anchor = VAnchor.TOP
-                    ),
-                    SlotBox(
-                        slot = PostSlots.BODY,
-                        x = 0.09f, y = 0.62f, w = 0.36f, h = 0.20f,
-                        size = 22f, font = PostFont.REGULAR, tone = PostTone.MUTED,
-                        fit = FitMode.FILL, anchor = VAnchor.TOP
-                    ),
-                    SlotBox(
-                        slot = PostSlots.LIST,
-                        x = 0.49f, y = 0.20f, w = 0.42f, h = 0.62f,
-                        size = 25f, font = PostFont.BOLD, tone = PostTone.TEXT,
-                        list = ListStyle.ROW, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.34f
-                    )
+                    SlotBox(PostSlots.EYEBROW, 0.09f, 0.16f, 0.32f, 0.09f, size = 26f, font = PostFont.BOLD, tone = PostTone.DARK, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.16f),
+                    SlotBox(PostSlots.NUMBER, 0.09f, 0.31f, 0.32f, 0.48f, size = 280f, font = PostFont.CONDENSED, tone = PostTone.TEXT, centered = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, fx = TextFx.EXTRUDE, fxTo = PostTone.ACCENT),
+                    SlotBox(PostSlots.HEADLINE, 0.50f, 0.24f, 0.44f, 0.34f, size = 96f, font = PostFont.DISPLAY, tone = PostTone.TEXT, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 0.94f),
+                    SlotBox(PostSlots.BUTTON, 0.50f, 0.64f, 0.34f, 0.09f, size = 24f, font = PostFont.BOLD, tone = PostTone.DARK, centered = true, caps = true, fit = FitMode.FILL, chip = PostTone.ACCENT)
                 )
             )
         )
     },
 
-    // 11. info-timeline — Vertical steps with a line
+    // 11. info-ribbonpath — Ribbon Path (replaces info-timeline)
     PostTemplateSpec(
-        id = "info-timeline",
-        name = "Vertical timeline",
+        id = "info-ribbonpath",
+        name = "Ribbon Path",
         family = "Information",
-        slots = listOf(PostSlots.EYEBROW, PostSlots.HEADLINE, PostSlots.LIST, PostSlots.BODY),
+        slots = listOf(PostSlots.EYEBROW, PostSlots.HEADLINE, PostSlots.LIST),
         sample = mapOf(
-            PostSlots.EYEBROW to "ROADMAP · የሂደት መስመር",
-            PostSlots.HEADLINE to "How to master a chapter in 4 clear steps",
-            PostSlots.LIST to "Read the core summary first\nSolve worked examples by hand\nTest yourself with flashcards\nReview mistakes the next morning",
-            PostSlots.BODY to "Follow this sequence for every unit."
+            PostSlots.EYEBROW to "3-STEP ROADMAP",
+            PostSlots.HEADLINE to "MASTER ANY UNIT",
+            PostSlots.LIST to "01 READ\n02 SOLVE\n03 TEST"
         ),
         looks = listOf(
             TemplateLook("Timeline gold", "#F59E0B", "#070B14", PostBase.DARK),
             TemplateLook("Timeline mint", "#10B981", "#05100C", PostBase.DARK),
-            TemplateLook("Timeline paper", "#2563EB", "#F8FAFC", PostBase.LIGHT)
+            TemplateLook("Timeline paper", "#2563EB", "#F8FAFC", PostBase.LIGHT),
+            TemplateLook("Neon path", "#A855F7", "#090614", PostBase.DARK)
         )
     ) { size ->
         size.pick3(
             story = TemplateLayout(
                 base = PostBase.DARK,
-                backdrop = Backdrop.GRID,
+                backdrop = Backdrop.SPOT,
+                logoAnchor = LogoAnchor.TOP_LEFT,
                 decor = listOf(
-                    DecorBox(DecorShape.CARD, 0.06f, 0.11f, 0.88f, 0.76f, PostTone.SOFT, alpha = 235, panel = true),
-                    DecorBox(DecorShape.BAR, 0.06f, 0.11f, 0.88f, 0.008f, PostTone.ACCENT, panel = true)
+                    DecorBox(DecorShape.RIBBON_PATH, 0.08f, 0.30f, 0.84f, 0.54f, PostTone.ACCENT, secondaryTone = PostTone.DEEP)
                 ),
                 slots = listOf(
-                    SlotBox(
-                        slot = PostSlots.EYEBROW,
-                        x = 0.10f, y = 0.14f, w = 0.56f, h = 0.038f,
-                        size = 28f, font = PostFont.BOLD, tone = PostTone.ACCENT,
-                        caps = true, fit = FitMode.FILL, tracking = 0.12f, maxLines = 1
-                    ),
-                    SlotBox(
-                        slot = PostSlots.HEADLINE,
-                        x = 0.10f, y = 0.19f, w = 0.80f, h = 0.12f,
-                        size = 56f, font = PostFont.DISPLAY, tone = PostTone.TEXT,
-                        fit = FitMode.FILL, anchor = VAnchor.TOP, leading = 1.05f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.LIST,
-                        x = 0.10f, y = 0.33f, w = 0.80f, h = 0.44f,
-                        size = 34f, font = PostFont.BOLD, tone = PostTone.TEXT,
-                        list = ListStyle.CHECK, fit = FitMode.FILL, anchor = VAnchor.TOP, leading = 1.24f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.BODY,
-                        x = 0.10f, y = 0.79f, w = 0.80f, h = 0.065f,
-                        size = 34f, font = PostFont.REGULAR, tone = PostTone.MUTED,
-                        fit = FitMode.FILL, anchor = VAnchor.TOP
-                    )
+                    SlotBox(PostSlots.EYEBROW, 0.20f, 0.09f, 0.60f, 0.042f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.18f),
+                    SlotBox(PostSlots.HEADLINE, 0.08f, 0.15f, 0.84f, 0.14f, size = 96f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 0.94f),
+                    SlotBox(PostSlots.LIST, 0.12f, 0.34f, 0.76f, 0.48f, size = 54f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.60f)
                 )
             ),
             standard = TemplateLayout(
                 base = PostBase.DARK,
-                backdrop = Backdrop.GRID,
+                backdrop = Backdrop.SPOT,
+                logoAnchor = LogoAnchor.TOP_LEFT,
                 decor = listOf(
-                    DecorBox(DecorShape.CARD, 0.06f, 0.11f, 0.88f, 0.76f, PostTone.SOFT, alpha = 235, panel = true),
-                    DecorBox(DecorShape.BAR, 0.06f, 0.11f, 0.88f, 0.008f, PostTone.ACCENT, panel = true)
+                    DecorBox(DecorShape.RIBBON_PATH, 0.42f, 0.14f, 0.52f, 0.72f, PostTone.ACCENT, secondaryTone = PostTone.DEEP)
                 ),
                 slots = listOf(
-                    SlotBox(
-                        slot = PostSlots.EYEBROW,
-                        x = 0.10f, y = 0.14f, w = 0.52f, h = 0.040f,
-                        size = 28f, font = PostFont.BOLD, tone = PostTone.ACCENT,
-                        caps = true, fit = FitMode.FILL, tracking = 0.12f, maxLines = 1
-                    ),
-                    SlotBox(
-                        slot = PostSlots.HEADLINE,
-                        x = 0.10f, y = 0.19f, w = 0.80f, h = 0.12f,
-                        size = 56f, font = PostFont.DISPLAY, tone = PostTone.TEXT,
-                        fit = FitMode.FILL, anchor = VAnchor.TOP, leading = 1.05f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.LIST,
-                        x = 0.10f, y = 0.33f, w = 0.80f, h = 0.44f,
-                        size = 34f, font = PostFont.BOLD, tone = PostTone.TEXT,
-                        list = ListStyle.CHECK, fit = FitMode.FILL, anchor = VAnchor.TOP, leading = 1.22f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.BODY,
-                        x = 0.10f, y = 0.79f, w = 0.80f, h = 0.065f,
-                        size = 34f, font = PostFont.REGULAR, tone = PostTone.MUTED,
-                        fit = FitMode.FILL, anchor = VAnchor.TOP
-                    )
+                    SlotBox(PostSlots.EYEBROW, 0.07f, 0.22f, 0.34f, 0.048f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.16f),
+                    SlotBox(PostSlots.HEADLINE, 0.07f, 0.29f, 0.34f, 0.36f, size = 88f, font = PostFont.DISPLAY, tone = PostTone.TEXT, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 0.94f),
+                    SlotBox(PostSlots.LIST, 0.48f, 0.18f, 0.42f, 0.64f, size = 46f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.65f)
                 )
             ),
             wide = TemplateLayout(
                 base = PostBase.DARK,
-                backdrop = Backdrop.GRID,
+                backdrop = Backdrop.SPOT,
+                logoAnchor = LogoAnchor.TOP_LEFT,
                 decor = listOf(
-                    DecorBox(DecorShape.CARD, 0.05f, 0.12f, 0.90f, 0.75f, PostTone.SOFT, alpha = 235, panel = true),
-                    DecorBox(DecorShape.BAR, 0.05f, 0.12f, 0.90f, 0.009f, PostTone.ACCENT, panel = true)
+                    DecorBox(DecorShape.RIBBON_PATH, 0.42f, 0.12f, 0.52f, 0.76f, PostTone.ACCENT, secondaryTone = PostTone.DEEP)
                 ),
                 slots = listOf(
-                    SlotBox(
-                        slot = PostSlots.EYEBROW,
-                        x = 0.08f, y = 0.17f, w = 0.36f, h = 0.048f,
-                        size = 28f, font = PostFont.BOLD, tone = PostTone.ACCENT,
-                        caps = true, fit = FitMode.FILL, tracking = 0.12f, maxLines = 1
-                    ),
-                    SlotBox(
-                        slot = PostSlots.HEADLINE,
-                        x = 0.08f, y = 0.24f, w = 0.36f, h = 0.32f,
-                        size = 56f, font = PostFont.DISPLAY, tone = PostTone.TEXT,
-                        fit = FitMode.FILL, anchor = VAnchor.TOP, leading = 1.05f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.BODY,
-                        x = 0.08f, y = 0.60f, w = 0.36f, h = 0.20f,
-                        size = 34f, font = PostFont.REGULAR, tone = PostTone.MUTED,
-                        fit = FitMode.FILL, anchor = VAnchor.TOP
-                    ),
-                    SlotBox(
-                        slot = PostSlots.LIST,
-                        x = 0.48f, y = 0.18f, w = 0.43f, h = 0.64f,
-                        size = 34f, font = PostFont.BOLD, tone = PostTone.TEXT,
-                        list = ListStyle.CHECK, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.24f
-                    )
+                    SlotBox(PostSlots.EYEBROW, 0.07f, 0.22f, 0.34f, 0.052f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.16f),
+                    SlotBox(PostSlots.HEADLINE, 0.07f, 0.29f, 0.34f, 0.38f, size = 92f, font = PostFont.DISPLAY, tone = PostTone.TEXT, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 0.94f),
+                    SlotBox(PostSlots.LIST, 0.48f, 0.16f, 0.42f, 0.68f, size = 48f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.65f)
                 )
             )
         )
     },
 
-    // 12. info-flashcard — Question and answer cards
+    // 12. info-cardfan — Card Fan (replaces info-flashcard)
     PostTemplateSpec(
-        id = "info-flashcard",
-        name = "Q&A flashcard",
+        id = "info-cardfan",
+        name = "Card Fan",
         family = "Information",
-        slots = listOf(PostSlots.EYEBROW, PostSlots.HEADLINE, PostSlots.BODY, PostSlots.BUTTON),
+        slots = listOf(PostSlots.EYEBROW, PostSlots.HEADLINE, PostSlots.BUTTON),
         sample = mapOf(
-            PostSlots.EYEBROW to "ACTIVE RECALL · ጥያቄና መልስ",
-            PostSlots.HEADLINE to "What is Newton's Third Law of Motion?",
-            PostSlots.BODY to "For every action force, there is an equal and opposite reaction force acting on two different bodies.",
-            PostSlots.BUTTON to "SWIPE FOR NEXT CARD"
+            PostSlots.EYEBROW to "FLASHCARD DECK",
+            PostSlots.HEADLINE to "NEWTON'S 3RD LAW",
+            PostSlots.BUTTON to "TAP TO FLIP ↻"
         ),
         looks = listOf(
             TemplateLook("Flashcard gold", "#F59E0B", "#070A12", PostBase.DARK),
             TemplateLook("Flashcard mint", "#10B981", "#05100D", PostBase.DARK),
-            TemplateLook("Study deck light", "#2563EB", "#F8FAFC", PostBase.LIGHT)
+            TemplateLook("Study deck light", "#2563EB", "#F8FAFC", PostBase.LIGHT),
+            TemplateLook("Royal deck", "#A855F7", "#090614", PostBase.DARK)
         )
     ) { size ->
         size.pick3(
             story = TemplateLayout(
                 base = PostBase.DARK,
+                backdrop = Backdrop.SPOT,
+                logoAnchor = LogoAnchor.TOP_LEFT,
                 decor = listOf(
-                    DecorBox(DecorShape.CARD, 0.06f, 0.16f, 0.88f, 0.30f, PostTone.SOFT, alpha = 240, panel = true),
-                    DecorBox(DecorShape.BAR, 0.06f, 0.16f, 0.88f, 0.008f, PostTone.ACCENT, panel = true),
-                    DecorBox(DecorShape.CARD, 0.06f, 0.49f, 0.88f, 0.30f, PostTone.DEEP, alpha = 240, panel = true),
-                    DecorBox(DecorShape.BAR, 0.06f, 0.49f, 0.88f, 0.008f, PostTone.GLOW, panel = true)
+                    DecorBox(DecorShape.CARD_FAN, 0.10f, 0.18f, 0.80f, 0.56f, PostTone.ACCENT, secondaryTone = PostTone.SOFT)
                 ),
                 slots = listOf(
-                    SlotBox(
-                        slot = PostSlots.EYEBROW,
-                        x = 0.06f, y = 0.10f, w = 0.88f, h = 0.040f,
-                        size = 28f, font = PostFont.BOLD, tone = PostTone.ACCENT,
-                        centered = true, caps = true, fit = FitMode.FILL, tracking = 0.12f, maxLines = 1
-                    ),
-                    SlotBox(
-                        slot = PostSlots.WORD,
-                        x = 0.10f, y = 0.185f, w = 0.32f, h = 0.036f,
-                        size = 22f, font = PostFont.BOLD, tone = PostTone.ACCENT,
-                        literal = "QUESTION", fit = FitMode.FILL
-                    ),
-                    SlotBox(
-                        slot = PostSlots.HEADLINE,
-                        x = 0.10f, y = 0.23f, w = 0.80f, h = 0.20f,
-                        size = 56f, font = PostFont.DISPLAY, tone = PostTone.TEXT,
-                        fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.05f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.NUMBER,
-                        x = 0.10f, y = 0.515f, w = 0.32f, h = 0.036f,
-                        size = 22f, font = PostFont.BOLD, tone = PostTone.GLOW,
-                        literal = "ANSWER", fit = FitMode.FILL
-                    ),
-                    SlotBox(
-                        slot = PostSlots.BODY,
-                        x = 0.10f, y = 0.56f, w = 0.80f, h = 0.20f,
-                        size = 34f, font = PostFont.REGULAR, tone = PostTone.TEXT,
-                        fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.18f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.BUTTON,
-                        x = 0.20f, y = 0.815f, w = 0.60f, h = 0.045f,
-                        size = 28f, font = PostFont.BOLD, tone = PostTone.DARK,
-                        centered = true, caps = true, fit = FitMode.FILL, chip = PostTone.ACCENT, maxLines = 1
-                    )
+                    SlotBox(PostSlots.EYEBROW, 0.20f, 0.10f, 0.60f, 0.042f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.18f),
+                    SlotBox(PostSlots.HEADLINE, 0.18f, 0.30f, 0.64f, 0.28f, size = 96f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 0.94f),
+                    SlotBox(PostSlots.BUTTON, 0.24f, 0.78f, 0.52f, 0.06f, size = 24f, font = PostFont.BOLD, tone = PostTone.DARK, centered = true, caps = true, fit = FitMode.FILL, chip = PostTone.ACCENT)
                 )
             ),
             standard = TemplateLayout(
                 base = PostBase.DARK,
+                backdrop = Backdrop.SPOT,
+                logoAnchor = LogoAnchor.TOP_LEFT,
                 decor = listOf(
-                    DecorBox(DecorShape.CARD, 0.06f, 0.16f, 0.88f, 0.30f, PostTone.SOFT, alpha = 240, panel = true),
-                    DecorBox(DecorShape.BAR, 0.06f, 0.16f, 0.88f, 0.008f, PostTone.ACCENT, panel = true),
-                    DecorBox(DecorShape.CARD, 0.06f, 0.49f, 0.88f, 0.30f, PostTone.DEEP, alpha = 240, panel = true),
-                    DecorBox(DecorShape.BAR, 0.06f, 0.49f, 0.88f, 0.008f, PostTone.GLOW, panel = true)
+                    DecorBox(DecorShape.CARD_FAN, 0.12f, 0.16f, 0.76f, 0.62f, PostTone.ACCENT, secondaryTone = PostTone.SOFT)
                 ),
                 slots = listOf(
-                    SlotBox(
-                        slot = PostSlots.EYEBROW,
-                        x = 0.06f, y = 0.10f, w = 0.88f, h = 0.042f,
-                        size = 28f, font = PostFont.BOLD, tone = PostTone.ACCENT,
-                        centered = true, caps = true, fit = FitMode.FILL, tracking = 0.12f, maxLines = 1
-                    ),
-                    SlotBox(
-                        slot = PostSlots.WORD,
-                        x = 0.10f, y = 0.185f, w = 0.32f, h = 0.036f,
-                        size = 22f, font = PostFont.BOLD, tone = PostTone.ACCENT,
-                        literal = "QUESTION", fit = FitMode.FILL
-                    ),
-                    SlotBox(
-                        slot = PostSlots.HEADLINE,
-                        x = 0.10f, y = 0.23f, w = 0.80f, h = 0.20f,
-                        size = 56f, font = PostFont.DISPLAY, tone = PostTone.TEXT,
-                        fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.05f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.NUMBER,
-                        x = 0.10f, y = 0.515f, w = 0.32f, h = 0.036f,
-                        size = 22f, font = PostFont.BOLD, tone = PostTone.GLOW,
-                        literal = "ANSWER", fit = FitMode.FILL
-                    ),
-                    SlotBox(
-                        slot = PostSlots.BODY,
-                        x = 0.10f, y = 0.56f, w = 0.80f, h = 0.20f,
-                        size = 34f, font = PostFont.REGULAR, tone = PostTone.TEXT,
-                        fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.18f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.BUTTON,
-                        x = 0.22f, y = 0.815f, w = 0.56f, h = 0.046f,
-                        size = 28f, font = PostFont.BOLD, tone = PostTone.DARK,
-                        centered = true, caps = true, fit = FitMode.FILL, chip = PostTone.ACCENT, maxLines = 1
-                    )
+                    SlotBox(PostSlots.EYEBROW, 0.24f, 0.09f, 0.52f, 0.045f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.18f),
+                    SlotBox(PostSlots.HEADLINE, 0.20f, 0.28f, 0.60f, 0.32f, size = 92f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 0.94f),
+                    SlotBox(PostSlots.BUTTON, 0.28f, 0.80f, 0.44f, 0.068f, size = 22f, font = PostFont.BOLD, tone = PostTone.DARK, centered = true, caps = true, fit = FitMode.FILL, chip = PostTone.ACCENT)
                 )
             ),
             wide = TemplateLayout(
                 base = PostBase.DARK,
+                backdrop = Backdrop.SPOT,
+                logoAnchor = LogoAnchor.TOP_LEFT,
                 decor = listOf(
-                    DecorBox(DecorShape.CARD, 0.05f, 0.18f, 0.43f, 0.60f, PostTone.SOFT, alpha = 240, panel = true),
-                    DecorBox(DecorShape.BAR, 0.05f, 0.18f, 0.43f, 0.010f, PostTone.ACCENT, panel = true),
-                    DecorBox(DecorShape.CARD, 0.52f, 0.18f, 0.43f, 0.60f, PostTone.DEEP, alpha = 240, panel = true),
-                    DecorBox(DecorShape.BAR, 0.52f, 0.18f, 0.43f, 0.010f, PostTone.GLOW, panel = true)
+                    DecorBox(DecorShape.CARD_FAN, 0.16f, 0.14f, 0.68f, 0.66f, PostTone.ACCENT, secondaryTone = PostTone.SOFT)
                 ),
                 slots = listOf(
-                    SlotBox(
-                        slot = PostSlots.EYEBROW,
-                        x = 0.05f, y = 0.10f, w = 0.90f, h = 0.048f,
-                        size = 28f, font = PostFont.BOLD, tone = PostTone.ACCENT,
-                        centered = true, caps = true, fit = FitMode.FILL, tracking = 0.12f, maxLines = 1
-                    ),
-                    SlotBox(
-                        slot = PostSlots.WORD,
-                        x = 0.08f, y = 0.22f, w = 0.28f, h = 0.045f,
-                        size = 22f, font = PostFont.BOLD, tone = PostTone.ACCENT,
-                        literal = "QUESTION", fit = FitMode.FILL
-                    ),
-                    SlotBox(
-                        slot = PostSlots.HEADLINE,
-                        x = 0.08f, y = 0.29f, w = 0.37f, h = 0.44f,
-                        size = 56f, font = PostFont.DISPLAY, tone = PostTone.TEXT,
-                        fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.05f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.NUMBER,
-                        x = 0.55f, y = 0.22f, w = 0.28f, h = 0.045f,
-                        size = 22f, font = PostFont.BOLD, tone = PostTone.GLOW,
-                        literal = "ANSWER", fit = FitMode.FILL
-                    ),
-                    SlotBox(
-                        slot = PostSlots.BODY,
-                        x = 0.55f, y = 0.29f, w = 0.37f, h = 0.44f,
-                        size = 34f, font = PostFont.REGULAR, tone = PostTone.TEXT,
-                        fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.18f
-                    ),
-                    SlotBox(
-                        slot = PostSlots.BUTTON,
-                        x = 0.30f, y = 0.81f, w = 0.40f, h = 0.052f,
-                        size = 28f, font = PostFont.BOLD, tone = PostTone.DARK,
-                        centered = true, caps = true, fit = FitMode.FILL, chip = PostTone.ACCENT, maxLines = 1
-                    )
+                    SlotBox(PostSlots.EYEBROW, 0.28f, 0.08f, 0.44f, 0.05f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.18f),
+                    SlotBox(PostSlots.HEADLINE, 0.24f, 0.26f, 0.52f, 0.36f, size = 96f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 0.94f),
+                    SlotBox(PostSlots.BUTTON, 0.34f, 0.81f, 0.32f, 0.075f, size = 22f, font = PostFont.BOLD, tone = PostTone.DARK, centered = true, caps = true, fit = FitMode.FILL, chip = PostTone.ACCENT)
                 )
             )
         )

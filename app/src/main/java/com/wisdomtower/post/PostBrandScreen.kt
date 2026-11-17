@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -217,16 +218,20 @@ fun PostBrandScreen(
                 }
 
                 Column(
-                    Modifier.fillMaxWidth().height(250.dp).padding(horizontal = 12.dp, vertical = 10.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    Modifier
+                        .fillMaxWidth()
+                        .height(260.dp)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     when (tab) {
                         "icons" -> FooterEditor(brand, onBrand)
 
                         "logo" -> {
                             Text(
-                                "Your logo is placed in a dark brand box in the top-right corner of every post.",
-                                fontSize = 14.sp,
+                                "Transparent brand mark with auto-contrast luminance sampling and safe margins.",
+                                fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = PostPalette.Text
                             )
@@ -244,19 +249,69 @@ fun PostBrandScreen(
                                     }
                                 }
                             }
+                            PostSmallLabel("Default placement (templates can override unless locked per post)")
+                            Row(
+                                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                LogoAnchor.values().forEach { anchor ->
+                                    CompactChip(
+                                        label = anchor.label,
+                                        selected = brand.logoAnchor == anchor,
+                                        onClick = { onBrand(brand.copy(logoAnchor = anchor)) }
+                                    )
+                                }
+                            }
+                            PostSmallLabel("Mark style")
+                            Row(
+                                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                LogoStyle.values().forEach { st ->
+                                    CompactChip(
+                                        label = st.label,
+                                        selected = brand.logoStyle == st,
+                                        onClick = { onBrand(brand.copy(logoStyle = st)) }
+                                    )
+                                }
+                            }
+                            PostSmallLabel("Contrast mode")
+                            Row(
+                                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                LogoContrast.values().forEach { cm ->
+                                    CompactChip(
+                                        label = cm.label,
+                                        selected = brand.logoContrast == cm,
+                                        onClick = { onBrand(brand.copy(logoContrast = cm)) }
+                                    )
+                                }
+                            }
                             Row(
                                 Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Text("Size", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = PostPalette.Text)
+                                Text("Size", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = PostPalette.Text)
                                 listOf("Small" to 0.8f, "Medium" to 1f, "Large" to 1.25f).forEach { (name, scale) ->
-                                    FilterChip(
+                                    CompactChip(
+                                        label = name,
                                         selected = kotlin.math.abs(brand.logoScale - scale) < 0.01f,
-                                        onClick = { onBrand(brand.copy(logoScale = scale)) },
-                                        label = { Text(name, fontWeight = FontWeight.Bold) }
+                                        onClick = { onBrand(brand.copy(logoScale = scale)) }
                                     )
                                 }
+                            }
+                            PostLabeledSlider(
+                                label = "Opacity",
+                                value = brand.logoOpacity,
+                                range = 0.25f..1f,
+                                display = "${(brand.logoOpacity * 100).toInt()}%"
+                            ) { v ->
+                                onBrand(brand.copy(logoOpacity = v))
                             }
                         }
 

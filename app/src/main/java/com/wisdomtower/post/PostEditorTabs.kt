@@ -1,12 +1,20 @@
 package com.wisdomtower.post
 
+import android.graphics.Bitmap
+import android.util.LruCache
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -17,7 +25,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AspectRatio
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.Dashboard
@@ -36,22 +43,43 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
 /**
- * Bottom editor tabs and strips for the studio (UI_UX_PLAN.md + TEMPLATE_REDESIGN_PLAN.md sections 3.4, 3.8, 3.10).
- * Compact 32dp chips/buttons, 12sp text, 6dp spacing, horizontal edge fade, and synced template strip.
- * Uses color circles only (no hex code input boxes anywhere).
+ * In-memory LRU cache for template strip thumbnails so scrolling and slider drags never re-render strip cards.
  */
+private object StripThumbCache {
+    private val cache = object : LruCache<String, Bitmap>(60) {
+        override fun sizeOf(key: String, value: Bitmap): Int = 1
+    }
+
+    @Synchronized
+    fun get(key: String): Bitmap? {
+        val b = cache.get(key)
+        return if (b != null && !b.isRecycled) b else null
+    }
+
+    @Synchronized
+    fun put(key: String, bitmap: Bitmap) {
+        if (!bitmap.isRecycled) cache.put(key, bitmap)
+    }
+}
 
 internal data class EditorSlider(
     val label: String,
@@ -118,9 +146,11 @@ internal fun TemplateStrip(
     onDoc: (PostDoc) -> Unit,
     library: PostLibrary,
     onOpenLibrary: () -> Unit,
+    brand: PostBrand = PostBrand(),
     selectedFamily: String = "All",
     onSelectFamily: ((String) -> Unit)? = null
 ) {
+    val context = LocalContext.current
     val activeSpec = postTemplate(doc.templateId)
     var localFamily by rememberSaveable { mutableStateOf("All") }
     val activeFamily = if (onSelectFamily != null) selectedFamily else localFamily
@@ -146,7 +176,7 @@ internal fun TemplateStrip(
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        // Family filter row + Gallery button
+        // Single Family filter row + Gallery button
         Row(
             Modifier.fillMaxWidth().horizontalScrollWithFade(filterScroll, PostPalette.Surface),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -167,23 +197,41 @@ internal fun TemplateStrip(
             }
         }
 
-        // Full 2-line template cards synced with the swipe pager
+        // Real cached thumbnail cards synced with the swipe pager
         LazyRow(
             state = listState,
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             itemsIndexed(filtered, key = { _, spec -> spec.id }) { _, spec ->
                 val isSelected = spec.id == activeSpec.id
                 val shape = RoundedCornerShape(10.dp)
+                val heroWord = doc.texts[PostSlots.HEADLINE]?.take(24) ?: ""
+                val thumbKey = remember(spec.id, doc.size, heroWord, brand.primaryHex, brand.darkHex, brand.logoStamp) {
+                    "${spec.id}:${doc.size.name}:${heroWord.hashCode()}:${brand.primaryHex}:${brand.darkHex}:${brand.logoStamp}"
+                }
+                val thumbBmp by produceState<Bitmap?>(StripThumbCache.get(thumbKey), thumbKey) {
+                    if (value != null) return@produceState
+                    val bmp = withContext(Dispatchers.Default) {
+                        val tDoc = PostDrafts.factory(spec.id, doc.size).copy(
+                            texts = PostSlots.withDerivedSlots(doc.texts, spec.slots),
+                            photoUri = doc.photoUri,
+                            secondaryPhotoUri = doc.secondaryPhotoUri
+                        )
+                        PostRenderer.thumbnail(context, tDoc, brand, 168).bitmap
+                    }
+                    StripThumbCache.put(thumbKey, bmp)
+                    value = bmp
+                }
+
                 Column(
                     Modifier
-                        .width(132.dp)
+                        .width(104.dp)
                         .clip(shape)
                         .background(if (isSelected) PostPalette.Raised else PostPalette.Card)
                         .border(
-                            width = if (isSelected) 1.5.dp else 1.dp,
+                            width = if (isSelected) 2.dp else 1.dp,
                             color = if (isSelected) PostPalette.Mint else PostPalette.Line,
                             shape = shape
                         )
@@ -197,23 +245,32 @@ internal fun TemplateStrip(
                                 )
                             )
                         }
-                        .padding(horizontal = 8.dp, vertical = 6.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                        .padding(5.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(58.dp)
+                            .clip(RoundedCornerShape(7.dp))
+                            .background(PostPalette.Ink),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        val b = thumbBmp
+                        if (b != null && !b.isRecycled) {
+                            Image(
+                                bitmap = b.asImageBitmap(),
+                                contentDescription = spec.name,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                    }
                     Text(
                         text = spec.name,
                         color = if (isSelected) PostPalette.Mint else PostPalette.Text,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
-                        fontSize = 12.sp,
-                        maxLines = 2,
-                        minLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        lineHeight = 14.sp
-                    )
-                    Text(
-                        text = spec.family,
-                        color = PostPalette.Muted,
-                        fontSize = 10.sp,
+                        fontSize = 11.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -221,7 +278,7 @@ internal fun TemplateStrip(
             }
         }
 
-        // Look 1 / 2 / 3 chips when the template has color & mood looks
+        // Look chips when the template has color & mood looks
         if (activeSpec.looks.isNotEmpty()) {
             val lookScroll = rememberScrollState()
             Row(
@@ -319,25 +376,10 @@ internal fun EditorTabs(
                     onDoc = onDoc,
                     library = library,
                     onOpenLibrary = onOpenLibrary,
+                    brand = brand,
                     selectedFamily = selectedFamily,
                     onSelectFamily = onSelectFamily
                 )
-                val sizeScroll = rememberScrollState()
-                Row(
-                    Modifier.fillMaxWidth().horizontalScrollWithFade(sizeScroll, PostPalette.Surface),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    PostSmallLabel("Ratio")
-                    PostSize.values().forEach { s ->
-                        CompactChip(
-                            label = "${s.ratio} ${s.label}",
-                            icon = Icons.Outlined.AspectRatio,
-                            selected = doc.size == s,
-                            onClick = { onDoc(doc.copy(size = s)) }
-                        )
-                    }
-                }
             }
 
             "words" -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -511,7 +553,7 @@ internal fun EditorTabs(
                     "fonts" -> FontsSection(doc = doc, onDoc = onDoc)
 
                     "logo" -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        PostSwitchRow("Show logo header", doc.showLogo) { onDoc(doc.copy(showLogo = it)) }
+                        PostSwitchRow("Show logo mark", doc.showLogo) { onDoc(doc.copy(showLogo = it)) }
                         PostSwitchRow("Show social footer", doc.showFooter) { onDoc(doc.copy(showFooter = it)) }
                         CompactButton(
                             label = "Change logo image",
@@ -519,220 +561,331 @@ internal fun EditorTabs(
                             onClick = onPickLogo
                         )
                         if (doc.showLogo) {
+                            PostSmallLabel("Logo anchor on this post")
+                            val anchorScroll = rememberScrollState()
+                            Row(
+                                Modifier.fillMaxWidth().horizontalScrollWithFade(anchorScroll, PostPalette.Surface),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                CompactChip(
+                                    label = "Template default",
+                                    selected = doc.logoAnchor == null,
+                                    onClick = { onDoc(doc.copy(logoAnchor = null, logoCx = null, logoCy = null)) }
+                                )
+                                LogoAnchor.values().forEach { a ->
+                                    CompactChip(
+                                        label = a.label,
+                                        selected = doc.logoAnchor == a,
+                                        onClick = { onDoc(doc.copy(logoAnchor = a, logoCx = null, logoCy = null)) }
+                                    )
+                                }
+                            }
+                            PostSmallLabel("Logo style")
+                            val lStyleScroll = rememberScrollState()
+                            Row(
+                                Modifier.fillMaxWidth().horizontalScrollWithFade(lStyleScroll, PostPalette.Surface),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                CompactChip(
+                                    label = "Brand default",
+                                    selected = doc.logoStyle == null,
+                                    onClick = { onDoc(doc.copy(logoStyle = null)) }
+                                )
+                                LogoStyle.values().forEach { st ->
+                                    CompactChip(
+                                        label = st.label,
+                                        selected = doc.logoStyle == st,
+                                        onClick = { onDoc(doc.copy(logoStyle = st)) }
+                                    )
+                                }
+                            }
+                            PostSmallLabel("Logo contrast")
+                            val lContrastScroll = rememberScrollState()
+                            Row(
+                                Modifier.fillMaxWidth().horizontalScrollWithFade(lContrastScroll, PostPalette.Surface),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                CompactChip(
+                                    label = "Brand default",
+                                    selected = doc.logoContrast == null,
+                                    onClick = { onDoc(doc.copy(logoContrast = null)) }
+                                )
+                                LogoContrast.values().forEach { cm ->
+                                    CompactChip(
+                                        label = cm.label,
+                                        selected = doc.logoContrast == cm,
+                                        onClick = { onDoc(doc.copy(logoContrast = cm)) }
+                                    )
+                                }
+                            }
+                            val activeLogoOp = doc.logoOpacity ?: brand.logoOpacity
+                            PostLabeledSlider(
+                                label = "Opacity",
+                                value = activeLogoOp,
+                                range = 0.25f..1f,
+                                display = "${(activeLogoOp * 100).roundToInt()}%"
+                            ) { v ->
+                                onDoc(doc.copy(logoOpacity = v))
+                            }
                             LogoMoveRow(doc = doc, onDoc = onDoc, moveLogo = moveLogo, onMoveLogo = onMoveLogo)
                         }
                     }
                 }
             }
 
-            "photo" -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                val photoSubScroll = rememberScrollState()
-                Row(
-                    Modifier.fillMaxWidth().horizontalScrollWithFade(photoSubScroll, PostPalette.Surface),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    listOf(
-                        Triple("bg", "Bg photo", Icons.Outlined.Image),
-                        Triple("window", "Frame photo", Icons.Outlined.PhotoCamera),
-                        Triple("cutout", "Cut-out & Move", Icons.Outlined.Tune)
-                    ).forEach { (id, label, icon) ->
-                        CompactChip(
-                            label = label,
-                            icon = icon,
-                            selected = photoSub == id,
-                            onClick = { photoSub = id }
-                        )
+            "photo" -> {
+                val context = LocalContext.current
+                val secondaryPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+                    if (uri != null) {
+                        val stored = PostStore.importPhoto(context, uri)
+                        if (stored != null) onDoc(doc.copy(secondaryPhotoUri = stored))
+                        else Toast.makeText(context, "That file is not a readable image", Toast.LENGTH_LONG).show()
                     }
                 }
-
-                when (photoSub) {
-                    "bg" -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        val bgBtnScroll = rememberScrollState()
-                        Row(
-                            Modifier.fillMaxWidth().horizontalScrollWithFade(bgBtnScroll, PostPalette.Surface),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            CompactButton(
-                                label = if (doc.backgroundPhotoUri == null) "Pick bg photo" else "Change bg photo",
-                                icon = Icons.Outlined.Image,
-                                onClick = onPickBackgroundPhoto
+                val tertiaryPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+                    if (uri != null) {
+                        val stored = PostStore.importPhoto(context, uri)
+                        if (stored != null) onDoc(doc.copy(tertiaryPhotoUri = stored))
+                        else Toast.makeText(context, "That file is not a readable image", Toast.LENGTH_LONG).show()
+                    }
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    val photoSubScroll = rememberScrollState()
+                    Row(
+                        Modifier.fillMaxWidth().horizontalScrollWithFade(photoSubScroll, PostPalette.Surface),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf(
+                            Triple("bg", "Bg photo", Icons.Outlined.Image),
+                            Triple("window", "Frame photos", Icons.Outlined.PhotoCamera),
+                            Triple("cutout", "Cut-out & Move", Icons.Outlined.Tune)
+                        ).forEach { (id, label, icon) ->
+                            CompactChip(
+                                label = label,
+                                icon = icon,
+                                selected = photoSub == id,
+                                onClick = { photoSub = id }
                             )
-                            if (!doc.photoUri.isNullOrBlank()) {
-                                CompactChip(
-                                    label = "Use frame photo",
-                                    selected = doc.photoAsBackground,
-                                    onClick = {
-                                        val next = !doc.photoAsBackground
-                                        val nextOpacity = if (next && doc.backgroundPhotoOpacity <= 0.01f) 0.55f else doc.backgroundPhotoOpacity
-                                        onDoc(doc.copy(photoAsBackground = next, backgroundPhotoOpacity = nextOpacity))
-                                    }
-                                )
-                            }
-                            if (doc.backgroundPhotoUri != null || doc.photoAsBackground) {
+                        }
+                    }
+
+                    when (photoSub) {
+                        "bg" -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            val bgBtnScroll = rememberScrollState()
+                            Row(
+                                Modifier.fillMaxWidth().horizontalScrollWithFade(bgBtnScroll, PostPalette.Surface),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
                                 CompactButton(
-                                    label = "Remove",
-                                    icon = Icons.Outlined.RestartAlt,
-                                    onClick = {
-                                        onDoc(
-                                            doc.copy(
-                                                backgroundPhotoUri = null,
-                                                photoAsBackground = false,
-                                                backgroundPhotoOpacity = 0.35f,
-                                                backgroundPhotoDim = 0,
-                                                backgroundPhotoBlur = 0,
-                                                backgroundPhotoZoom = 1f,
-                                                backgroundPhotoTone = BgPhotoTone.NONE
+                                    label = if (doc.backgroundPhotoUri == null) "Pick bg photo" else "Change bg photo",
+                                    icon = Icons.Outlined.Image,
+                                    onClick = onPickBackgroundPhoto
+                                )
+                                if (!doc.photoUri.isNullOrBlank()) {
+                                    CompactChip(
+                                        label = "Use frame photo",
+                                        selected = doc.photoAsBackground,
+                                        onClick = {
+                                            val next = !doc.photoAsBackground
+                                            val nextOpacity = if (next && doc.backgroundPhotoOpacity <= 0.01f) 0.55f else doc.backgroundPhotoOpacity
+                                            onDoc(doc.copy(photoAsBackground = next, backgroundPhotoOpacity = nextOpacity))
+                                        }
+                                    )
+                                }
+                                if (doc.backgroundPhotoUri != null || doc.photoAsBackground) {
+                                    CompactButton(
+                                        label = "Remove",
+                                        icon = Icons.Outlined.RestartAlt,
+                                        onClick = {
+                                            onDoc(
+                                                doc.copy(
+                                                    backgroundPhotoUri = null,
+                                                    photoAsBackground = false,
+                                                    backgroundPhotoOpacity = 0.35f,
+                                                    backgroundPhotoDim = 0,
+                                                    backgroundPhotoBlur = 0,
+                                                    backgroundPhotoZoom = 1f,
+                                                    backgroundPhotoTone = BgPhotoTone.NONE
+                                                )
                                             )
+                                        }
+                                    )
+                                }
+                            }
+
+                            val hasBgPhoto = !doc.backgroundPhotoUri.isNullOrBlank() || (doc.photoAsBackground && !doc.photoUri.isNullOrBlank())
+                            if (hasBgPhoto) {
+                                PostLabeledSlider(
+                                    label = "Strength",
+                                    value = doc.backgroundPhotoOpacity,
+                                    range = 0f..1f,
+                                    display = "${(doc.backgroundPhotoOpacity * 100).roundToInt()}%"
+                                ) { v ->
+                                    onDoc(doc.copy(backgroundPhotoOpacity = v))
+                                }
+
+                                PostLabeledSlider(
+                                    label = "Darken",
+                                    value = doc.backgroundPhotoDim.toFloat(),
+                                    range = 0f..100f,
+                                    display = "${doc.backgroundPhotoDim}%"
+                                ) { v ->
+                                    onDoc(doc.copy(backgroundPhotoDim = v.roundToInt().coerceIn(0, 100)))
+                                }
+
+                                PostLabeledSlider(
+                                    label = "Blur",
+                                    value = doc.backgroundPhotoBlur.toFloat(),
+                                    range = 0f..100f,
+                                    display = "${doc.backgroundPhotoBlur}%"
+                                ) { v ->
+                                    onDoc(doc.copy(backgroundPhotoBlur = v.roundToInt().coerceIn(0, 100)))
+                                }
+
+                                PostLabeledSlider(
+                                    label = "Zoom",
+                                    value = doc.backgroundPhotoZoom,
+                                    range = 1f..2.5f,
+                                    display = String.format("%.1fx", doc.backgroundPhotoZoom)
+                                ) { v ->
+                                    onDoc(doc.copy(backgroundPhotoZoom = v))
+                                }
+
+                                PostLabeledSlider(
+                                    label = "Panels",
+                                    value = doc.panelOpacity.toFloat(),
+                                    range = 0f..100f,
+                                    display = "${doc.panelOpacity}%"
+                                ) { v ->
+                                    onDoc(doc.copy(panelOpacity = v.roundToInt().coerceIn(0, 100)))
+                                }
+
+                                val toneScroll = rememberScrollState()
+                                Row(
+                                    Modifier.fillMaxWidth().horizontalScrollWithFade(toneScroll, PostPalette.Surface),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    PostSmallLabel("Tone")
+                                    BgPhotoTone.values().forEach { t ->
+                                        CompactChip(
+                                            label = when (t) {
+                                                BgPhotoTone.NONE -> "Normal"
+                                                BgPhotoTone.MONO -> "B&W"
+                                                BgPhotoTone.DUOTONE -> "Duotone"
+                                            },
+                                            selected = doc.backgroundPhotoTone == t,
+                                            onClick = { onDoc(doc.copy(backgroundPhotoTone = t)) }
                                         )
                                     }
-                                )
-                            }
-                        }
-
-                        val hasBgPhoto = !doc.backgroundPhotoUri.isNullOrBlank() || (doc.photoAsBackground && !doc.photoUri.isNullOrBlank())
-                        if (hasBgPhoto) {
-                            PostLabeledSlider(
-                                label = "Strength",
-                                value = doc.backgroundPhotoOpacity,
-                                range = 0f..1f,
-                                display = "${(doc.backgroundPhotoOpacity * 100).roundToInt()}%"
-                            ) { v ->
-                                onDoc(doc.copy(backgroundPhotoOpacity = v))
-                            }
-
-                            PostLabeledSlider(
-                                label = "Darken",
-                                value = doc.backgroundPhotoDim.toFloat(),
-                                range = 0f..100f,
-                                display = "${doc.backgroundPhotoDim}%"
-                            ) { v ->
-                                onDoc(doc.copy(backgroundPhotoDim = v.roundToInt().coerceIn(0, 100)))
-                            }
-
-                            PostLabeledSlider(
-                                label = "Blur",
-                                value = doc.backgroundPhotoBlur.toFloat(),
-                                range = 0f..100f,
-                                display = "${doc.backgroundPhotoBlur}%"
-                            ) { v ->
-                                onDoc(doc.copy(backgroundPhotoBlur = v.roundToInt().coerceIn(0, 100)))
-                            }
-
-                            PostLabeledSlider(
-                                label = "Zoom",
-                                value = doc.backgroundPhotoZoom,
-                                range = 1f..2.5f,
-                                display = String.format("%.1fx", doc.backgroundPhotoZoom)
-                            ) { v ->
-                                onDoc(doc.copy(backgroundPhotoZoom = v))
-                            }
-
-                            PostLabeledSlider(
-                                label = "Panels",
-                                value = doc.panelOpacity.toFloat(),
-                                range = 0f..100f,
-                                display = "${doc.panelOpacity}%"
-                            ) { v ->
-                                onDoc(doc.copy(panelOpacity = v.roundToInt().coerceIn(0, 100)))
-                            }
-
-                            val toneScroll = rememberScrollState()
-                            Row(
-                                Modifier.fillMaxWidth().horizontalScrollWithFade(toneScroll, PostPalette.Surface),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                PostSmallLabel("Tone")
-                                BgPhotoTone.values().forEach { t ->
-                                    CompactChip(
-                                        label = when (t) {
-                                            BgPhotoTone.NONE -> "Normal"
-                                            BgPhotoTone.MONO -> "B&W"
-                                            BgPhotoTone.DUOTONE -> "Duotone"
-                                        },
-                                        selected = doc.backgroundPhotoTone == t,
-                                        onClick = { onDoc(doc.copy(backgroundPhotoTone = t)) }
-                                    )
                                 }
                             }
                         }
-                    }
 
-                    "window" -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            CompactButton(
-                                label = if (doc.photoUri == null) "Pick photo" else "Change photo",
-                                icon = Icons.Outlined.PhotoCamera,
-                                onClick = onPickPhoto
-                            )
-                            if (doc.photoUri != null) {
+                        "window" -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            val winBtnScroll = rememberScrollState()
+                            Row(
+                                Modifier.fillMaxWidth().horizontalScrollWithFade(winBtnScroll, PostPalette.Surface),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
                                 CompactButton(
-                                    label = "Remove",
-                                    icon = Icons.Outlined.RestartAlt,
-                                    onClick = {
-                                        onDoc(doc.copy(photoUri = null, photoZoom = 1f, photoFocusX = 0.5f, photoFocusY = 0.5f))
-                                    }
+                                    label = if (doc.photoUri == null) "Pick Photo 1" else "Change Photo 1",
+                                    icon = Icons.Outlined.PhotoCamera,
+                                    onClick = onPickPhoto
                                 )
-                            }
-                        }
-                        if (doc.photoUri != null) {
-                            PostLabeledSlider(
-                                label = "Zoom",
-                                value = doc.photoZoom,
-                                range = 1f..3f,
-                                display = String.format("%.1fx", doc.photoZoom)
-                            ) { onDoc(doc.copy(photoZoom = it)) }
-                            PostLabeledSlider(
-                                label = "Focus X",
-                                value = doc.photoFocusX,
-                                range = 0f..1f,
-                                display = "${(doc.photoFocusX * 100).roundToInt()}%"
-                            ) { onDoc(doc.copy(photoFocusX = it)) }
-                            PostLabeledSlider(
-                                label = "Focus Y",
-                                value = doc.photoFocusY,
-                                range = 0f..1f,
-                                display = "${(doc.photoFocusY * 100).roundToInt()}%"
-                            ) { onDoc(doc.copy(photoFocusY = it)) }
-                        }
-                        if (layout.photo != null) {
-                            val frameScroll = rememberScrollState()
-                            Row(
-                                Modifier.fillMaxWidth().horizontalScrollWithFade(frameScroll, PostPalette.Surface),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                PostSmallLabel("Frame")
-                                CompactChip(
-                                    label = "Template",
-                                    selected = doc.photoFrame == null,
-                                    onClick = { onDoc(doc.copy(photoFrame = null)) }
-                                )
-                                PhotoFrame.values().forEach { frame ->
-                                    CompactChip(
-                                        label = frame.label,
-                                        selected = doc.photoFrame == frame,
-                                        onClick = { onDoc(doc.copy(photoFrame = frame)) }
+                                if (doc.photoUri != null) {
+                                    CompactButton(
+                                        label = "Clear 1",
+                                        icon = Icons.Outlined.RestartAlt,
+                                        onClick = {
+                                            onDoc(doc.copy(photoUri = null, photoZoom = 1f, photoFocusX = 0.5f, photoFocusY = 0.5f))
+                                        }
                                     )
                                 }
-                                CompactChip(
-                                    label = "Border",
-                                    selected = doc.frameBorder,
-                                    onClick = { onDoc(doc.copy(frameBorder = !doc.frameBorder)) }
+                                CompactButton(
+                                    label = if (doc.secondaryPhotoUri == null) "Pick Photo 2" else "Change Photo 2",
+                                    icon = Icons.Outlined.PhotoCamera,
+                                    onClick = { secondaryPicker.launch(arrayOf("image/*")) }
                                 )
+                                if (doc.secondaryPhotoUri != null) {
+                                    CompactButton(
+                                        label = "Clear 2",
+                                        icon = Icons.Outlined.RestartAlt,
+                                        onClick = { onDoc(doc.copy(secondaryPhotoUri = null)) }
+                                    )
+                                }
+                                CompactButton(
+                                    label = if (doc.tertiaryPhotoUri == null) "Pick Photo 3" else "Change Photo 3",
+                                    icon = Icons.Outlined.PhotoCamera,
+                                    onClick = { tertiaryPicker.launch(arrayOf("image/*")) }
+                                )
+                                if (doc.tertiaryPhotoUri != null) {
+                                    CompactButton(
+                                        label = "Clear 3",
+                                        icon = Icons.Outlined.RestartAlt,
+                                        onClick = { onDoc(doc.copy(tertiaryPhotoUri = null)) }
+                                    )
+                                }
+                            }
+                            if (doc.photoUri != null) {
+                                PostLabeledSlider(
+                                    label = "Zoom",
+                                    value = doc.photoZoom,
+                                    range = 1f..3f,
+                                    display = String.format("%.1fx", doc.photoZoom)
+                                ) { onDoc(doc.copy(photoZoom = it)) }
+                                PostLabeledSlider(
+                                    label = "Focus X",
+                                    value = doc.photoFocusX,
+                                    range = 0f..1f,
+                                    display = "${(doc.photoFocusX * 100).roundToInt()}%"
+                                ) { onDoc(doc.copy(photoFocusX = it)) }
+                                PostLabeledSlider(
+                                    label = "Focus Y",
+                                    value = doc.photoFocusY,
+                                    range = 0f..1f,
+                                    display = "${(doc.photoFocusY * 100).roundToInt()}%"
+                                ) { onDoc(doc.copy(photoFocusY = it)) }
+                            }
+                            if (layout.photo != null) {
+                                val frameScroll = rememberScrollState()
+                                Row(
+                                    Modifier.fillMaxWidth().horizontalScrollWithFade(frameScroll, PostPalette.Surface),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    PostSmallLabel("Frame")
+                                    CompactChip(
+                                        label = "Template",
+                                        selected = doc.photoFrame == null,
+                                        onClick = { onDoc(doc.copy(photoFrame = null)) }
+                                    )
+                                    PhotoFrame.values().forEach { frame ->
+                                        CompactChip(
+                                            label = frame.label,
+                                            selected = doc.photoFrame == frame,
+                                            onClick = { onDoc(doc.copy(photoFrame = frame)) }
+                                        )
+                                    }
+                                    CompactChip(
+                                        label = "Border",
+                                        selected = doc.frameBorder,
+                                        onClick = { onDoc(doc.copy(frameBorder = !doc.frameBorder)) }
+                                    )
+                                }
                             }
                         }
-                    }
 
-                    "cutout" -> EngineControls(
-                        doc = doc,
-                        onDoc = onDoc,
-                        slots = spec.slots,
-                        hasPhotoWindow = layout.photo != null,
-                        moveOn = moveOn,
-                        onMove = onMove
-                    )
+                        "cutout" -> EngineControls(
+                            doc = doc,
+                            onDoc = onDoc,
+                            slots = spec.slots,
+                            hasPhotoWindow = layout.photo != null,
+                            moveOn = moveOn,
+                            onMove = onMove
+                        )
+                    }
                 }
             }
 

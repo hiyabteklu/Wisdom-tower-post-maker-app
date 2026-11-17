@@ -12,15 +12,15 @@ import androidx.compose.ui.graphics.Color
  * Mint is now the turquoise accent. Ink is also set as the window color in res/values/themes.xml.
  */
 object PostPalette {
-    val Ink = Color(0xFF0B1220)
-    val Surface = Color(0xFF121B2E)
-    val Card = Color(0xFF121B2E)
-    val Raised = Color(0xFF1A263D)
-    val Line = Color(0xFF2A3956)
+    val Ink = Color(0xFF080D16)
+    val Surface = Color(0xFF101827)
+    val Card = Color(0xFF182235)
+    val Raised = Color(0xFF22304A)
+    val Line = Color(0xFF334566)
     val Mint = Color(0xFF2DE0CF)
-    val Gold = Color(0xFFF2C879)
-    val Text = Color(0xFFE9EEF7)
-    val Muted = Color(0xFF8E9CB8)
+    val Gold = Color(0xFFF5C451)
+    val Text = Color(0xFFF3F6FC)
+    val Muted = Color(0xFFA3B1C9)
     val Warn = Color(0xFFFF8B8B)
 }
 

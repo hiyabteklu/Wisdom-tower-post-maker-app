@@ -140,7 +140,51 @@ enum class TextFx {
     PHOTO_FILL,
     ECHO,
     EXTRUDE,
-    SPLIT_TONE
+    SPLIT_TONE,
+    GLITCH_SPLIT,
+    CURVE_ARC,
+    VERTICAL,
+    STRIKE_REVEAL,
+    OUTLINE_STACK
+}
+
+enum class LogoAnchor(val label: String) {
+    AUTO("Auto"),
+    TOP_LEFT("Top-left"),
+    TOP_RIGHT("Top-right"),
+    TOP_CENTER("Top-center"),
+    BOTTOM_LEFT("Bottom-left"),
+    BOTTOM_RIGHT("Bottom-right"),
+    BOTTOM_CENTER("Bottom-center"),
+    INLINE_FOOTER("Inline footer"),
+    VERTICAL_EDGE("Vertical edge"),
+    CORNER_WATERMARK("Corner mark"),
+    LARGE_WATERMARK("Watermark"),
+    STAMP("Stamp"),
+    NONE("Hidden")
+}
+
+enum class LogoStyle(val label: String) {
+    MARK_ONLY("Mark only"),
+    WORDMARK_ONLY("Wordmark"),
+    MARK_AND_WORDMARK("Mark + Name"),
+    STICKER("Sticker edge"),
+    GLASS_CHIP("Glass chip")
+}
+
+enum class LogoContrast(val label: String) {
+    AUTO("Auto"),
+    LIGHT("Light"),
+    DARK("Dark"),
+    ACCENT("Accent"),
+    ORIGINAL("Original")
+}
+
+enum class CutoutStyle(val label: String) {
+    CLEAN("Clean"),
+    RIM_GLOW("Rim glow"),
+    STICKER_EDGE("Sticker"),
+    SILHOUETTE("Silhouette")
 }
 
 enum class ShadowMode {
@@ -229,7 +273,12 @@ data class PostBrand(
     val logoPath: String? = null,
     val logoStamp: Long = 0L,
     val logoScale: Float = 1f,
-    val footerStyle: FooterStyle = FooterStyle.PILL,
+    val logoAnchor: LogoAnchor = LogoAnchor.AUTO,
+    val logoStyle: LogoStyle = LogoStyle.MARK_ONLY,
+    val logoContrast: LogoContrast = LogoContrast.AUTO,
+    val logoOpacity: Float = 1f,
+    val footerStyle: FooterStyle = FooterStyle.LINE,
+    val footerMinimal: Boolean = true,
     val iconLook: IconLook = IconLook.OFFICIAL,
     val iconScale: Float = 1f,
     val footerItems: List<FooterItem> = listOf(
@@ -275,11 +324,11 @@ data class PostIconItem(
 
 data class PostDoc(
     val version: Int = 4,
-    val templateId: String = "ltr-window",
+    val templateId: String = "ltr-portal",
     val size: PostSize = PostSize.LANDSCAPE,
     val texts: Map<String, String> = PostSlots.withDerivedSlots(
-        postTemplate("ltr-window").samples,
-        postTemplate("ltr-window").slots
+        postTemplate("ltr-portal").samples,
+        postTemplate("ltr-portal").slots
     ),
     val hiddenTextSlots: Set<String> = emptySet(),
     val textHex: String? = null,
@@ -294,6 +343,8 @@ data class PostDoc(
     val fontEnglish: String? = null,
     val fontAmharic: String? = null,
     val photoUri: String? = null,
+    val secondaryPhotoUri: String? = null,
+    val tertiaryPhotoUri: String? = null,
     val photoZoom: Float = 1f,
     val photoPanX: Float = 0f,
     val photoPanY: Float = 0f,
@@ -320,11 +371,16 @@ data class PostDoc(
     val cutoutScale: Float = 1f,
     val cutoutX: Float = 0.5f,
     val cutoutY: Float = 0.94f,
+    val cutoutStyle: CutoutStyle = CutoutStyle.RIM_GLOW,
     val textBehind: Set<String> = emptySet(),
     val showLogo: Boolean = true,
     val logoCx: Float? = null,
     val logoCy: Float? = null,
     val logoSize: Float = 1f,
+    val logoAnchor: LogoAnchor = LogoAnchor.AUTO,
+    val logoStyle: LogoStyle? = null,
+    val logoContrast: LogoContrast = LogoContrast.AUTO,
+    val logoOpacity: Float = 1f,
     val showFooter: Boolean = true,
     val offsets: Map<String, Offset> = emptyMap(),
     val slotStyles: Map<String, SlotStyle> = emptyMap(),
@@ -367,6 +423,8 @@ object PostCodec {
         doc.fontEnglish?.let { root.put("fontEnglish", it) }
         doc.fontAmharic?.let { root.put("fontAmharic", it) }
         doc.photoUri?.let { root.put("photoUri", it) }
+        doc.secondaryPhotoUri?.let { root.put("secondaryPhotoUri", it) }
+        doc.tertiaryPhotoUri?.let { root.put("tertiaryPhotoUri", it) }
         root.put("photoZoom", doc.photoZoom.toDouble())
         root.put("photoPanX", doc.photoPanX.toDouble())
         root.put("photoPanY", doc.photoPanY.toDouble())
@@ -393,6 +451,7 @@ object PostCodec {
         root.put("cutoutScale", doc.cutoutScale.toDouble())
         root.put("cutoutX", doc.cutoutX.toDouble())
         root.put("cutoutY", doc.cutoutY.toDouble())
+        if (doc.cutoutStyle != CutoutStyle.RIM_GLOW) root.put("cutoutStyle", doc.cutoutStyle.name)
         val behindArr = JSONArray()
         doc.textBehind.forEach { behindArr.put(it) }
         root.put("textBehind", behindArr)
@@ -400,6 +459,10 @@ object PostCodec {
         doc.logoCx?.let { root.put("logoCx", it.toDouble()) }
         doc.logoCy?.let { root.put("logoCy", it.toDouble()) }
         root.put("logoSize", doc.logoSize.toDouble())
+        if (doc.logoAnchor != LogoAnchor.AUTO) root.put("logoAnchor", doc.logoAnchor.name)
+        doc.logoStyle?.let { root.put("logoStyle", it.name) }
+        if (doc.logoContrast != LogoContrast.AUTO) root.put("logoContrast", doc.logoContrast.name)
+        if (doc.logoOpacity != 1f) root.put("logoOpacity", doc.logoOpacity.toDouble())
         root.put("showFooter", doc.showFooter)
 
         val offsetsObj = JSONObject()
@@ -428,7 +491,7 @@ object PostCodec {
 
     fun decodeDoc(json: String): PostDoc {
         val root = JSONObject(json)
-        val rawTemplateId = root.optString("templateId", "ltr-window")
+        val rawTemplateId = root.optString("templateId", "ltr-portal")
         val resolvedId = postTemplate(rawTemplateId).id
         val size = PostSize.fromKey(root.optString("size", "LANDSCAPE"))
         val texts = mutableMapOf<String, String>()
@@ -520,6 +583,19 @@ object PostCodec {
             ?: if (root.has("shadowAll")) TextShadow(strength = root.optInt("shadowAll", 0).coerceIn(0, 100))
             else TextShadow()
 
+        val cutoutStyle = root.optString("cutoutStyle", "").let { name ->
+            CutoutStyle.values().firstOrNull { it.name == name } ?: CutoutStyle.RIM_GLOW
+        }
+        val logoAnchor = root.optString("logoAnchor", "").let { name ->
+            LogoAnchor.values().firstOrNull { it.name == name } ?: LogoAnchor.AUTO
+        }
+        val logoStyle = root.optString("logoStyle", "").takeIf { it.isNotBlank() }?.let { name ->
+            LogoStyle.values().firstOrNull { it.name == name }
+        }
+        val logoContrast = root.optString("logoContrast", "").let { name ->
+            LogoContrast.values().firstOrNull { it.name == name } ?: LogoContrast.AUTO
+        }
+
         return PostDoc(
             version = 4,
             templateId = resolvedId,
@@ -540,6 +616,8 @@ object PostCodec {
             fontEnglish = root.optString("fontEnglish", "").takeIf { it.isNotBlank() },
             fontAmharic = root.optString("fontAmharic", "").takeIf { it.isNotBlank() },
             photoUri = root.optString("photoUri", "").takeIf { it.isNotBlank() },
+            secondaryPhotoUri = root.optString("secondaryPhotoUri", "").takeIf { it.isNotBlank() },
+            tertiaryPhotoUri = root.optString("tertiaryPhotoUri", "").takeIf { it.isNotBlank() },
             photoZoom = root.optDouble("photoZoom", 1.0).toFloat().coerceIn(0.5f, 4f),
             photoPanX = root.optDouble("photoPanX", 0.0).toFloat().coerceIn(-1f, 1f),
             photoPanY = root.optDouble("photoPanY", 0.0).toFloat().coerceIn(-1f, 1f),
@@ -563,7 +641,7 @@ object PostCodec {
             photoAsBackground = root.optBoolean("photoAsBackground", false),
             panelOpacity = pOpacity,
             shadowAll = shadowAll,
-            lookIndex = root.optInt("lookIndex", 0).coerceIn(0, 2),
+            lookIndex = root.optInt("lookIndex", 0).coerceIn(0, 8),
             meshStyle = root.optString("meshStyle", "").let { name ->
                 MeshStyle.values().firstOrNull { it.name == name } ?: MeshStyle.NONE
             },
@@ -572,11 +650,16 @@ object PostCodec {
             cutoutScale = root.optDouble("cutoutScale", 1.0).toFloat().coerceIn(0.3f, 2.5f),
             cutoutX = root.optDouble("cutoutX", 0.5).toFloat().coerceIn(0f, 1f),
             cutoutY = root.optDouble("cutoutY", 0.94).toFloat().coerceIn(0f, 1.2f),
+            cutoutStyle = cutoutStyle,
             textBehind = behind,
             showLogo = root.optBoolean("showLogo", true),
             logoCx = if (root.has("logoCx")) root.optDouble("logoCx").toFloat() else null,
             logoCy = if (root.has("logoCy")) root.optDouble("logoCy").toFloat() else null,
             logoSize = root.optDouble("logoSize", 1.0).toFloat().coerceIn(0.4f, 3f),
+            logoAnchor = logoAnchor,
+            logoStyle = logoStyle,
+            logoContrast = logoContrast,
+            logoOpacity = root.optDouble("logoOpacity", 1.0).toFloat().coerceIn(0.1f, 1f),
             showFooter = root.optBoolean("showFooter", true),
             offsets = offsets,
             slotStyles = decodeSlotStyles(root.optJSONObject("slotStyles")),
@@ -669,7 +752,12 @@ object PostCodec {
         brand.logoPath?.let { o.put("logoPath", it) }
         o.put("logoStamp", brand.logoStamp)
         o.put("logoScale", brand.logoScale.toDouble())
+        o.put("logoAnchor", brand.logoAnchor.name)
+        o.put("logoStyle", brand.logoStyle.name)
+        o.put("logoContrast", brand.logoContrast.name)
+        o.put("logoOpacity", brand.logoOpacity.toDouble())
         o.put("footerStyle", brand.footerStyle.name)
+        o.put("footerMinimal", brand.footerMinimal)
         o.put("iconLook", brand.iconLook.name)
         o.put("iconScale", brand.iconScale.toDouble())
         val arr = JSONArray()
@@ -702,6 +790,15 @@ object PostCodec {
         }
         val primary = o.optString("primaryHex", "").ifBlank { o.optString("accentHex", "#22E0FF") }
         val logoPath = o.optString("logoPath", "").ifBlank { o.optString("logoUri", "") }.takeIf { it.isNotBlank() }
+        val logoAnchor = o.optString("logoAnchor", "").let { n ->
+            LogoAnchor.values().firstOrNull { it.name == n } ?: LogoAnchor.AUTO
+        }
+        val logoStyle = o.optString("logoStyle", "").let { n ->
+            LogoStyle.values().firstOrNull { it.name == n } ?: LogoStyle.MARK_ONLY
+        }
+        val logoContrast = o.optString("logoContrast", "").let { n ->
+            LogoContrast.values().firstOrNull { it.name == n } ?: LogoContrast.AUTO
+        }
         return PostBrand(
             name = o.optString("name", "Wisdom Tower"),
             handle = o.optString("handle", "@wisdomtower"),
@@ -713,9 +810,14 @@ object PostCodec {
             logoPath = logoPath,
             logoStamp = o.optLong("logoStamp", 0L),
             logoScale = o.optDouble("logoScale", 1.0).toFloat(),
+            logoAnchor = logoAnchor,
+            logoStyle = logoStyle,
+            logoContrast = logoContrast,
+            logoOpacity = o.optDouble("logoOpacity", 1.0).toFloat().coerceIn(0.1f, 1f),
             footerStyle = o.optString("footerStyle", "").let { n ->
-                FooterStyle.values().firstOrNull { it.name == n } ?: FooterStyle.PILL
+                FooterStyle.values().firstOrNull { it.name == n } ?: FooterStyle.LINE
             },
+            footerMinimal = o.optBoolean("footerMinimal", true),
             iconLook = o.optString("iconLook", "").let { n ->
                 IconLook.values().firstOrNull { it.name == n } ?: IconLook.OFFICIAL
             },

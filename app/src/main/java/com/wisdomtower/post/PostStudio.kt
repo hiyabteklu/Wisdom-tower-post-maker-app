@@ -100,6 +100,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -131,12 +132,10 @@ private object NeighborPreviewCache {
 /**
  * Main Studio screen with:
  * - 48dp Top Bar (Template name + bookmark on left; icon-only Reset, Batch, Undo, Export, More on right).
- * - Fixed centered Preview (~55% of screen height) that never scrolls away, inside a smooth HorizontalPager
+ * - Fixed centered Preview (~62%+ of screen height) that never scrolls away, inside a smooth HorizontalPager
  *   with snap, neighbouring edges visible, page indicator, and template name underneath.
- * - Filter chips (All, Letter, Type, Photo, Info, Marketing, Study, Device) + ratio chips.
- * - Compact 1-row "Quick" chip bar.
- * - Collapsible bottom sheet starting collapsed to one row of tabs (Template, Words, Style, Photo, Icons)
- *   with horizontal scroll edge fade, expanding on tap or drag.
+ * - Compact 1-row "Quick + Ratio" chip bar.
+ * - 3-snap-state bottom sheet (PEEK = tab row + thumbnail template strip; HALF = 220dp controls; FULL = 360dp controls).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -169,7 +168,8 @@ fun PostStudioScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var activeTab by rememberSaveable { mutableStateOf("template") }
-    var sheetExpanded by rememberSaveable { mutableStateOf(false) }
+    // 0 = PEEK (tab bar + template strip), 1 = HALF (220dp), 2 = FULL (360dp)
+    var sheetSnap by rememberSaveable { mutableStateOf(0) }
     var selectedFamily by rememberSaveable { mutableStateOf("All") }
     var selectedSlot by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedIcon by rememberSaveable { mutableStateOf(-1) }
@@ -242,11 +242,17 @@ fun PostStudioScreen(
             }
     }
 
-    // High-res render for the active page
+    // Two-stage render for the active page: instant 380px pass during slider drags, then crisp 720px on settle
     val renderResult by produceState<PostRenderer.Result?>(null, doc, brand) {
-        value = withContext(Dispatchers.Default) {
+        val fast = withContext(Dispatchers.Default) {
+            PostRenderer.preview(context, doc, brand, maxSide = 380) { false }
+        }
+        value = fast
+        delay(90)
+        val full = withContext(Dispatchers.Default) {
             PostRenderer.preview(context, doc, brand, maxSide = 720) { false }
         }
+        value = full
     }
 
     Column(
@@ -278,38 +284,6 @@ fun PostStudioScreen(
             onHeaderDone = onHeaderDone,
             onOpenExport = { exportSheetOpen = true }
         )
-
-        // 2. Compact filter & ratio strip right under top bar (36dp)
-        val filterScroll = rememberScrollState()
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 2.dp)
-                .horizontalScrollWithFade(filterScroll, PostPalette.Ink),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            PostSize.values().forEach { s ->
-                CompactChip(
-                    label = s.ratio,
-                    selected = doc.size == s,
-                    onClick = { onDoc(doc.copy(size = s)) }
-                )
-            }
-            Box(
-                Modifier
-                    .width(1.dp)
-                    .height(18.dp)
-                    .background(PostPalette.Line)
-            )
-            OrderedTemplateFamilies.forEach { fam ->
-                CompactChip(
-                    label = fam,
-                    selected = selectedFamily == fam,
-                    onClick = { selectedFamily = fam }
-                )
-            }
-        }
 
         // 3. Always-visible centered Preview (~55%+ of screen height) with HorizontalPager swipe
         Column(
@@ -1159,13 +1133,25 @@ private fun CompactQuickStrip(
                 )
             }
         } else {
-            // One scrollable row of small Quick chips (Size, Shadow, Color, Bg photo, Panels)
+            // One scrollable row of Ratio + Quick chips (Size, Shadow, Color, Bg photo, Panels)
             Row(
                 Modifier.fillMaxWidth().horizontalScrollWithFade(scroll, PostPalette.Ink),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                PostSmallLabel("Quick")
+                PostSize.values().forEach { s ->
+                    CompactChip(
+                        label = s.ratio,
+                        selected = doc.size == s,
+                        onClick = { onDoc(doc.copy(size = s)) }
+                    )
+                }
+                Box(
+                    Modifier
+                        .width(1.dp)
+                        .height(18.dp)
+                        .background(PostPalette.Line)
+                )
                 CompactChip(
                     label = "Size ${(doc.textScale * 100).roundToInt()}%",
                     icon = Icons.Outlined.FormatSize,
@@ -1263,14 +1249,15 @@ private fun CompactQuickStrip(
 }
 
 /**
- * Editing tools sit in a collapsible bottom sheet above the bottom nav.
- * Starts collapsed to one row of tabs (Template, Words, Style, Photo, Icons) and expands on tap or drag.
- * Tabs scroll horizontally with a fade at the edge, so nothing looks cropped.
+ * 3-snap-state bottom sheet above the bottom nav:
+ * - 0 = PEEK: shows the tab row + thumbnail template strip.
+ * - 1 = HALF: opens the selected tool tab in a 220dp panel so the preview stays large.
+ * - 2 = FULL: opens the selected tool tab in a 360dp panel for multi-field editing.
  */
 @Composable
 private fun CollapsibleEditorSheet(
-    expanded: Boolean,
-    onExpandedChange: (Boolean) -> Unit,
+    snapState: Int,
+    onSnapChange: (Int) -> Unit,
     activeTab: String,
     onTabSelect: (String) -> Unit,
     doc: PostDoc,
@@ -1291,7 +1278,8 @@ private fun CollapsibleEditorSheet(
     onBringWords: (() -> Unit)?,
     onOpenLibrary: () -> Unit,
     selectedFamily: String,
-    onSelectFamily: (String) -> Unit
+    onSelectFamily: (String) -> Unit,
+    waitForPreviousTools: Boolean = false
 ) {
     val tabScroll = rememberScrollState()
     val tabs = listOf(
@@ -1314,16 +1302,18 @@ private fun CollapsibleEditorSheet(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .pointerInput(expanded) {
+                    .pointerInput(snapState) {
                         var totalDy = 0f
                         detectVerticalDragGestures(
                             onDragStart = { totalDy = 0f },
                             onVerticalDrag = { _, dragAmount ->
                                 totalDy += dragAmount
-                                if (totalDy < -18f && !expanded) {
-                                    onExpandedChange(true)
-                                } else if (totalDy > 18f && expanded) {
-                                    onExpandedChange(false)
+                                if (totalDy < -24f && snapState < 2) {
+                                    totalDy = 0f
+                                    onSnapChange(snapState + 1)
+                                } else if (totalDy > 24f && snapState > 0) {
+                                    totalDy = 0f
+                                    onSnapChange(snapState - 1)
                                 }
                             }
                         )
@@ -1333,11 +1323,11 @@ private fun CollapsibleEditorSheet(
             ) {
                 Box(
                     Modifier
-                        .width(32.dp)
-                        .height(3.dp)
+                        .width(36.dp)
+                        .height(4.dp)
                         .clip(CircleShape)
                         .background(PostPalette.Line)
-                        .clickable { onExpandedChange(!expanded) }
+                        .clickable { onSnapChange((snapState + 1) % 3) }
                 )
                 Spacer(Modifier.height(4.dp))
                 Row(
@@ -1353,25 +1343,26 @@ private fun CollapsibleEditorSheet(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         tabs.forEach { (id, label, icon) ->
+                            val isSelected = if (snapState == 0) id == "template" else activeTab == id
                             CompactChip(
                                 label = label,
                                 icon = icon,
-                                selected = expanded && activeTab == id,
+                                selected = isSelected,
                                 onClick = { onTabSelect(id) }
                             )
                         }
                     }
                     Box(
                         modifier = Modifier
-                            .size(28.dp)
-                            .clip(RoundedCornerShape(6.dp))
+                            .size(30.dp)
+                            .clip(RoundedCornerShape(8.dp))
                             .background(PostPalette.Raised)
-                            .clickable { onExpandedChange(!expanded) },
+                            .clickable { onSnapChange((snapState + 1) % 3) },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = if (expanded) Icons.Default.ExpandMore else Icons.Default.ExpandLess,
-                            contentDescription = if (expanded) "Collapse tools" else "Expand tools",
+                            imageVector = if (snapState == 2) Icons.Default.ExpandMore else Icons.Default.ExpandLess,
+                            contentDescription = "Cycle sheet height",
                             tint = PostPalette.Text,
                             modifier = Modifier.size(16.dp)
                         )
@@ -1379,12 +1370,30 @@ private fun CollapsibleEditorSheet(
                 }
             }
 
-            // Expanded sheet body (capped height so preview remains visible above)
-            AnimatedVisibility(visible = expanded) {
+            // PEEK state (0): shows the thumbnail TemplateStrip directly under the tab row
+            if (snapState == 0) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(max = 220.dp)
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    TemplateStrip(
+                        doc = doc,
+                        onDoc = onDoc,
+                        library = library,
+                        onOpenLibrary = onOpenLibrary,
+                        brand = brand,
+                        selectedFamily = selectedFamily,
+                        onSelectFamily = onSelectFamily
+                    )
+                }
+            } else {
+                // HALF (1 = 220dp) or FULL (2 = 360dp) state
+                val maxSheetH = if (snapState >= 2) 360.dp else 220.dp
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = maxSheetH)
                         .verticalScroll(rememberScrollState())
                         .padding(horizontal = 10.dp, vertical = 6.dp)
                 ) {

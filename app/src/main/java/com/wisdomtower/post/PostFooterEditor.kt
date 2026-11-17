@@ -79,10 +79,15 @@ fun FooterEditor(brand: PostBrand, onBrand: (PostBrand) -> Unit) {
                 Modifier.horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                FilterChip(
+                    selected = brand.footerMinimal,
+                    onClick = { onBrand(brand.copy(footerMinimal = !brand.footerMinimal)) },
+                    label = { Text("Minimal slim line") }
+                )
                 FooterStyle.values().forEach { style ->
                     FilterChip(
-                        selected = brand.footerStyle == style,
-                        onClick = { onBrand(brand.copy(footerStyle = style)) },
+                        selected = !brand.footerMinimal && brand.footerStyle == style,
+                        onClick = { onBrand(brand.copy(footerMinimal = false, footerStyle = style)) },
                         label = { Text(if (style == FooterStyle.PILL) "Pills" else "Line") }
                     )
                 }

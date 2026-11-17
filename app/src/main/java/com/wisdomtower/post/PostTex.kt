@@ -486,7 +486,12 @@ internal object PostTex {
     }
 
     private class GridBox(
-        val cells: List<List<Box>>, val aligns: List<Char>, val gaps: FloatArray, val px: Float
+        val cells: List<List<Box>>,
+        val aligns: List<Char>,
+        val gaps: FloatArray,
+        val px: Float,
+        val barsAfter: Set<Int> = emptySet(),
+        val ink: Int = Color.BLACK
     ) : Box() {
         private val cols = cells.maxOfOrNull { it.size } ?: 0
         private val colW = FloatArray(cols)
@@ -534,6 +539,74 @@ internal object PostTex {
                     xx += colW[k] + gapAfter(k)
                 }
                 yy += rowAsc[r] + rowDesc[r] + rowGap
+            }
+            if (barsAfter.isNotEmpty()) {
+                val barPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    style = Paint.Style.STROKE
+                    color = ink
+                    strokeWidth = rule(px) * 1.1f
+                }
+                var xx = x
+                for (k in 0 until cols) {
+                    xx += colW[k]
+                    if (k in barsAfter && k < cols - 1) {
+                        val bx = xx + gapAfter(k) * 0.5f
+                        c.drawLine(bx, y - asc + px * 0.08f, bx, y + desc - px * 0.08f, barPaint)
+                    }
+                    xx += gapAfter(k)
+                }
+            }
+        }
+    }
+
+    private class StretchArrowBox(val over: Box?, val under: Box?, val dir: Int, val px: Float, val ink: Int) : Box() {
+        private val axis = px * AXIS
+        private val t = rule(px)
+        private val gap = px * 0.14f
+
+        init {
+            val labelW = max(over?.w ?: 0f, under?.w ?: 0f)
+            w = max(px * 1.6f, labelW + px * 0.7f)
+            asc = max(px * 0.45f, axis + (if (over != null) gap + over.asc + over.desc else px * 0.22f))
+            desc = max(px * 0.2f, -axis + (if (under != null) gap + under.asc + under.desc else px * 0.22f))
+        }
+
+        override fun draw(c: Canvas, x: Float, y: Float) {
+            val ay = y - axis
+            val l = x + px * 0.12f
+            val r = x + w - px * 0.12f
+            val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                style = Paint.Style.STROKE
+                color = ink
+                strokeWidth = t * 1.15f
+                strokeCap = Paint.Cap.ROUND
+                strokeJoin = Paint.Join.ROUND
+            }
+            val head = px * 0.22f
+            if (dir == 0) {
+                // Equilibrium harpoons (rightleftharpoons)
+                val upY = ay - px * 0.10f
+                val dnY = ay + px * 0.10f
+                c.drawLine(l, upY, r, upY, p)
+                c.drawLine(r - head, upY - head * 0.75f, r, upY, p)
+                c.drawLine(l, dnY, r, dnY, p)
+                c.drawLine(l + head, dnY + head * 0.75f, l, dnY, p)
+            } else {
+                c.drawLine(l, ay, r, ay, p)
+                val tipX = if (dir > 0) r else l
+                val sgn = if (dir > 0) 1f else -1f
+                val path = Path().apply {
+                    moveTo(tipX - sgn * head, ay - head * 0.75f)
+                    lineTo(tipX, ay)
+                    lineTo(tipX - sgn * head, ay + head * 0.75f)
+                }
+                c.drawPath(path, p)
+            }
+            if (over != null) {
+                over.draw(c, x + (w - over.w) / 2f, ay - gap - over.desc)
+            }
+            if (under != null) {
+                under.draw(c, x + (w - under.w) / 2f, ay + gap + under.asc)
             }
         }
     }
@@ -637,6 +710,7 @@ internal object PostTex {
     private class NStyle(val level: Int, val body: N) : N()
     private class NBox(val body: N) : N()
     private class NPhantom(val body: N) : N()
+    private class NArrow(val over: N?, val under: N?, val dir: Int) : N()
 
     private fun unwrap(n: N): N {
         var x = n
@@ -670,7 +744,8 @@ internal object PostTex {
         "in" to "∈", "notin" to "∉", "ni" to "∋", "subset" to "⊂", "subseteq" to "⊆", "supset" to "⊃",
         "supseteq" to "⊇", "to" to "→", "rightarrow" to "→", "leftarrow" to "←", "gets" to "←",
         "Rightarrow" to "⇒", "Leftarrow" to "⇐", "leftrightarrow" to "↔", "Leftrightarrow" to "⇔",
-        "mapsto" to "↦", "longrightarrow" to "⟶", "implies" to "⟹", "iff" to "⟺", "impliedby" to "⟸",
+        "mapsto" to "↦", "longrightarrow" to "⟶", "longleftarrow" to "⟵", "longleftrightarrow" to "⟷",
+        "implies" to "⟹", "iff" to "⟺", "impliedby" to "⟸", "rightleftharpoons" to "⇌", "leftrightarrows" to "⇄",
         "uparrow" to "↑", "downarrow" to "↓", "perp" to "⊥", "parallel" to "∥", "mid" to "∣", "vdash" to "⊢",
         "models" to "⊨"
     )
@@ -753,7 +828,7 @@ internal object PostTex {
         c == '\'' -> NSym("\u2032", Cls.ORD, 1)
         c == '~' -> NSpace(0.33f)
         "×·±∓÷∘∧∨∪∩⊕⊗⋅".indexOf(c) >= 0 -> NSym(c.toString(), Cls.BIN, 1)
-        "≤≥≠≈≡∼∝∈∉⊂⊆⊃⊇→←⇒⇔↔≪≫∣∥⊥≅≃⟶".indexOf(c) >= 0 -> NSym(c.toString(), Cls.REL, 1)
+        "≤≥≠≈≡∼∝∈∉⊂⊆⊃⊇→←⇒⇔↔≪≫∣∥⊥≅≃⟶⇌⇄".indexOf(c) >= 0 -> NSym(c.toString(), Cls.REL, 1)
         else -> NSym(c.toString(), Cls.ORD, 1)
     }
 
@@ -1003,6 +1078,17 @@ internal object PostTex {
             if (name == "array" || name == "tabular" || name == "alignat" || name == "alignat*") {
                 skipWs()
                 if (i < s.length && s[i] == '{') spec = rawArg()
+            } else if (name.endsWith("matrix")) {
+                skipWs()
+                if (i < s.length && s[i] == '[') {
+                    val close = s.indexOf(']', i)
+                    if (close > i) {
+                        spec = s.substring(i + 1, close)
+                        i = close + 1
+                    }
+                } else if (i < s.length && s[i] == '{') {
+                    spec = rawArg()
+                }
             }
             val rows = parseRows()
             if (peekName() == "end") {
@@ -1010,16 +1096,16 @@ internal object PostTex {
                 rawArg()
             }
             return when (name) {
-                "pmatrix" -> NLeft("(", NGrid(rows, "matrix", ""), ")")
-                "bmatrix" -> NLeft("[", NGrid(rows, "matrix", ""), "]")
-                "Bmatrix" -> NLeft("{", NGrid(rows, "matrix", ""), "}")
-                "vmatrix" -> NLeft("|", NGrid(rows, "matrix", ""), "|")
-                "Vmatrix" -> NLeft("‖", NGrid(rows, "matrix", ""), "‖")
+                "pmatrix" -> NLeft("(", NGrid(rows, "matrix", spec), ")")
+                "bmatrix" -> NLeft("[", NGrid(rows, "matrix", spec), "]")
+                "Bmatrix" -> NLeft("{", NGrid(rows, "matrix", spec), "}")
+                "vmatrix" -> NLeft("|", NGrid(rows, "matrix", spec), "|")
+                "Vmatrix" -> NLeft("‖", NGrid(rows, "matrix", spec), "‖")
                 "cases" -> NLeft("{", NGrid(rows, "cases", ""), "")
                 "aligned", "align", "align*", "alignat", "alignat*", "split", "eqnarray", "flalign" -> NGrid(rows, "aligned", "")
                 "gather", "gathered", "gather*", "equation", "equation*", "displaymath", "multline" -> NGrid(rows, "gathered", "")
                 "array", "tabular" -> NGrid(rows, "array", spec)
-                else -> NGrid(rows, "matrix", "")
+                else -> NGrid(rows, "matrix", spec)
             }
         }
 
@@ -1064,6 +1150,31 @@ internal object PostTex {
                         }
                     }
                     NSqrt(arg(), index)
+                }
+                "xrightarrow", "xleftarrow", "xrightleftharpoons" -> {
+                    skipWs()
+                    var under: N? = null
+                    if (i < s.length && s[i] == '[') {
+                        val close = s.indexOf(']', i)
+                        if (close > i) {
+                            under = Parser(s.substring(i + 1, close)).parseSeq()
+                            i = close + 1
+                        }
+                    }
+                    val over = arg()
+                    val dir = when (name) {
+                        "xleftarrow" -> -1
+                        "xrightleftharpoons" -> 0
+                        else -> 1
+                    }
+                    NArrow(over, under, dir)
+                }
+                "ce" -> {
+                    val raw = rawArg()
+                        .replace("->", "\\rightarrow ")
+                        .replace("<=>", "\\rightleftharpoons ")
+                        .replace(Regex("(?<=[A-Za-z)])(\\d+)"), "_{$1}")
+                    NFont(F_ROMAN, Parser(raw).parseSeq())
                 }
                 "left" -> {
                     val opening = readDelim()
@@ -1216,6 +1327,11 @@ internal object PostTex {
         return ScriptBox(base, sup, sub, px, se.px(), e.level == 0, isChar, if (integral) px * 0.25f else 0f, 0f)
     }
 
+    private fun isBarCell(n: N): Boolean {
+        val u = unwrap(n)
+        return u is NSym && (u.s == "|" || u.s == "∣")
+    }
+
     private fun layGrid(n: NGrid, e: Env): Box {
         val px = e.px()
         val ce = when (n.env) {
@@ -1224,16 +1340,37 @@ internal object PostTex {
             else -> e
         }
         val aligned = n.env == "aligned"
+        val barsAfter = LinkedHashSet<Int>()
+        // Parse column spec like "cc|c" or "ccc|cc" for vertical bars
+        var colIdx = -1
+        for (ch in n.aligns) {
+            when (ch) {
+                'l', 'c', 'r' -> colIdx++
+                '|' -> if (colIdx >= 0) barsAfter.add(colIdx)
+            }
+        }
+        // Also detect if any column in a matrix consists solely of "|" across all rows (e.g. 1 & 2 & | & 3)
+        val rawCols = n.rows.maxOfOrNull { it.size } ?: 0
+        val barCols = (0 until rawCols).filter { c ->
+            n.rows.isNotEmpty() && n.rows.all { r -> c < r.size && isBarCell(r[c]) }
+        }.toSet()
+
         val cells = ArrayList<List<Box>>()
         for (row in n.rows) {
             val boxes = ArrayList<Box>()
+            var outCol = -1
             for ((c, cell) in row.withIndex()) {
-                val node: N = if (aligned && c % 2 == 1) NSeq(listOf<N>(NSym("", Cls.ORD, 1), cell)) else cell
+                if (c in barCols) {
+                    if (outCol >= 0) barsAfter.add(outCol)
+                    continue
+                }
+                outCol++
+                val node: N = if (aligned && outCol % 2 == 1) NSeq(listOf<N>(NSym("", Cls.ORD, 1), cell)) else cell
                 boxes.add(lay(node, ce))
             }
             cells.add(boxes)
         }
-        val cols = n.rows.maxOfOrNull { it.size } ?: 0
+        val cols = cells.maxOfOrNull { it.size } ?: 0
         val spec = n.aligns.filter { it == 'l' || it == 'c' || it == 'r' }
         val aligns = ArrayList<Char>()
         for (c in 0 until cols) {
@@ -1241,7 +1378,7 @@ internal object PostTex {
                 when (n.env) {
                     "cases" -> 'l'
                     "aligned" -> if (c % 2 == 0) 'r' else 'l'
-                    "array" -> spec.getOrElse(c) { 'c' }
+                    "array", "matrix" -> spec.getOrElse(c) { 'c' }
                     else -> 'c'
                 }
             )
@@ -1249,7 +1386,7 @@ internal object PostTex {
         val gaps = FloatArray(max(1, cols)) { c ->
             if (n.env == "aligned") (if (c % 2 == 0) 0f else px * 2f) else px
         }
-        return GridBox(cells, aligns, gaps, px)
+        return GridBox(cells, aligns, gaps, px, barsAfter, e.ink)
     }
 
     private fun lay(n: N, e: Env): Box = when (n) {
@@ -1281,6 +1418,12 @@ internal object PostTex {
         is NStyle -> lay(n.body, e.at(n.level))
         is NBox -> BoxedBox(lay(n.body, e), e.px(), e.ink)
         is NPhantom -> PhantomBox(lay(n.body, e))
+        is NArrow -> {
+            val se = e.sup()
+            val ov = n.over?.takeIf { !isBlankN(it) }?.let { lay(it, se) }
+            val un = n.under?.takeIf { !isBlankN(it) }?.let { lay(it, se) }
+            StretchArrowBox(ov, un, n.dir, e.px(), e.ink)
+        }
     }
 
     // ---- spacing between atoms (the TeX table) ----
@@ -1290,6 +1433,7 @@ internal object PostTex {
     private fun clsOf(n: N): Cls? = when (n) {
         is NSym -> n.cls
         is NOp -> Cls.OP
+        is NArrow -> Cls.REL
         is NScripts -> clsOf(unwrap(n.base)) ?: Cls.ORD
         is NSpace -> null
         else -> Cls.ORD

@@ -43,16 +43,16 @@ private fun stList(
 private fun stRule(size: PostSize, x: Float, y: Float, w: Float, tone: PostTone, thickPx: Float = 2.5f, alpha: Int = 160) =
     DecorBox(DecorShape.RECT, x, y, w, thickPx / size.height, tone, alpha)
 
-private fun stPaper(size: PostSize, marginX: Float = .04f): List<DecorBox> {
-    // Exactly 30 evenly spaced notebook rules, spanning 95% of the paper.
+private fun stPaper(size: PostSize, marginX: Float = .02f): List<DecorBox> {
+    // Exactly 36 evenly spaced notebook rules, spanning 95% of the paper.
     // The red margin is inset only 4%; ruling reaches nearly edge-to-edge.
     val rules = mutableListOf<DecorBox>()
     val first = .025f
     val last = .975f
-    val step = (last - first) / 29f
-    repeat(30) { index ->
+    val step = (last - first) / 35f
+    repeat(36) { index ->
         val y = first + index * step
-        rules += stRule(size, .02f, y, .96f, PostTone.BLUE, 1.8f, 85)
+        rules += stRule(size, .01f, y, .98f, PostTone.BLUE, 1.8f, 85)
     }
     rules += DecorBox(DecorShape.RECT, marginX, .025f, 2.0f / size.width, .95f, PostTone.RED, 150)
     return rules
@@ -72,9 +72,9 @@ private val ST_SLOT_ORDER = listOf(
 /** A box for a text slot the variant does not use itself. Its position and size are never read by PostStudyGrid. */
 private fun stSpareSlot(slot: String): SlotBox =
     if (slot == PostSlots.LIST) {
-        stList(slot, .065f, .30f, .91f, .50f, .035f, PostFont.REGULAR, PostTone.TEXT, ListStyle.NONE)
+        stList(slot, .035f, .30f, .96f, .50f, .035f, PostFont.REGULAR, PostTone.TEXT, ListStyle.NONE)
     } else {
-        stText(slot, .055f, .30f, .92f, .10f, .035f, PostFont.REGULAR, PostTone.TEXT)
+        stText(slot, .035f, .30f, .96f, .10f, .035f, PostFont.REGULAR, PostTone.TEXT)
     }
 
 /**

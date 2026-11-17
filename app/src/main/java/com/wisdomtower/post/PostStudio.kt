@@ -104,6 +104,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.abs
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -217,7 +218,13 @@ fun PostStudioScreen(
     LaunchedEffect(doc.templateId, filteredTemplates) {
         val target = filteredTemplates.indexOfFirst { it.id == doc.templateId }
         if (target >= 0 && target != pagerState.currentPage && !pagerState.isScrollInProgress) {
-            pagerState.animateScrollToPage(target)
+            runCatching {
+                if (abs(target - pagerState.currentPage) > 2) {
+                    pagerState.scrollToPage(target)
+                } else {
+                    pagerState.animateScrollToPage(target)
+                }
+            }
         }
     }
 
@@ -755,13 +762,16 @@ private fun NeighborPreviewPage(
 
     val bmp by produceState<Bitmap?>(NeighborPreviewCache.get(cacheKey), cacheKey) {
         if (value != null) return@produceState
+        delay(45)
         val rendered = withContext(Dispatchers.Default) {
-            val neighborDoc = baseDoc.copy(
-                templateId = neighborSpec.id,
-                lookIndex = 0,
-                texts = PostSlots.withDerivedSlots(baseDoc.texts, neighborSpec.slots)
-            )
-            PostRenderer.preview(context, neighborDoc, brand, maxSide = 300) { false }?.bitmap
+            runCatching {
+                val neighborDoc = baseDoc.copy(
+                    templateId = neighborSpec.id,
+                    lookIndex = 0,
+                    texts = PostSlots.withDerivedSlots(baseDoc.texts, neighborSpec.slots)
+                )
+                PostRenderer.preview(context, neighborDoc, brand, maxSide = 300) { false }?.bitmap
+            }.getOrNull()
         }
         if (rendered != null) {
             NeighborPreviewCache.put(cacheKey, rendered)

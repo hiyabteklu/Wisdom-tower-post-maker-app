@@ -58,13 +58,18 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
  * In-memory LRU cache for template strip thumbnails so scrolling and slider drags never re-render strip cards.
  */
 private object StripThumbCache {
+    val semaphore = Semaphore(2)
     private val cache = object : LruCache<String, Bitmap>(60) {
         override fun sizeOf(key: String, value: Bitmap): Int = 1
     }
@@ -164,14 +169,21 @@ internal fun TemplateStrip(
         OrderedTemplateFamilies
     }
     val filtered = filterTemplatesByFamily(activeFamily, library)
-    val listState = rememberLazyListState()
+    val initialIdx = remember { filtered.indexOfFirst { it.id == activeSpec.id }.coerceAtLeast(0) }
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialIdx)
     val filterScroll = rememberScrollState()
 
     // Keep the horizontal template strip in sync when swiping the preview pager
     LaunchedEffect(activeSpec.id, activeFamily, filtered.size) {
         val idx = filtered.indexOfFirst { it.id == activeSpec.id }
         if (idx >= 0) {
-            runCatching { listState.animateScrollToItem(idx) }
+            runCatching {
+                if (abs(listState.firstVisibleItemIndex - idx) > 4) {
+                    listState.scrollToItem(idx)
+                } else {
+                    listState.animateScrollToItem(idx)
+                }
+            }
         }
     }
 
@@ -213,16 +225,23 @@ internal fun TemplateStrip(
                 }
                 val thumbBmp by produceState<Bitmap?>(StripThumbCache.get(thumbKey), thumbKey) {
                     if (value != null) return@produceState
-                    val bmp = withContext(Dispatchers.Default) {
-                        val tDoc = PostDrafts.factory(spec.id, doc.size).copy(
-                            texts = PostSlots.withDerivedSlots(doc.texts, spec.slots),
-                            photoUri = doc.photoUri,
-                            secondaryPhotoUri = doc.secondaryPhotoUri
-                        )
-                        PostRenderer.thumbnail(context, tDoc, brand, 168).bitmap
+                    delay(35)
+                    val bmp = StripThumbCache.semaphore.withPermit {
+                        StripThumbCache.get(thumbKey) ?: withContext(Dispatchers.Default) {
+                            runCatching {
+                                val tDoc = PostDrafts.factory(spec.id, doc.size).copy(
+                                    texts = PostSlots.withDerivedSlots(doc.texts, spec.slots),
+                                    photoUri = doc.photoUri,
+                                    secondaryPhotoUri = doc.secondaryPhotoUri
+                                )
+                                PostRenderer.thumbnail(context, tDoc, brand, 168).bitmap
+                            }.getOrNull()
+                        }
                     }
-                    StripThumbCache.put(thumbKey, bmp)
-                    value = bmp
+                    if (bmp != null) {
+                        StripThumbCache.put(thumbKey, bmp)
+                        value = bmp
+                    }
                 }
 
                 Column(

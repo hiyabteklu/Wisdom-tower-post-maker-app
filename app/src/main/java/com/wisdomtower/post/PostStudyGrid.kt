@@ -332,7 +332,7 @@ internal object PostStudyGrid {
 
     private class Page(
         val context: Context,
-        val canvas: Canvas,
+        val canvas: Canvas?,
         val doc: PostDoc,
         val w: Int,
         val h: Int,
@@ -406,14 +406,15 @@ internal object PostStudyGrid {
          * to that line, moved so the line's baseline lands exactly on the cell's baseline, whatever the font metrics are.
          */
         fun drawLayout(lay: StaticLayout, x: Float, firstCell: Int) {
+            val cv = canvas ?: return
             for (i in 0 until lay.lineCount) {
                 val c = firstCell + i
                 if (c > lastCell) break
-                canvas.save()
-                canvas.translate(x, baseline(c) - lay.getLineBaseline(i))
-                canvas.clipRect(-step, lay.getLineTop(i).toFloat(), lay.width + step, lay.getLineBottom(i).toFloat())
-                lay.draw(canvas)
-                canvas.restore()
+                cv.save()
+                cv.translate(x, baseline(c) - lay.getLineBaseline(i))
+                cv.clipRect(-step, lay.getLineTop(i).toFloat(), lay.width + step, lay.getLineBottom(i).toFloat())
+                lay.draw(cv)
+                cv.restore()
             }
         }
 
@@ -450,7 +451,7 @@ internal object PostStudyGrid {
             }
             val first = cell + (used - lines)
             drawLayout(lay, left, first)
-            if (underline > 0f) {
+            if (underline > 0f && canvas != null) {
                 val u = Paint(Paint.ANTI_ALIAS_FLAG)
                 u.color = underlineColor?.let { tone(it) } ?: ink
                 u.alpha = 215
@@ -485,12 +486,14 @@ internal object PostStudyGrid {
                 cell = lastCell + 1
                 return
             }
-            if (marker == "•") {
-                val dot = Paint(Paint.ANTI_ALIAS_FLAG)
-                dot.color = tone(markerColor)
-                canvas.drawCircle(x0 + size * 0.3f, baseline(cell) - size * 0.3f, size * 0.13f, dot)
-            } else if (marker.isNotEmpty()) {
-                canvas.drawText(marker, x0, baseline(cell), paint(true, size, tone(markerColor), slot))
+            if (canvas != null) {
+                if (marker == "•") {
+                    val dot = Paint(Paint.ANTI_ALIAS_FLAG)
+                    dot.color = tone(markerColor)
+                    canvas.drawCircle(x0 + size * 0.3f, baseline(cell) - size * 0.3f, size * 0.13f, dot)
+                } else if (marker.isNotEmpty()) {
+                    canvas.drawText(marker, x0, baseline(cell), paint(true, size, tone(markerColor), slot))
+                }
             }
             drawLayout(lay, x0 + indent, cell)
             cell += need
@@ -514,15 +517,17 @@ internal object PostStudyGrid {
                 cell = lastCell + 1
                 return
             }
-            val top = ruleY(cell) + step * 0.08f
-            val bottom = ruleY(cell + need) - step * 0.08f
-            val fill = Paint(Paint.ANTI_ALIAS_FLAG)
-            fill.color = Color.argb(40, Color.red(bar), Color.green(bar), Color.blue(bar))
-            canvas.drawRect(left, top, left + width, bottom, fill)
-            val edge = Paint(Paint.ANTI_ALIAS_FLAG)
-            edge.color = bar
-            canvas.drawRect(left, top, left + size * 0.14f, bottom, edge)
-            canvas.drawText(if (warn) "!" else "★", left + pad, baseline(cell), paint(true, size, bar, slot))
+            if (canvas != null) {
+                val top = ruleY(cell) + step * 0.08f
+                val bottom = ruleY(cell + need) - step * 0.08f
+                val fill = Paint(Paint.ANTI_ALIAS_FLAG)
+                fill.color = Color.argb(40, Color.red(bar), Color.green(bar), Color.blue(bar))
+                canvas.drawRect(left, top, left + width, bottom, fill)
+                val edge = Paint(Paint.ANTI_ALIAS_FLAG)
+                edge.color = bar
+                canvas.drawRect(left, top, left + size * 0.14f, bottom, edge)
+                canvas.drawText(if (warn) "!" else "★", left + pad, baseline(cell), paint(true, size, bar, slot))
+            }
             drawLayout(lay, left + pad + indent, cell)
             cell += need
         }
@@ -554,18 +559,20 @@ internal object PostStudyGrid {
                 cell = lastCell + 1
                 return
             }
-            val top = ruleY(cell) + step * 0.06f
-            val bottom = ruleY(cell + need) - step * 0.06f
-            val radius = step * 0.3f
-            val fill = Paint(Paint.ANTI_ALIAS_FLAG)
-            fill.color = Color.argb(30, Color.red(green), Color.green(green), Color.blue(green))
-            canvas.drawRoundRect(left, top, left + width, bottom, radius, radius, fill)
-            val edge = Paint(Paint.ANTI_ALIAS_FLAG)
-            edge.style = Paint.Style.STROKE
-            edge.color = green
-            edge.strokeWidth = max(2.5f, step * 0.07f)
-            canvas.drawRoundRect(left, top, left + width, bottom, radius, radius, edge)
-            canvas.drawText("★ " + label, left + pad, baseline(cell), paint(true, size, green, slot))
+            if (canvas != null) {
+                val top = ruleY(cell) + step * 0.06f
+                val bottom = ruleY(cell + need) - step * 0.06f
+                val radius = step * 0.3f
+                val fill = Paint(Paint.ANTI_ALIAS_FLAG)
+                fill.color = Color.argb(30, Color.red(green), Color.green(green), Color.blue(green))
+                canvas.drawRoundRect(left, top, left + width, bottom, radius, radius, fill)
+                val edge = Paint(Paint.ANTI_ALIAS_FLAG)
+                edge.style = Paint.Style.STROKE
+                edge.color = green
+                edge.strokeWidth = max(2.5f, step * 0.07f)
+                canvas.drawRoundRect(left, top, left + width, bottom, radius, radius, edge)
+                canvas.drawText("★ " + label, left + pad, baseline(cell), paint(true, size, green, slot))
+            }
             drawLayout(lay, left + pad, cell + 1)
             cell += need
         }
@@ -604,23 +611,25 @@ internal object PostStudyGrid {
                 cell = lastCell + 1
                 return
             }
-            val panel = Paint(Paint.ANTI_ALIAS_FLAG)
-            panel.color = Color.argb(24, Color.red(ink), Color.green(ink), Color.blue(ink))
-            val radius = step * 0.3f
-            canvas.drawRoundRect(left, ruleY(cell) + step * 0.06f, left + usable, ruleY(cell + need) - step * 0.06f, radius, radius, panel)
-            var c0 = cell
-            for ((n, b) in boxes.withIndex()) {
-                val k = scales[n]
-                val cells = heights[n]
-                val mid = (ruleY(c0) + ruleY(c0 + cells)) / 2f
-                val base = mid + (b.asc - b.desc) * k / 2f
-                val x = left + (usable - b.w * k) / 2f
-                canvas.save()
-                canvas.translate(x, base)
-                canvas.scale(k, k)
-                b.draw(canvas, 0f, 0f)
-                canvas.restore()
-                c0 += cells
+            if (canvas != null) {
+                val panel = Paint(Paint.ANTI_ALIAS_FLAG)
+                panel.color = Color.argb(24, Color.red(ink), Color.green(ink), Color.blue(ink))
+                val radius = step * 0.3f
+                canvas.drawRoundRect(left, ruleY(cell) + step * 0.06f, left + usable, ruleY(cell + need) - step * 0.06f, radius, radius, panel)
+                var c0 = cell
+                for ((n, b) in boxes.withIndex()) {
+                    val k = scales[n]
+                    val cells = heights[n]
+                    val mid = (ruleY(c0) + ruleY(c0 + cells)) / 2f
+                    val base = mid + (b.asc - b.desc) * k / 2f
+                    val x = left + (usable - b.w * k) / 2f
+                    canvas.save()
+                    canvas.translate(x, base)
+                    canvas.scale(k, k)
+                    b.draw(canvas, 0f, 0f)
+                    canvas.restore()
+                    c0 += cells
+                }
             }
             cell += need
         }
@@ -692,39 +701,41 @@ internal object PostStudyGrid {
                 return
             }
 
-            val top = ruleY(cell)
-            val bottom = ruleY(cell + used)
-            val right = left + usable
+            if (canvas != null) {
+                val top = ruleY(cell)
+                val bottom = ruleY(cell + used)
+                val right = left + usable
 
-            val headFill = Paint(Paint.ANTI_ALIAS_FLAG)
-            headFill.color = Color.argb(42, Color.red(color), Color.green(color), Color.blue(color))
-            canvas.drawRect(left, top, right, ruleY(cell + shown[0].second), headFill)
+                val headFill = Paint(Paint.ANTI_ALIAS_FLAG)
+                headFill.color = Color.argb(42, Color.red(color), Color.green(color), Color.blue(color))
+                canvas.drawRect(left, top, right, ruleY(cell + shown[0].second), headFill)
 
-            val line = Paint(Paint.ANTI_ALIAS_FLAG)
-            line.color = color
-            line.strokeWidth = max(2f, step * 0.05f)
-            line.strokeCap = Paint.Cap.SQUARE
-            var rowCell = cell
-            canvas.drawLine(left, top, right, top, line)
-            for (row in shown) {
-                rowCell += row.second
-                canvas.drawLine(left, ruleY(rowCell), right, ruleY(rowCell), line)
-            }
-            var x = left
-            canvas.drawLine(x, top, x, bottom, line)
-            for (c in 0 until columns) {
-                x += widths[c]
-                canvas.drawLine(x, top, x, bottom, line)
-            }
-
-            rowCell = cell
-            for (row in shown) {
-                var cx = left
-                for (c in 0 until columns) {
-                    drawLayout(row.first[c], cx + padX, rowCell)
-                    cx += widths[c]
+                val line = Paint(Paint.ANTI_ALIAS_FLAG)
+                line.color = color
+                line.strokeWidth = max(2f, step * 0.05f)
+                line.strokeCap = Paint.Cap.SQUARE
+                var rowCell = cell
+                canvas.drawLine(left, top, right, top, line)
+                for (row in shown) {
+                    rowCell += row.second
+                    canvas.drawLine(left, ruleY(rowCell), right, ruleY(rowCell), line)
                 }
-                rowCell += row.second
+                var x = left
+                canvas.drawLine(x, top, x, bottom, line)
+                for (c in 0 until columns) {
+                    x += widths[c]
+                    canvas.drawLine(x, top, x, bottom, line)
+                }
+
+                rowCell = cell
+                for (row in shown) {
+                    var cx = left
+                    for (c in 0 until columns) {
+                        drawLayout(row.first[c], cx + padX, rowCell)
+                        cx += widths[c]
+                    }
+                    rowCell += row.second
+                }
             }
             cell += used
             if (partial) cell = lastCell + 1
@@ -739,7 +750,7 @@ internal object PostStudyGrid {
         drawFit(context, canvas, doc, w, h, slots).slots
 
     /**
-     * Counts how many lines a post takes without drawing it anywhere visible: the sheet is laid out onto a recording canvas.
+     * Counts how many lines a post takes without drawing it anywhere visible.
      * Used by the review screens to show "Lines 24 / 29" or the "Does not fit" note next to the preview.
      */
     fun measure(context: Context, doc: PostDoc): Fit {
@@ -749,13 +760,7 @@ internal object PostStudyGrid {
             .filter { it.literal == null }
             .map { it.slot }
             .toSet()
-        val picture = Picture()
-        val canvas = picture.beginRecording(w, h)
-        try {
-            return drawFit(context, canvas, doc, w, h, slots)
-        } finally {
-            picture.endRecording()
-        }
+        return drawFit(context, null, doc, w, h, slots)
     }
 
     /**
@@ -763,26 +768,25 @@ internal object PostStudyGrid {
      * Shrink-to-readable-minimum overflow policy: if the sheet overflows at 1.0x scale, automatically tries progressively
      * tighter body scales down to the readable floor (0.54 * step) before leaving any rows out.
      */
-    fun drawFit(context: Context, canvas: Canvas, doc: PostDoc, w: Int, h: Int, slots: Set<String>): Fit {
+    fun drawFit(context: Context, canvas: Canvas?, doc: PostDoc, w: Int, h: Int, slots: Set<String>): Fit {
         val candidateScales = floatArrayOf(1.0f, 0.90f, 0.82f, 0.75f, 0.68f)
         var chosenScale = 1.0f
+        var lastProbeFit: Fit? = null
         for (sc in candidateScales) {
-            val probePic = Picture()
-            val probeCanvas = probePic.beginRecording(w, h)
-            val fit = try {
-                drawFitOnce(context, probeCanvas, doc, w, h, slots, sc)
-            } finally {
-                probePic.endRecording()
-            }
+            val fit = drawFitOnce(context, null, doc, w, h, slots, sc)
+            lastProbeFit = fit
             chosenScale = sc
             if (fit.fits) break
+        }
+        if (canvas == null && lastProbeFit != null) {
+            return lastProbeFit
         }
         return drawFitOnce(context, canvas, doc, w, h, slots, chosenScale)
     }
 
     private fun drawFitOnce(
         context: Context,
-        canvas: Canvas,
+        canvas: Canvas?,
         doc: PostDoc,
         w: Int,
         h: Int,

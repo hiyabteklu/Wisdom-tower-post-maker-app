@@ -47,15 +47,30 @@ object PostComposeKit {
      * Strips baked solid/dark background pixels from a logo bitmap using corner flood/color-distance alpha keying,
      * then trims excess transparent padding so the mark scales predictably.
      */
+    @Synchronized
     fun obtainCleanLogo(raw: Bitmap, cacheKey: String): Bitmap {
         cleanLogoCache.get(cacheKey)?.takeIf { !it.isRecycled }?.let { return it }
 
-        val w = raw.width
-        val h = raw.height
-        if (w <= 4 || h <= 4) return raw
+        if (raw.isRecycled || raw.width <= 4 || raw.height <= 4) return raw
 
+        val maxLogoSide = 320
+        val src: Bitmap = if (raw.width > maxLogoSide || raw.height > maxLogoSide || raw.config != Bitmap.Config.ARGB_8888) {
+            val scale = min(1f, maxLogoSide.toFloat() / max(raw.width, raw.height).toFloat())
+            val sw = (raw.width * scale).roundToInt().coerceAtLeast(8)
+            val sh = (raw.height * scale).roundToInt().coerceAtLeast(8)
+            val bmp = Bitmap.createBitmap(sw, sh, Bitmap.Config.ARGB_8888)
+            val c = Canvas(bmp)
+            val p = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+            c.drawBitmap(raw, null, RectF(0f, 0f, sw.toFloat(), sh.toFloat()), p)
+            bmp
+        } else {
+            raw
+        }
+
+        val w = src.width
+        val h = src.height
         val pixels = IntArray(w * h)
-        raw.getPixels(pixels, 0, w, 0, 0, w, h)
+        src.getPixels(pixels, 0, w, 0, 0, w, h)
 
         // Sample the 4 corners (3x3 patches) to detect baked background color
         val cornerSamples = mutableListOf<Int>()
@@ -157,12 +172,13 @@ object PostComposeKit {
     /**
      * Produces a crisp monochrome or accent-tinted version of the clean transparent logo while preserving anti-aliased alpha.
      */
+    @Synchronized
     fun obtainTintedLogo(clean: Bitmap, baseKey: String, targetColor: Int): Bitmap {
         val key = "$baseKey|${Integer.toHexString(targetColor)}"
         tintedLogoCache.get(key)?.takeIf { !it.isRecycled }?.let { return it }
 
-        val w = clean.width
-        val h = clean.height
+        val w = clean.width.coerceAtLeast(1)
+        val h = clean.height.coerceAtLeast(1)
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
         val p = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
@@ -183,6 +199,7 @@ object PostComposeKit {
         canvasW: Float = canvasBitmap.width.toFloat(),
         canvasH: Float = canvasBitmap.height.toFloat()
     ): Float {
+        if (canvasBitmap.isRecycled) return 0.1f
         val bw = canvasBitmap.width
         val bh = canvasBitmap.height
         if (bw <= 0 || bh <= 0 || canvasW <= 0f || canvasH <= 0f) return 0.1f
@@ -201,7 +218,7 @@ object PostComposeKit {
         for ((lx, ly) in points) {
             val px = (lx * sx).toInt().coerceIn(0, bw - 1)
             val py = (ly * sy).toInt().coerceIn(0, bh - 1)
-            val c = canvasBitmap.getPixel(px, py)
+            val c = runCatching { canvasBitmap.getPixel(px, py) }.getOrNull() ?: continue
             sum += relativeLuminance(c)
             count++
         }
@@ -455,9 +472,9 @@ object PostComposeKit {
 
         // Sticker die-cut white outline when LogoStyle.STICKER is selected
         if (style == LogoStyle.STICKER) {
-            val stickerBmp = obtainTintedLogo(cleanLogo, logoCacheKey, Color.WHITE)
             val outlinePaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
                 alpha = baseAlpha
+                colorFilter = PorterDuffColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
             }
             val off = max(2.5f, min(dstW, dstH) * 0.055f)
             for (angleDeg in 0 until 360 step 30) {
@@ -465,28 +482,26 @@ object PostComposeKit {
                 val dx = (cos(rad) * off).toFloat()
                 val dy = (sin(rad) * off).toFloat()
                 val r = RectF(drawRect.left + dx, drawRect.top + dy, drawRect.right + dx, drawRect.bottom + dy)
-                canvas.drawBitmap(stickerBmp, null, r, outlinePaint)
+                canvas.drawBitmap(cleanLogo, null, r, outlinePaint)
             }
         } else if (anchor != LogoAnchor.LARGE_WATERMARK && anchor != LogoAnchor.CORNER_WATERMARK) {
             // Subtle contrast halo/drop shadow so the mark is crisp over busy photos without any box
             val shadowColor = if (isDarkBg) Color.argb((baseAlpha * 0.45f).roundToInt(), 0, 0, 0)
             else Color.argb((baseAlpha * 0.28f).roundToInt(), 255, 255, 255)
-            val shadowBmp = obtainTintedLogo(cleanLogo, logoCacheKey, shadowColor)
-            val sp = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+            val sp = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
+                colorFilter = PorterDuffColorFilter(shadowColor, PorterDuff.Mode.SRC_IN)
+            }
             val dy = max(1.5f, dstH * 0.025f)
-            canvas.drawBitmap(shadowBmp, null, RectF(drawRect.left, drawRect.top + dy, drawRect.right, drawRect.bottom + dy), sp)
-        }
-
-        val bitmapToDraw = if (targetTint != null) {
-            obtainTintedLogo(cleanLogo, logoCacheKey, targetTint)
-        } else {
-            cleanLogo
+            canvas.drawBitmap(cleanLogo, null, RectF(drawRect.left, drawRect.top + dy, drawRect.right, drawRect.bottom + dy), sp)
         }
 
         val mainPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
             alpha = baseAlpha
+            if (targetTint != null) {
+                colorFilter = PorterDuffColorFilter(targetTint, PorterDuff.Mode.SRC_IN)
+            }
         }
-        canvas.drawBitmap(bitmapToDraw, null, drawRect, mainPaint)
+        canvas.drawBitmap(cleanLogo, null, drawRect, mainPaint)
 
         if (style == LogoStyle.MARK_AND_WORDMARK) {
             val textRect = RectF(markRect.right + rect.height() * 0.14f, rect.top, rect.right, rect.bottom)

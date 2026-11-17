@@ -311,107 +311,111 @@ object PostRenderer {
         val canvas = Canvas(bitmap)
         canvas.scale(outW / w.toFloat(), outH / h.toFloat())
 
-        val tones = buildPalette(doc, brand, layout.base)
-
-        // 1. Base background (template backdrop, solid, or gradient)
-        drawBaseBackground(canvas, doc, brand, layout, tones, w, h)
-        if (cancelled()) return Result(bitmap, emptyList())
-
-        // 2. Mesh gradient blend
-        if (doc.meshStyle != MeshStyle.NONE) {
-            PostEngine.drawMesh(canvas, doc.meshStyle, w, h, tones.accent, tones.secondary, tones.glow)
-        }
-
-        // 3. Background photo (or photoAsBackground fallback) with opacity, dim, blur, zoom, focus, tone
-        val bgPhotoBitmap = resolveBackgroundPhoto(context, doc, max(outW, outH))
-        if (bgPhotoBitmap != null && doc.backgroundPhotoOpacity > 0.005f) {
-            drawBackgroundPhoto(canvas, doc, bgPhotoBitmap, tones, w, h)
-        }
-        if (cancelled()) return Result(bitmap, emptyList())
-
-        // 4. Film grain
-        if (doc.grain) {
-            PostEngine.drawGrain(canvas, w, h, 22)
-        }
-
-        // 5. Template decor shapes (panels respect panelOpacity; rotated decors and 3D devices supported)
-        val maxDim = max(outW, outH)
-        for (decor in layout.decor) {
-            drawDecor(context, canvas, doc, layout, decor, tones, w, h, unit, maxDim)
-        }
-
-        // 6. Template photo window (or multi-cell triptych / rotated polaroid / brand placeholder)
-        val mainPhotoBitmap = PostImageCache.get(context, doc.photoUri, maxDim)
-        if (layout.photo != null) {
-            drawPhotoArea(context, canvas, doc, layout.photo, tones, w, h, unit, maxDim)
-        }
-        if (cancelled()) return Result(bitmap, emptyList())
-
-        // 6b. Phone mockups: glass sheen, soft inner shadow and the front camera over the screen
-        if (layout.photo != null && layout.decor.any { it.shape == DecorShape.PHONE }) {
-            val area = layout.photo
-            val screen = RectF(area.x * w, area.y * h, (area.x + area.w) * w, (area.y + area.h) * h)
-            val screenFrame = doc.photoFrame ?: area.mask ?: PhotoFrame.ROUNDED
-            PostPhoneFrame.drawGlass(canvas, screen, PostEngine.framePath(screenFrame, screen, unit), unit)
-        }
-
-        // 7. Placed icons behind words
-        doc.icons.filter { !it.front }.forEach { item ->
-            PostIconStore.draw(canvas, item, w, h, unit, tones.accent)
-        }
-
         val overflow = linkedSetOf<String>()
-        val fillSourceBitmap = bgPhotoBitmap ?: mainPhotoBitmap
+        try {
+            val tones = buildPalette(doc, brand, layout.base)
 
-        // 8. Chapter summaries (`study-*`) use PostStudyGrid
-        if (doc.templateId.startsWith("study-")) {
-            val studySlots = layout.slots.filter { it.literal == null }.map { it.slot }.toSet()
-            overflow.addAll(PostStudyGrid.draw(context, canvas, doc, w, h, studySlots))
-        } else {
-            val hasCutout = !doc.cutoutUri.isNullOrBlank() || layout.cutoutShowDefault || layout.cutout != null
-            val behindSet = if (doc.textBehind.isNotEmpty()) {
-                doc.textBehind
-            } else if (layout.cutoutShowDefault || layout.cutout != null) {
-                setOf(PostSlots.WORD, PostSlots.LETTER)
+            // 1. Base background (template backdrop, solid, or gradient)
+            drawBaseBackground(canvas, doc, brand, layout, tones, w, h)
+            if (cancelled()) return Result(bitmap, emptyList())
+
+            // 2. Mesh gradient blend
+            if (doc.meshStyle != MeshStyle.NONE) {
+                PostEngine.drawMesh(canvas, doc.meshStyle, w, h, tones.accent, tones.secondary, tones.glow)
+            }
+
+            // 3. Background photo (or photoAsBackground fallback) with opacity, dim, blur, zoom, focus, tone
+            val bgPhotoBitmap = resolveBackgroundPhoto(context, doc, max(outW, outH))
+            if (bgPhotoBitmap != null && doc.backgroundPhotoOpacity > 0.005f) {
+                drawBackgroundPhoto(canvas, doc, bgPhotoBitmap, tones, w, h)
+            }
+            if (cancelled()) return Result(bitmap, emptyList())
+
+            // 4. Film grain
+            if (doc.grain) {
+                PostEngine.drawGrain(canvas, w, h, 22)
+            }
+
+            // 5. Template decor shapes (panels respect panelOpacity; rotated decors and 3D devices supported)
+            val maxDim = max(outW, outH)
+            for (decor in layout.decor) {
+                drawDecor(context, canvas, doc, layout, decor, tones, w, h, unit, maxDim)
+            }
+
+            // 6. Template photo window (or multi-cell triptych / rotated polaroid / brand placeholder)
+            val mainPhotoBitmap = PostImageCache.get(context, doc.photoUri, maxDim)
+            if (layout.photo != null) {
+                drawPhotoArea(context, canvas, doc, layout.photo, tones, w, h, unit, maxDim)
+            }
+            if (cancelled()) return Result(bitmap, emptyList())
+
+            // 6b. Phone mockups: glass sheen, soft inner shadow and the front camera over the screen
+            if (layout.photo != null && layout.decor.any { it.shape == DecorShape.PHONE }) {
+                val area = layout.photo
+                val screen = RectF(area.x * w, area.y * h, (area.x + area.w) * w, (area.y + area.h) * h)
+                val screenFrame = doc.photoFrame ?: area.mask ?: PhotoFrame.ROUNDED
+                PostPhoneFrame.drawGlass(canvas, screen, PostEngine.framePath(screenFrame, screen, unit), unit)
+            }
+
+            // 7. Placed icons behind words
+            doc.icons.filter { !it.front }.forEach { item ->
+                PostIconStore.draw(canvas, item, w, h, unit, tones.accent)
+            }
+
+            val fillSourceBitmap = bgPhotoBitmap ?: mainPhotoBitmap
+
+            // 8. Chapter summaries (`study-*`) use PostStudyGrid
+            if (doc.templateId.startsWith("study-")) {
+                val studySlots = layout.slots.filter { it.literal == null }.map { it.slot }.toSet()
+                overflow.addAll(PostStudyGrid.draw(context, canvas, doc, w, h, studySlots))
             } else {
-                emptySet()
-            }
-            val behindBoxes = if (hasCutout) {
-                layout.slots.filter { it.slot in behindSet }
-            } else {
-                emptyList()
-            }
-            val frontBoxes = if (hasCutout) {
-                layout.slots.filter { it.slot !in behindSet }
-            } else {
-                layout.slots
+                val hasCutout = !doc.cutoutUri.isNullOrBlank() || layout.cutoutShowDefault || layout.cutout != null
+                val behindSet = if (doc.textBehind.isNotEmpty()) {
+                    doc.textBehind
+                } else if (layout.cutoutShowDefault || layout.cutout != null) {
+                    setOf(PostSlots.WORD, PostSlots.LETTER)
+                } else {
+                    emptySet()
+                }
+                val behindBoxes = if (hasCutout) {
+                    layout.slots.filter { it.slot in behindSet }
+                } else {
+                    emptyList()
+                }
+                val frontBoxes = if (hasCutout) {
+                    layout.slots.filter { it.slot !in behindSet }
+                } else {
+                    layout.slots
+                }
+
+                drawSlotPass(context, canvas, bitmap, doc, layout, behindBoxes, tones, fillSourceBitmap, w, h, unit, overflow)
+                if (hasCutout) {
+                    drawCutout(context, canvas, doc, layout, tones, w, h, maxDim)
+                }
+                drawSlotPass(context, canvas, bitmap, doc, layout, frontBoxes, tones, fillSourceBitmap, w, h, unit, overflow)
             }
 
-            drawSlotPass(context, canvas, bitmap, doc, layout, behindBoxes, tones, fillSourceBitmap, w, h, unit, overflow)
-            if (hasCutout) {
-                drawCutout(context, canvas, doc, layout, tones, w, h, maxDim)
+            // 9. Social grid cards (`mkt-follow`)
+            if (layout.social != null) {
+                drawSocial(context, canvas, doc, brand, layout.social, tones, w, h, unit)
             }
-            drawSlotPass(context, canvas, bitmap, doc, layout, frontBoxes, tones, fillSourceBitmap, w, h, unit, overflow)
-        }
 
-        // 9. Social grid cards (`mkt-follow`)
-        if (layout.social != null) {
-            drawSocial(context, canvas, doc, brand, layout.social, tones, w, h, unit)
-        }
-
-        // 10. Placed icons in front of words
-        doc.icons.filter { it.front }.forEach { item ->
-            PostIconStore.draw(canvas, item, w, h, unit, tones.accent)
-        }
-
-        // 11. Furniture: transparent auto-contrast brand mark and slim footer (skipped when layout.bare == true)
-        if (!layout.bare) {
-            if (doc.showLogo) {
-                drawLogo(context, canvas, bitmap, doc, brand, layout, tones, w, h)
+            // 10. Placed icons in front of words
+            doc.icons.filter { it.front }.forEach { item ->
+                PostIconStore.draw(canvas, item, w, h, unit, tones.accent)
             }
-            if (doc.showFooter && layout.social == null) {
-                drawFooter(context, canvas, bitmap, doc, brand, layout, tones, w, h, unit)
+
+            // 11. Furniture: transparent auto-contrast brand mark and slim footer (skipped when layout.bare == true)
+            if (!layout.bare) {
+                if (doc.showLogo) {
+                    drawLogo(context, canvas, bitmap, doc, brand, layout, tones, w, h)
+                }
+                if (doc.showFooter && layout.social == null) {
+                    drawFooter(context, canvas, bitmap, doc, brand, layout, tones, w, h, unit)
+                }
             }
+        } catch (_: Throwable) {
+            // Return partially rendered poster rather than crashing the process
         }
 
         return Result(bitmap, overflow.toList())
@@ -2038,7 +2042,7 @@ object PostRenderer {
             manualSizePx != null -> manualSizePx
             box.fit == FitMode.FILL || box.fit == FitMode.FILL_WIDTH -> {
                 val cacheKey = "FILL|${box.slot}|$charSeq|${tf.hashCode()}|${availW.toInt()}x${boxH.toInt()}|$tracking|$leading|${box.maxLines}"
-                val cached = fitCache.get(cacheKey)
+                val cached = synchronized(fitCache) { fitCache.get(cacheKey) }
                 val fitted = cached ?: run {
                     val maxRolePx = when (box.slot) {
                         PostSlots.EYEBROW, PostSlots.BUTTON -> min(basePx * 1.08f, boxH * 0.72f)
@@ -2061,7 +2065,7 @@ object PostRenderer {
                             hi = mid
                         }
                     }
-                    fitCache.put(cacheKey, best)
+                    synchronized(fitCache) { fitCache.put(cacheKey, best) }
                     best
                 }
                 val checkLay = buildStaticLayout(charSeq, tf, fitted, availW.toInt(), align, tracking, leading)
@@ -2808,25 +2812,47 @@ object PostRenderer {
         )
     }
 
+    @Synchronized
     private fun loadLogoBitmap(context: Context, brand: PostBrand): Bitmap? {
         val key = "${brand.logoPath.orEmpty()}@${brand.logoStamp}"
-        synchronized(this) {
-            if (cachedLogoKey == key && cachedLogoBitmap != null && !cachedLogoBitmap!!.isRecycled) {
-                return cachedLogoBitmap
-            }
+        if (cachedLogoKey == key && cachedLogoBitmap != null && !cachedLogoBitmap!!.isRecycled) {
+            return cachedLogoBitmap
         }
+        val targetMax = 320
         val custom = brand.logoPath?.takeIf { it.isNotBlank() }?.let { path ->
-            runCatching { BitmapFactory.decodeFile(path) }.getOrNull()
+            runCatching {
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeFile(path, bounds)
+                var sample = 1
+                while (max(bounds.outWidth, bounds.outHeight) / (sample * 2) >= targetMax) {
+                    sample *= 2
+                }
+                val opts = BitmapFactory.Options().apply {
+                    inSampleSize = sample
+                    inPreferredConfig = Bitmap.Config.ARGB_8888
+                }
+                BitmapFactory.decodeFile(path, opts)
+            }.getOrNull()
         }
         val decoded = custom ?: runCatching {
             val resId = context.resources.getIdentifier("launcher_logo", "drawable", context.packageName)
-            if (resId != 0) BitmapFactory.decodeResource(context.resources, resId) else null
+            if (resId != 0) {
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeResource(context.resources, resId, bounds)
+                var sample = 1
+                while (max(bounds.outWidth, bounds.outHeight) / (sample * 2) >= targetMax) {
+                    sample *= 2
+                }
+                val opts = BitmapFactory.Options().apply {
+                    inSampleSize = sample
+                    inPreferredConfig = Bitmap.Config.ARGB_8888
+                }
+                BitmapFactory.decodeResource(context.resources, resId, opts)
+            } else null
         }.getOrNull()
         if (decoded != null) {
-            synchronized(this) {
-                cachedLogoKey = key
-                cachedLogoBitmap = decoded
-            }
+            cachedLogoKey = key
+            cachedLogoBitmap = decoded
         }
         return decoded
     }

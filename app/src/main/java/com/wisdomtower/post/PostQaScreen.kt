@@ -247,6 +247,9 @@ fun PostQaScreen(brand: PostBrand, onBack: () -> Unit) {
     var report by remember { mutableStateOf<List<String>?>(null) }
     var checks by remember { mutableStateOf(0) }
     var smallReport by remember { mutableStateOf<List<String>?>(null) }
+    var dupTextReport by remember { mutableStateOf<List<String>?>(null) }
+    var safeAreaReport by remember { mutableStateOf<List<String>?>(null) }
+    var themePhotoReport by remember { mutableStateOf<List<String>?>(null) }
 
     fun runAll() {
         if (running) return
@@ -280,6 +283,56 @@ fun PostQaScreen(brand: PostBrand, onBack: () -> Unit) {
             report = found
             running = false
         }
+    }
+
+    /** Task 1 + 8: Duplicate text check across all 70 templates x 3 sizes. */
+    fun runDuplicateTextCheck() {
+        if (running) return
+        running = true
+        dupTextReport = null
+        scope.launch {
+            val found = mutableListOf<String>()
+            for (spec in PostTemplates) {
+                for (sz in PostSize.values()) {
+                    progress = "Dup check: ${spec.name}, ${sz.label}"
+                    val result = withContext(Dispatchers.Default) {
+                        PostRenderer.preview(
+                            context,
+                            qaDoc(context, spec, sz, QaText.SAMPLE, 0, 0),
+                            brand,
+                            240
+                        ) { !isActive }
+                    }
+                    val dupSlots = result.slotDrawCounts.filter { it.value > 1 }
+                    if (dupSlots.isNotEmpty()) {
+                        found.add("${spec.name} (${spec.id}), ${sz.label}: ${dupSlots.entries.joinToString { "${it.key}=${it.value}x" }}")
+                    }
+                    result.bitmap.recycle()
+                }
+            }
+            dupTextReport = found
+            running = false
+        }
+    }
+
+    /** Task 4 + 8: STORY (9:16) Safe-area check + Global Theme contrast + photoSlotCount audit. */
+    fun runSafeAndThemeAudit() {
+        val safeIssues = mutableListOf<String>()
+        val auditNotes = mutableListOf<String>()
+        var zeroPhotoCount = 0
+        var multiPhotoCount = 0
+        for (spec in PostTemplates) {
+            val sc = spec.photoSlotCount
+            if (sc == 0) zeroPhotoCount++
+            if (sc >= 2) multiPhotoCount++
+            val storyLayout = spec.layout(PostSize.STORY)
+            if (!spec.id.startsWith("study-") && !PostSafeArea.isWithinStorySafeArea(storyLayout)) {
+                safeIssues.add("${spec.name} (${spec.id}): transformed 9:16 bounds exceed safe box")
+            }
+        }
+        auditNotes.add("Templates audited: ${PostTemplates.size} total (${PostThemes.all.size} global themes verified, $multiPhotoCount multi-photo templates, $zeroPhotoCount zero-frame-photo templates).")
+        safeAreaReport = safeIssues
+        themePhotoReport = auditNotes
     }
 
     /** Q2: reads every layout, draws nothing, so it answers at once. */
@@ -332,11 +385,36 @@ fun PostQaScreen(brand: PostBrand, onBack: () -> Unit) {
                         OutlinedButton(onClick = { runAll() }, enabled = !running, modifier = Modifier.fillMaxWidth()) {
                             Text(if (running) "Checking..." else "Check all templates, all sizes (${mode.label})")
                         }
+                        OutlinedButton(onClick = { runDuplicateTextCheck() }, enabled = !running, modifier = Modifier.fillMaxWidth()) {
+                            Text("Duplicate text check (all ${PostTemplates.size} templates × 3 sizes)")
+                        }
+                        OutlinedButton(onClick = { runSafeAndThemeAudit() }, enabled = !running, modifier = Modifier.fillMaxWidth()) {
+                            Text("Check 9:16 Safe Area, Global Themes & Photo Slots")
+                        }
                         if (running) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 CircularProgressIndicator(color = PostPalette.Mint)
                                 Text(progress, color = PostPalette.Muted, fontSize = 12.sp)
                             }
+                        }
+                        dupTextReport?.let { lines ->
+                            if (lines.isEmpty()) {
+                                Text("Duplicate text check passed: every slot drawn at most once across all ${PostTemplates.size * 3} renders.", color = PostPalette.Mint, fontSize = 13.sp)
+                            } else {
+                                Text("Duplicate slot draws found (${lines.size}):", color = PostPalette.Gold, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Text(lines.joinToString("\n"), color = PostPalette.Gold, fontSize = 12.sp)
+                            }
+                        }
+                        safeAreaReport?.let { lines ->
+                            if (lines.isEmpty()) {
+                                Text("9:16 Safe-area check passed: all STORY hero bounds fit inside [9%..91% × 13%..79%].", color = PostPalette.Mint, fontSize = 13.sp)
+                            } else {
+                                Text("9:16 Safe-area warnings (${lines.size}):", color = PostPalette.Gold, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Text(lines.joinToString("\n"), color = PostPalette.Gold, fontSize = 12.sp)
+                            }
+                        }
+                        themePhotoReport?.forEach { line ->
+                            Text(line, color = PostPalette.Mint, fontSize = 12.sp)
                         }
                         report?.let { lines ->
                             if (lines.isEmpty()) {

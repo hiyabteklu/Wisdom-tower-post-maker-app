@@ -157,7 +157,8 @@ object PostDrafts {
 
     /** Photo files a post points to, as paths inside app storage. */
     private fun photoPaths(doc: PostDoc): Set<String> =
-        listOfNotNull(doc.photoUri, doc.backgroundPhotoUri).mapNotNull { runCatching { Uri.parse(it).path }.getOrNull() }.toSet()
+        listOfNotNull(doc.photoUri, doc.secondaryPhotoUri, doc.tertiaryPhotoUri, doc.backgroundPhotoUri, doc.cutoutUri)
+            .mapNotNull { runCatching { Uri.parse(it).path }.getOrNull() }.toSet()
 
     /**
      * After a Reset that was not undone: deletes the photos of the discarded post that no draft and no open post still uses.

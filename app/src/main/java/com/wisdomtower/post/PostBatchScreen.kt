@@ -721,9 +721,12 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
                                 val targetDesign = editedDesigns[target.number] ?: pageDoc(target)
                                 editedDesigns[target.number] = source.copy(
                                     photoUri = targetDesign.photoUri,
+                                    secondaryPhotoUri = targetDesign.secondaryPhotoUri,
+                                    tertiaryPhotoUri = targetDesign.tertiaryPhotoUri,
                                     photoZoom = targetDesign.photoZoom,
                                     photoFocusX = targetDesign.photoFocusX,
                                     photoFocusY = targetDesign.photoFocusY,
+                                    photoSlotAdjust = targetDesign.photoSlotAdjust,
                                     texts = targetDesign.texts
                                 )
                             } else {

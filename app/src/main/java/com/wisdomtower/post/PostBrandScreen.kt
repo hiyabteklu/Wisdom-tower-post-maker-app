@@ -16,8 +16,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -100,6 +103,77 @@ private fun backdropBrush(look: BackdropLook?, fallbackDark: String): Brush {
     }
     val colors = listOfNotNull(themeColor(look.from), look.mid?.let { themeColor(it) }, themeColor(look.to))
     return Brush.linearGradient(colors)
+}
+
+/**
+ * Global Color Theme bar: 6 curated two-tone round swatch chips + "Template default" chip.
+ * Tapping a theme updates brand.globalThemeId and restyles all 70 templates (including Notes/Study).
+ */
+@Composable
+internal fun GlobalThemeSwatchBar(
+    brand: PostBrand,
+    onBrand: (PostBrand) -> Unit
+) {
+    val scroll = rememberScrollState()
+    val currentId = brand.globalThemeId ?: PostThemes.TEMPLATE_DEFAULT_ID
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        PostSmallLabel("Global Color Theme (applies across all templates)")
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(scroll),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val isDefault = currentId == PostThemes.TEMPLATE_DEFAULT_ID || PostThemes.byId(currentId) == null
+            CompactChip(
+                label = "Template default",
+                selected = isDefault,
+                onClick = { onBrand(brand.copy(globalThemeId = PostThemes.TEMPLATE_DEFAULT_ID)) }
+            )
+            PostThemes.all.forEach { gt ->
+                val selected = gt.id.equals(currentId, ignoreCase = true)
+                val shape = RoundedCornerShape(18.dp)
+                Row(
+                    Modifier
+                        .clip(shape)
+                        .background(if (selected) PostPalette.Raised else PostPalette.Card)
+                        .border(if (selected) 2.dp else 1.dp, if (selected) PostPalette.Mint else PostPalette.Line, shape)
+                        .clickable {
+                            onBrand(
+                                brand.copy(
+                                    globalThemeId = gt.id,
+                                    primaryHex = gt.accentHex,
+                                    secondaryHex = gt.secondaryHex,
+                                    darkHex = gt.darkBgHex,
+                                    lightHex = gt.lightBgHex
+                                )
+                            )
+                        }
+                        .padding(horizontal = 8.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Box(
+                        Modifier
+                            .size(18.dp)
+                            .clip(CircleShape)
+                            .border(1.dp, PostPalette.Line, CircleShape)
+                    ) {
+                        Row(Modifier.fillMaxSize()) {
+                            Box(Modifier.weight(1f).fillMaxSize().background(Color(gt.darkBg)))
+                            Box(Modifier.weight(1f).fillMaxSize().background(Color(gt.accent)))
+                        }
+                    }
+                    Text(
+                        text = gt.name,
+                        fontSize = 11.sp,
+                        fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
+                        color = if (selected) PostPalette.Mint else PostPalette.Text,
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+    }
 }
 
 /** A card showing the background of a theme on top and its four colors as four bands under it, with its name below. */
@@ -196,6 +270,9 @@ fun PostBrandScreen(
             containerColor = PostPalette.Ink
         ) { padding ->
             Column(Modifier.fillMaxSize().padding(padding)) {
+                Box(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
+                    GlobalThemeSwatchBar(brand = brand, onBrand = onBrand)
+                }
                 Box(Modifier.weight(1f).fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) {
                     preview?.let {
                         Image(
@@ -226,7 +303,22 @@ fun PostBrandScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     when (tab) {
-                        "icons" -> FooterEditor(brand, onBrand)
+                        "icons" -> {
+                            PostSmallLabel("9:16 Story / Reels footer & logo position")
+                            Row(
+                                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                FooterPosition.values().forEach { fp ->
+                                    CompactChip(
+                                        label = fp.label,
+                                        selected = brand.footerPosition == fp,
+                                        onClick = { onBrand(brand.copy(footerPosition = fp)) }
+                                    )
+                                }
+                            }
+                            FooterEditor(brand, onBrand)
+                        }
 
                         "logo" -> {
                             Text(

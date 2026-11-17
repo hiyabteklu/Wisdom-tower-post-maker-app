@@ -273,9 +273,15 @@ object PostComposeKit {
             else -> markSize
         }
 
+        val isStorySafe = doc.size == PostSize.STORY && brand.footerPosition == FooterPosition.SAFE
         val padX = w * 0.055f
-        val padTop = h * 0.048f
-        val footerReserve = if (doc.showFooter && anchor != LogoAnchor.INLINE_FOOTER) h * 0.068f else h * 0.038f
+        val padTop = if (isStorySafe) h * 0.075f else h * 0.048f
+        val footerBaseY = if (isStorySafe) h * 0.82f else h * 0.945f
+        val footerReserve = if (isStorySafe) {
+            h - footerBaseY + (if (doc.showFooter && anchor != LogoAnchor.INLINE_FOOTER) h * 0.042f else h * 0.015f)
+        } else {
+            if (doc.showFooter && anchor != LogoAnchor.INLINE_FOOTER) h * 0.068f else h * 0.038f
+        }
 
         var cx: Float
         var cy: Float
@@ -310,7 +316,7 @@ object PostComposeKit {
                 }
                 LogoAnchor.INLINE_FOOTER -> {
                     cx = padX + boxW * 0.5f
-                    cy = h * 0.945f
+                    cy = footerBaseY
                 }
                 LogoAnchor.VERTICAL_EDGE -> {
                     cx = w - padX * 0.65f
@@ -560,6 +566,9 @@ object PostComposeKit {
         w: Float,
         h: Float
     ) {
+        val slot2Photo = secondaryPhoto ?: if (doc.fillEmptyWithFirst) primaryPhoto else null
+        val slot3Photo = tertiaryPhoto ?: if (doc.fillEmptyWithFirst) primaryPhoto else null
+
         when (box.variant) {
             1 -> {
                 // Variant 1: Opposing 3D phone pair (info-twinphones)
@@ -577,8 +586,7 @@ object PostComposeKit {
                     tiltX = 6f,
                     tiltY = 14f,
                     screenPhoto = primaryPhoto,
-                    cardBadge = "QUESTION",
-                    cardText = doc.texts[PostSlots.HEADLINE].orEmpty(),
+                    slotIndex = 0,
                     accentColor = accentColor,
                     lightColor = lightColor,
                     darkColor = darkColor,
@@ -593,9 +601,8 @@ object PostComposeKit {
                     rotZ = 7.5f,
                     tiltX = 6f,
                     tiltY = -14f,
-                    screenPhoto = secondaryPhoto ?: primaryPhoto,
-                    cardBadge = "ANSWER",
-                    cardText = doc.texts[PostSlots.BODY].orEmpty(),
+                    screenPhoto = slot2Photo,
+                    slotIndex = 1,
                     accentColor = secondaryColor,
                     lightColor = lightColor,
                     darkColor = darkColor,
@@ -619,9 +626,9 @@ object PostComposeKit {
                     rect.top + centerH
                 )
 
-                drawSingle3DDevice(context, canvas, leftR, -11f, 5f, 15f, secondaryPhoto ?: primaryPhoto, "01", doc.texts[PostSlots.EYEBROW].orEmpty(), secondaryColor, lightColor, darkColor, deepColor, doc, false)
-                drawSingle3DDevice(context, canvas, rightR, 11f, 5f, -15f, tertiaryPhoto ?: primaryPhoto, "03", doc.texts[PostSlots.BUTTON].orEmpty(), secondaryColor, lightColor, darkColor, deepColor, doc, false)
-                drawSingle3DDevice(context, canvas, centerR, 0f, 4f, 0f, primaryPhoto, "02", doc.texts[PostSlots.HEADLINE].orEmpty(), accentColor, lightColor, darkColor, deepColor, doc, false)
+                drawSingle3DDevice(context, canvas, leftR, -11f, 5f, 15f, slot2Photo, 1, secondaryColor, lightColor, darkColor, deepColor, doc, false)
+                drawSingle3DDevice(context, canvas, rightR, 11f, 5f, -15f, slot3Photo, 2, secondaryColor, lightColor, darkColor, deepColor, doc, false)
+                drawSingle3DDevice(context, canvas, centerR, 0f, 4f, 0f, primaryPhoto, 0, accentColor, lightColor, darkColor, deepColor, doc, false)
             }
             3 -> {
                 // Variant 3: Wide 3D Tablet + Foreground 3D Phone pair (device-tablet-duo)
@@ -637,8 +644,8 @@ object PostComposeKit {
                     rect.right,
                     rect.bottom
                 )
-                drawSingle3DDevice(context, canvas, tabRect, -3.5f, 5f, 8f, secondaryPhoto ?: primaryPhoto, "CHAPTER DECK", doc.texts[PostSlots.HEADLINE].orEmpty(), secondaryColor, lightColor, darkColor, deepColor, doc, isTablet = true)
-                drawSingle3DDevice(context, canvas, phoneRect, 6.5f, 4f, -10f, primaryPhoto, "QUIZ MODE", doc.texts[PostSlots.BODY].orEmpty(), accentColor, lightColor, darkColor, deepColor, doc, isTablet = false)
+                drawSingle3DDevice(context, canvas, tabRect, -3.5f, 5f, 8f, slot2Photo, 1, secondaryColor, lightColor, darkColor, deepColor, doc, isTablet = true)
+                drawSingle3DDevice(context, canvas, phoneRect, 6.5f, 4f, -10f, primaryPhoto, 0, accentColor, lightColor, darkColor, deepColor, doc, isTablet = false)
             }
             else -> {
                 // Variant 0: Single 3D tilted hero phone
@@ -650,8 +657,7 @@ object PostComposeKit {
                     tiltX = if (box.tiltX != 0f) box.tiltX else 6f,
                     tiltY = if (box.tiltY != 0f) box.tiltY else -12f,
                     screenPhoto = primaryPhoto,
-                    cardBadge = doc.texts[PostSlots.EYEBROW].orEmpty().takeIf { it.isNotBlank() } ?: "LIVE",
-                    cardText = doc.texts[PostSlots.BODY].orEmpty().ifBlank { doc.texts[PostSlots.HEADLINE].orEmpty() },
+                    slotIndex = 0,
                     accentColor = accentColor,
                     lightColor = lightColor,
                     darkColor = darkColor,
@@ -671,8 +677,7 @@ object PostComposeKit {
         tiltX: Float,
         tiltY: Float,
         screenPhoto: Bitmap?,
-        cardBadge: String,
-        cardText: String,
+        slotIndex: Int,
         accentColor: Int,
         lightColor: Int,
         darkColor: Int,
@@ -683,6 +688,16 @@ object PostComposeKit {
         val w = rect.width()
         val h = rect.height()
         if (w <= 8f || h <= 8f) return
+
+        // Ground contact shadow beneath floating 3D device
+        PostDepth.contactShadow(
+            canvas = canvas,
+            cx = rect.centerX(),
+            cy = rect.bottom + min(w, h) * 0.03f,
+            rx = w * 0.44f,
+            ry = min(w, h) * 0.08f,
+            strength = doc.sceneShadowStrength
+        )
 
         canvas.save()
         val cx = rect.centerX()
@@ -779,87 +794,84 @@ object PostComposeKit {
         canvas.save()
         canvas.clipPath(screenPath)
 
+        val adj = doc.slotAdjust(slotIndex)
         if (screenPhoto != null && !screenPhoto.isRecycled) {
-            drawBitmapCenterCrop(canvas, screenPhoto, screenRect, doc.photoZoom, doc.photoFocusX, doc.photoFocusY)
+            drawBitmapCenterCrop(canvas, screenPhoto, screenRect, adj.zoom, adj.focusX, adj.focusY)
         } else {
-            // High-craft procedural app UI screen so mockups look rich even before a screenshot is chosen
+            // Branded placeholder screen with "+ Photo N" hint (geometry + hint only; never duplicates slot text)
             val bgGrad = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 shader = LinearGradient(
                     screenRect.left, screenRect.top, screenRect.right, screenRect.bottom,
-                    intArrayOf(deepColor, darkColor, blendColors(deepColor, accentColor, 0.28f)),
+                    intArrayOf(deepColor, darkColor, blendColors(deepColor, accentColor, 0.32f)),
                     floatArrayOf(0f, 0.65f, 1f),
                     Shader.TileMode.CLAMP
                 )
             }
             canvas.drawRect(screenRect, bgGrad)
 
-            // Glowing orb inside screen
             val orbPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 shader = RadialGradient(
-                    screenRect.centerX(), screenRect.top + screenRect.height() * 0.32f,
+                    screenRect.centerX(), screenRect.top + screenRect.height() * 0.34f,
                     max(12f, screenRect.width() * 0.65f),
-                    intArrayOf(withAlpha(accentColor, 130), Color.TRANSPARENT),
+                    intArrayOf(withAlpha(accentColor, 135), Color.TRANSPARENT),
                     null, Shader.TileMode.CLAMP
                 )
             }
             canvas.drawRect(screenRect, orbPaint)
 
-            // App card inside screen
-            val cardMargin = screenRect.width() * 0.08f
+            val cardMargin = screenRect.width() * 0.09f
             val innerCard = RectF(
                 screenRect.left + cardMargin,
-                screenRect.top + screenRect.height() * 0.16f,
+                screenRect.top + screenRect.height() * 0.18f,
                 screenRect.right - cardMargin,
-                screenRect.bottom - screenRect.height() * 0.12f
+                screenRect.bottom - screenRect.height() * 0.14f
             )
-            val cp = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(185, 15, 22, 36) }
             val cr = screenRect.width() * 0.06f
-            canvas.drawRoundRect(innerCard, cr, cr, cp)
+            canvas.drawRoundRect(innerCard, cr, cr, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(185, 15, 22, 36) })
+            canvas.drawRoundRect(
+                innerCard, cr, cr,
+                Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    style = Paint.Style.STROKE
+                    strokeWidth = max(1.5f, screenRect.width() * 0.006f)
+                    color = withAlpha(accentColor, 165)
+                }
+            )
 
-            val cep = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                style = Paint.Style.STROKE
-                strokeWidth = max(1.5f, screenRect.width() * 0.006f)
-                color = withAlpha(accentColor, 160)
-            }
-            canvas.drawRoundRect(innerCard, cr, cr, cep)
-
-            // Badge pill inside screen
-            val pillH = innerCard.height() * 0.13f
+            // Decorative UI bars + subtle "+ Photo N" pill
+            val pillH = (innerCard.height() * 0.14f).coerceIn(14f, 44f)
             val pillRect = RectF(
-                innerCard.left + innerCard.width() * 0.08f,
-                innerCard.top + innerCard.height() * 0.09f,
-                innerCard.left + innerCard.width() * 0.56f,
-                innerCard.top + innerCard.height() * 0.09f + pillH
+                innerCard.left + innerCard.width() * 0.14f,
+                innerCard.top + innerCard.height() * 0.12f,
+                innerCard.right - innerCard.width() * 0.14f,
+                innerCard.top + innerCard.height() * 0.12f + pillH
             )
-            canvas.drawRoundRect(pillRect, pillH / 2f, pillH / 2f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = accentColor })
+            canvas.drawRoundRect(pillRect, pillH / 2f, pillH / 2f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = withAlpha(accentColor, 220) })
 
-            val badgeTf = PostFonts.get(context, PostFont.BOLD, cardBadge, doc)
-            val bPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-                typeface = badgeTf
+            val hintLabel = "+ PHOTO ${slotIndex + 1}"
+            val hintTf = PostFonts.get(context, PostFont.BOLD, hintLabel, doc)
+            val hPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                typeface = hintTf
                 color = darkColor
-                textSize = (pillH * 0.52f).coerceAtLeast(10f)
+                textSize = (pillH * 0.46f).coerceIn(9f, 22f)
             }
-            val bfm = bPaint.fontMetrics
+            val hfm = hPaint.fontMetrics
             canvas.drawText(
-                cardBadge.take(12),
-                pillRect.centerX() - bPaint.measureText(cardBadge.take(12)) / 2f,
-                pillRect.centerY() - (bfm.ascent + bfm.descent) / 2f,
-                bPaint
+                hintLabel,
+                pillRect.centerX() - hPaint.measureText(hintLabel) / 2f,
+                pillRect.centerY() - (hfm.ascent + hfm.descent) / 2f,
+                hPaint
             )
 
-            // Decorative UI bars
-            val barPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = withAlpha(lightColor, 210) }
-            val mutedBar = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = withAlpha(lightColor, 90) }
-            val barL = innerCard.left + innerCard.width() * 0.08f
-            var barY = pillRect.bottom + innerCard.height() * 0.10f
+            val barPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = withAlpha(lightColor, 195) }
+            val mutedBar = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = withAlpha(lightColor, 85) }
+            val barL = innerCard.left + innerCard.width() * 0.12f
+            var barY = pillRect.bottom + innerCard.height() * 0.12f
             val barH = max(4f, innerCard.height() * 0.045f)
-            canvas.drawRoundRect(RectF(barL, barY, innerCard.right - innerCard.width() * 0.12f, barY + barH), barH / 2f, barH / 2f, barPaint)
+            canvas.drawRoundRect(RectF(barL, barY, innerCard.right - innerCard.width() * 0.14f, barY + barH), barH / 2f, barH / 2f, barPaint)
             barY += barH * 2.1f
-            canvas.drawRoundRect(RectF(barL, barY, innerCard.right - innerCard.width() * 0.24f, barY + barH), barH / 2f, barH / 2f, barPaint)
+            canvas.drawRoundRect(RectF(barL, barY, innerCard.right - innerCard.width() * 0.26f, barY + barH), barH / 2f, barH / 2f, barPaint)
             barY += barH * 2.3f
-            canvas.drawRoundRect(RectF(barL, barY, innerCard.right - innerCard.width() * 0.18f, barY + barH * 0.75f), barH / 2f, barH / 2f, mutedBar)
-            barY += barH * 1.8f
-            canvas.drawRoundRect(RectF(barL, barY, innerCard.right - innerCard.width() * 0.35f, barY + barH * 0.75f), barH / 2f, barH / 2f, mutedBar)
+            canvas.drawRoundRect(RectF(barL, barY, innerCard.right - innerCard.width() * 0.20f, barY + barH * 0.75f), barH / 2f, barH / 2f, mutedBar)
         }
 
         // 5. Diagonal glass reflection sheen across screen
@@ -1450,6 +1462,96 @@ object PostComposeKit {
         canvas.drawPath(flapPath, flapPaint)
     }
 
+    data class TextAnchor(
+        val cx: Float,
+        val cy: Float,
+        val w: Float,
+        val h: Float,
+        val rotateDeg: Float = 0f,
+        val tiltSkew: Float = 0f
+    )
+
+    fun textAnchors(
+        shape: DecorShape,
+        rect: RectF,
+        lineCount: Int,
+        variant: Int = 0
+    ): List<TextAnchor> = when (shape) {
+        DecorShape.CHECK_CARDS -> {
+            val count = lineCount.coerceIn(1, 3)
+            val gap = rect.height() * 0.055f
+            val cardH = (rect.height() - gap * (count - 1)) / count
+            val tilts = floatArrayOf(-2.2f, 1.8f, -1.4f)
+            (0 until count).map { idx ->
+                val top = rect.top + idx * (cardH + gap)
+                val insetX = if (idx % 2 == 1) rect.width() * 0.04f else 0f
+                val cr = RectF(rect.left + insetX, top, rect.right - (rect.width() * 0.04f - insetX), top + cardH)
+                val orbR = cardH * 0.30f
+                val orbCx = cr.left + cardH * 0.52f
+                val textLeft = orbCx + orbR + cardH * 0.22f
+                val textRight = cr.right - cardH * 0.18f
+                val textW = (textRight - textLeft).coerceAtLeast(32f)
+                TextAnchor(
+                    cx = (textLeft + textRight) * 0.5f,
+                    cy = cr.centerY(),
+                    w = textW,
+                    h = cardH * 0.64f,
+                    rotateDeg = tilts[idx % tilts.size]
+                )
+            }
+        }
+        DecorShape.RIBBON_PATH -> {
+            val count = lineCount.coerceIn(1, 4)
+            val nodes = listOf(
+                (rect.left + rect.width() * 0.18f) to (rect.top + rect.height() * 0.14f),
+                (rect.left + rect.width() * 0.82f) to (rect.top + rect.height() * 0.38f),
+                (rect.left + rect.width() * 0.20f) to (rect.top + rect.height() * 0.64f),
+                (rect.left + rect.width() * 0.80f) to (rect.top + rect.height() * 0.88f)
+            )
+            val orbR = min(rect.width(), rect.height()) * 0.068f
+            val pillW = rect.width() * 0.52f
+            val pillH = orbR * 1.48f
+            (0 until count).map { i ->
+                val (nx, ny) = nodes[i]
+                val pillLeft = if (i % 2 == 0) nx + orbR * 1.35f else nx - orbR * 1.35f - pillW
+                val pillRect = RectF(pillLeft, ny - pillH / 2f, pillLeft + pillW, ny + pillH / 2f)
+                TextAnchor(
+                    cx = pillRect.centerX(),
+                    cy = pillRect.centerY(),
+                    w = pillRect.width() * 0.86f,
+                    h = pillRect.height() * 0.74f,
+                    rotateDeg = 0f
+                )
+            }
+        }
+        DecorShape.CARD_FAN -> {
+            val cardW = rect.width() * 0.78f
+            val cardH = rect.height() * 0.84f
+            listOf(
+                TextAnchor(
+                    cx = rect.centerX(),
+                    cy = rect.centerY(),
+                    w = cardW * 0.84f,
+                    h = cardH * 0.72f,
+                    rotateDeg = 0f
+                )
+            )
+        }
+        else -> {
+            val count = lineCount.coerceAtLeast(1)
+            val rowH = rect.height() / count
+            (0 until count).map { i ->
+                TextAnchor(
+                    cx = rect.centerX(),
+                    cy = rect.top + rowH * (i + 0.5f),
+                    w = rect.width() * 0.88f,
+                    h = rowH * 0.82f,
+                    rotateDeg = 0f
+                )
+            }
+        }
+    }
+
     private fun drawCheckCards(
         context: Context,
         canvas: Canvas,
@@ -1473,9 +1575,8 @@ object PostComposeKit {
         val gap = rect.height() * 0.055f
         val cardH = (rect.height() - gap * (count - 1)) / count
         val tilts = floatArrayOf(-2.2f, 1.8f, -1.4f)
-        val tf = PostFonts.get(context, PostFont.BOLD, rawItems.joinToString(" "), doc)
 
-        for ((idx, item) in rawItems.withIndex()) {
+        for (idx in 0 until count) {
             val top = rect.top + idx * (cardH + gap)
             val insetX = if (idx % 2 == 1) rect.width() * 0.04f else 0f
             val cr = RectF(rect.left + insetX, top, rect.right - (rect.width() * 0.04f - insetX), top + cardH)
@@ -1509,7 +1610,7 @@ object PostComposeKit {
             }
             canvas.drawRoundRect(cr, rad, rad, rp)
 
-            // Glowing check orb
+            // Glowing check orb (geometry only — text is rendered once by PostRenderer via textAnchors)
             val orbR = cardH * 0.30f
             val orbCx = cr.left + cardH * 0.52f
             val orbCy = cr.centerY()
@@ -1528,22 +1629,6 @@ object PostComposeKit {
                 lineTo(orbCx + orbR * 0.46f, orbCy - orbR * 0.34f)
             }
             canvas.drawPath(tick, tickP)
-
-            // Short label text inside card
-            val textLeft = orbCx + orbR + cardH * 0.24f
-            val availW = (cr.right - textLeft - cardH * 0.22f).coerceAtLeast(32f)
-            val tp = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-                typeface = tf
-                color = lightColor
-                textSize = (cardH * 0.38f).coerceIn(18f, 58f)
-            }
-            val cleanItem = item.replace('\n', ' ').trim()
-            val mw = tp.measureText(cleanItem)
-            if (mw > availW && mw > 1f) {
-                tp.textSize = (tp.textSize * (availW / mw)).coerceAtLeast(16f)
-            }
-            val fm = tp.fontMetrics
-            canvas.drawText(cleanItem, textLeft, cr.centerY() - (fm.ascent + fm.descent) / 2f, tp)
 
             canvas.restore()
         }
@@ -1675,11 +1760,13 @@ object PostComposeKit {
         }
         canvas.drawPath(ribbon, corePaint)
 
-        val tf = PostFonts.get(context, PostFont.BOLD, rawSteps.joinToString(" "), doc)
+        val tf = PostFonts.get(context, PostFont.BOLD, "01 02 03 04", doc)
         val orbR = min(rect.width(), rect.height()) * 0.068f
+        val pillW = rect.width() * 0.52f
+        val pillH = orbR * 1.48f
 
-        for ((i, node) in nodes.withIndex()) {
-            val (nx, ny) = node
+        for (i in 0 until rawSteps.size.coerceIn(1, nodes.size)) {
+            val (nx, ny) = nodes[i]
             // Node disc
             canvas.drawCircle(nx, ny, orbR * 1.2f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = deepColor })
             canvas.drawCircle(nx, ny, orbR, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = accentColor })
@@ -1693,20 +1780,7 @@ object PostComposeKit {
             val nfm = np.fontMetrics
             canvas.drawText(numStr, nx - np.measureText(numStr) / 2f, ny - (nfm.ascent + nfm.descent) / 2f, np)
 
-            // Step pill next to node
-            val stepLabel = rawSteps.getOrElse(i) { "Step ${i + 1}" }
-            val lp = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-                typeface = tf
-                color = lightColor
-                textSize = (orbR * 0.78f).coerceIn(16f, 44f)
-            }
-            val maxPillW = rect.width() * 0.52f
-            val tw = lp.measureText(stepLabel)
-            if (tw > maxPillW - orbR * 1.2f && tw > 1f) {
-                lp.textSize = (lp.textSize * ((maxPillW - orbR * 1.2f) / tw)).coerceAtLeast(14f)
-            }
-            val pillW = min(maxPillW, lp.measureText(stepLabel) + orbR * 1.2f)
-            val pillH = orbR * 1.45f
+            // Step pill frame next to node (geometry only — text is rendered once by PostRenderer via textAnchors)
             val pillLeft = if (i % 2 == 0) nx + orbR * 1.35f else nx - orbR * 1.35f - pillW
             val pillRect = RectF(pillLeft, ny - pillH / 2f, pillLeft + pillW, ny + pillH / 2f)
 
@@ -1716,8 +1790,6 @@ object PostComposeKit {
                 strokeWidth = max(1.5f, unit * 0.0025f)
                 color = withAlpha(accentColor, 160)
             })
-            val lfm = lp.fontMetrics
-            canvas.drawText(stepLabel, pillRect.centerX() - lp.measureText(stepLabel) / 2f, pillRect.centerY() - (lfm.ascent + lfm.descent) / 2f, lp)
         }
     }
 

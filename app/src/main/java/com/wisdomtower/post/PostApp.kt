@@ -295,32 +295,44 @@ fun PostApp() {
                             onOpenBrand = { screen = "brand" }
                         )
                     }
-                    else -> PostStudioScreen(
-                        doc = doc,
-                        onDoc = { updateDoc(it) },
-                        brand = brand,
-                        library = library,
-                        onBrand = { brand = it },
-                        onPickPhoto = { photoPicker.launch(arrayOf("image/*")) },
-                        onPickBackgroundPhoto = { backgroundPhotoPicker.launch(arrayOf("image/*")) },
-                        onPickLogo = { logoPicker.launch(arrayOf("image/*")) },
-                        onOpenBrand = { screen = "brand" },
-                        edited = PostDrafts.isEdited(doc),
-                        onReset = { resetCurrent() },
-                        onBringWords = if (library.lastWords.isNotEmpty()) bringWords else null,
-                        bookmarked = doc.templateId in library.bookmarks,
-                        onToggleBookmark = { toggleBookmark(doc.templateId) },
-                        onOpenLibrary = {
-                            saveOpenDraft()
-                            libSize = doc.size
-                            screen = "library"
-                        },
-                        onOpenBatch = { screen = "batch" },
-                        onOpenInbox = { inboxBackTo = "studio"; screen = "inbox" },
-                        onOpenQa = { screen = "qa" },
-                        canUndo = undoStack.isNotEmpty(),
-                        onUndo = { performUndo() }
-                    )
+                    else -> {
+                        var lastBackPressMs by remember { mutableStateOf(0L) }
+                        BackHandler(enabled = true) {
+                            val now = android.os.SystemClock.elapsedRealtime()
+                            if (now - lastBackPressMs < 2000L) {
+                                (context as? android.app.Activity)?.finish()
+                            } else {
+                                lastBackPressMs = now
+                                Toast.makeText(context, "Press back again to exit", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                        PostStudioScreen(
+                            doc = doc,
+                            onDoc = { updateDoc(it) },
+                            brand = brand,
+                            library = library,
+                            onBrand = { brand = it },
+                            onPickPhoto = { photoPicker.launch(arrayOf("image/*")) },
+                            onPickBackgroundPhoto = { backgroundPhotoPicker.launch(arrayOf("image/*")) },
+                            onPickLogo = { logoPicker.launch(arrayOf("image/*")) },
+                            onOpenBrand = { screen = "brand" },
+                            edited = PostDrafts.isEdited(doc),
+                            onReset = { resetCurrent() },
+                            onBringWords = if (library.lastWords.isNotEmpty()) bringWords else null,
+                            bookmarked = doc.templateId in library.bookmarks,
+                            onToggleBookmark = { toggleBookmark(doc.templateId) },
+                            onOpenLibrary = {
+                                saveOpenDraft()
+                                libSize = doc.size
+                                screen = "library"
+                            },
+                            onOpenBatch = { screen = "batch" },
+                            onOpenInbox = { inboxBackTo = "studio"; screen = "inbox" },
+                            onOpenQa = { screen = "qa" },
+                            canUndo = undoStack.isNotEmpty(),
+                            onUndo = { performUndo() }
+                        )
+                    }
                 }
                 SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp))
             }

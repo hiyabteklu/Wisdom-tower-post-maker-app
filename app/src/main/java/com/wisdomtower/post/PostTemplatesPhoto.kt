@@ -1024,10 +1024,10 @@ internal val PhotoTemplates: List<PostTemplateSpec> = listOf(
             story = TemplateLayout(
                 base = PostBase.DARK,
                 photo = PostPhotoArea(
-                    x = 0.06f, y = 0.12f, w = 0.88f, h = 0.46f, rounded = true,
+                    x = 0.06f, y = 0.12f, w = 0.88f, h = 0.46f, rounded = true, shadow = true, innerShadow = true, lightSpill = true,
                     cells = listOf(
-                        PhotoCell(0.06f, 0.12f, 0.425f, 0.46f, radius = 0.04f, panOffsetX = -0.25f),
-                        PhotoCell(0.515f, 0.12f, 0.425f, 0.46f, radius = 0.04f, panOffsetX = 0.25f)
+                        PhotoCell(0.06f, 0.12f, 0.425f, 0.46f, radius = 0.04f, panOffsetX = 0f, photoIndex = 0),
+                        PhotoCell(0.515f, 0.12f, 0.425f, 0.46f, radius = 0.04f, panOffsetX = 0f, photoIndex = 1)
                     )
                 ),
                 decor = listOf(
@@ -1058,10 +1058,10 @@ internal val PhotoTemplates: List<PostTemplateSpec> = listOf(
             standard = TemplateLayout(
                 base = PostBase.DARK,
                 photo = PostPhotoArea(
-                    x = 0.06f, y = 0.11f, w = 0.88f, h = 0.47f, rounded = true,
+                    x = 0.06f, y = 0.11f, w = 0.88f, h = 0.47f, rounded = true, shadow = true, innerShadow = true, lightSpill = true,
                     cells = listOf(
-                        PhotoCell(0.06f, 0.11f, 0.425f, 0.47f, radius = 0.04f, panOffsetX = -0.25f),
-                        PhotoCell(0.515f, 0.11f, 0.425f, 0.47f, radius = 0.04f, panOffsetX = 0.25f)
+                        PhotoCell(0.06f, 0.11f, 0.425f, 0.47f, radius = 0.04f, panOffsetX = 0f, photoIndex = 0),
+                        PhotoCell(0.515f, 0.11f, 0.425f, 0.47f, radius = 0.04f, panOffsetX = 0f, photoIndex = 1)
                     )
                 ),
                 decor = listOf(
@@ -1092,10 +1092,10 @@ internal val PhotoTemplates: List<PostTemplateSpec> = listOf(
             wide = TemplateLayout(
                 base = PostBase.DARK,
                 photo = PostPhotoArea(
-                    x = 0.05f, y = 0.12f, w = 0.52f, h = 0.72f, rounded = true,
+                    x = 0.05f, y = 0.12f, w = 0.52f, h = 0.72f, rounded = true, shadow = true, innerShadow = true, lightSpill = true,
                     cells = listOf(
-                        PhotoCell(0.05f, 0.12f, 0.25f, 0.72f, radius = 0.04f, panOffsetX = -0.25f),
-                        PhotoCell(0.32f, 0.12f, 0.25f, 0.72f, radius = 0.04f, panOffsetX = 0.25f)
+                        PhotoCell(0.05f, 0.12f, 0.25f, 0.72f, radius = 0.04f, panOffsetX = 0f, photoIndex = 0),
+                        PhotoCell(0.32f, 0.12f, 0.25f, 0.72f, radius = 0.04f, panOffsetX = 0f, photoIndex = 1)
                     )
                 ),
                 decor = listOf(

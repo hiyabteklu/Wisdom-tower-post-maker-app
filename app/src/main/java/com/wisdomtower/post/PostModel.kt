@@ -254,6 +254,20 @@ data class SlotStyle(
 
 enum class FooterStyle { PILL, LINE }
 
+enum class FooterPosition(val label: String) {
+    EDGE("Edge"),
+    SAFE("Safe")
+}
+
+data class PhotoSlotAdjust(
+    val zoom: Float = 1f,
+    val focusX: Float = 0.5f,
+    val focusY: Float = 0.5f
+) {
+    val isDefault: Boolean
+        get() = zoom == 1f && focusX == 0.5f && focusY == 0.5f
+}
+
 enum class IconLook { PLAIN, BADGE, OFFICIAL }
 
 data class FooterItem(
@@ -270,6 +284,7 @@ data class PostBrand(
     val lightHex: String = "#FFFFFF",
     val darkHex: String = "#060B14",
     val bgLook: Int = 1,
+    val globalThemeId: String = PostThemes.DEFAULT_ID,
     val logoPath: String? = null,
     val logoStamp: Long = 0L,
     val logoScale: Float = 1f,
@@ -278,6 +293,7 @@ data class PostBrand(
     val logoContrast: LogoContrast = LogoContrast.AUTO,
     val logoOpacity: Float = 1f,
     val footerStyle: FooterStyle = FooterStyle.LINE,
+    val footerPosition: FooterPosition = FooterPosition.SAFE,
     val footerMinimal: Boolean = true,
     val iconLook: IconLook = IconLook.OFFICIAL,
     val iconScale: Float = 1f,
@@ -333,6 +349,8 @@ data class PostDoc(
     val hiddenTextSlots: Set<String> = emptySet(),
     val textHex: String? = null,
     val accentHex: String? = null,
+    val manualAccent: Boolean = false,
+    val themeLock: Boolean = false,
     val backgroundHex: String? = null,
     val bgMode: BgMode = BgMode.TEMPLATE,
     val bgStartHex: String = "#0B1F3A",
@@ -350,6 +368,8 @@ data class PostDoc(
     val photoPanY: Float = 0f,
     val photoFocusX: Float = 0.5f,
     val photoFocusY: Float = 0.5f,
+    val photoSlotAdjust: Map<Int, PhotoSlotAdjust> = emptyMap(),
+    val fillEmptyWithFirst: Boolean = false,
     val photoDim: Int? = null,
     val photoFrame: PhotoFrame? = null,
     val frameBorder: Boolean = false,
@@ -384,13 +404,55 @@ data class PostDoc(
     val showFooter: Boolean = true,
     val offsets: Map<String, Offset> = emptyMap(),
     val slotStyles: Map<String, SlotStyle> = emptyMap(),
-    val icons: List<PostIconItem> = emptyList()
+    val icons: List<PostIconItem> = emptyList(),
+    val sceneShadowStrength: Float = 0.75f,
+    val sceneLightAngle: Float = 135f,
+    val sceneWarmth: Float = 0.5f,
+    val sceneDepth: Float = 0.75f
 ) {
     val backgroundPhotoAlpha: Float get() = backgroundPhotoOpacity
     fun hasOffsets(): Boolean = offsets.values.any { it.dx != 0f || it.dy != 0f }
     fun withoutOffsets(): PostDoc = copy(offsets = emptyMap())
     fun offsetOf(slot: String): Offset = offsets[slot] ?: Offset()
     fun withOffset(slot: String, offset: Offset): PostDoc = copy(offsets = offsets + (slot to offset))
+
+    fun slotAdjust(index: Int): PhotoSlotAdjust = when (index) {
+        0 -> photoSlotAdjust[0] ?: PhotoSlotAdjust(photoZoom, photoFocusX, photoFocusY)
+        else -> photoSlotAdjust[index] ?: PhotoSlotAdjust()
+    }
+
+    fun withSlotAdjust(index: Int, adjust: PhotoSlotAdjust): PostDoc {
+        val nextMap = photoSlotAdjust.toMutableMap()
+        if (adjust.isDefault && index != 0) {
+            nextMap.remove(index)
+        } else {
+            nextMap[index] = adjust
+        }
+        return if (index == 0) {
+            copy(
+                photoZoom = adjust.zoom,
+                photoFocusX = adjust.focusX,
+                photoFocusY = adjust.focusY,
+                photoSlotAdjust = nextMap
+            )
+        } else {
+            copy(photoSlotAdjust = nextMap)
+        }
+    }
+
+    fun photoUriAt(index: Int): String? = when (index) {
+        0 -> photoUri
+        1 -> secondaryPhotoUri
+        2 -> tertiaryPhotoUri
+        else -> null
+    }
+
+    fun withPhotoUriAt(index: Int, uri: String?): PostDoc = when (index) {
+        0 -> copy(photoUri = uri).let { if (uri == null) it.withSlotAdjust(0, PhotoSlotAdjust()) else it }
+        1 -> copy(secondaryPhotoUri = uri).let { if (uri == null) it.withSlotAdjust(1, PhotoSlotAdjust()) else it }
+        2 -> copy(tertiaryPhotoUri = uri).let { if (uri == null) it.withSlotAdjust(2, PhotoSlotAdjust()) else it }
+        else -> this
+    }
 }
 
 object PostCodec {
@@ -409,6 +471,8 @@ object PostCodec {
         }
         doc.textHex?.let { root.put("textHex", it) }
         doc.accentHex?.let { root.put("accentHex", it) }
+        if (doc.manualAccent) root.put("manualAccent", true)
+        if (doc.themeLock) root.put("themeLock", true)
         doc.backgroundHex?.let { root.put("backgroundHex", it) }
         if (doc.bgMode != BgMode.TEMPLATE) root.put("bgMode", doc.bgMode.name)
         root.put("bgStartHex", doc.bgStartHex)
@@ -430,6 +494,20 @@ object PostCodec {
         root.put("photoPanY", doc.photoPanY.toDouble())
         root.put("photoFocusX", doc.photoFocusX.toDouble())
         root.put("photoFocusY", doc.photoFocusY.toDouble())
+        if (doc.photoSlotAdjust.isNotEmpty()) {
+            val adjObj = JSONObject()
+            doc.photoSlotAdjust.forEach { (idx, adj) ->
+                adjObj.put(
+                    idx.toString(),
+                    JSONObject()
+                        .put("zoom", adj.zoom.toDouble())
+                        .put("focusX", adj.focusX.toDouble())
+                        .put("focusY", adj.focusY.toDouble())
+                )
+            }
+            root.put("photoSlotAdjust", adjObj)
+        }
+        if (doc.fillEmptyWithFirst) root.put("fillEmptyWithFirst", true)
         doc.photoDim?.let { root.put("photoDim", it) }
         doc.photoFrame?.let { root.put("photoFrame", it.name) }
         root.put("frameBorder", doc.frameBorder)
@@ -486,19 +564,24 @@ object PostCodec {
             iconsArr.put(o)
         }
         root.put("icons", iconsArr)
+        if (doc.sceneShadowStrength != 0.75f) root.put("sceneShadowStrength", doc.sceneShadowStrength.toDouble())
+        if (doc.sceneLightAngle != 135f) root.put("sceneLightAngle", doc.sceneLightAngle.toDouble())
+        if (doc.sceneWarmth != 0.5f) root.put("sceneWarmth", doc.sceneWarmth.toDouble())
+        if (doc.sceneDepth != 0.75f) root.put("sceneDepth", doc.sceneDepth.toDouble())
         return root.toString()
     }
 
     fun decodeDoc(json: String): PostDoc {
         val root = JSONObject(json)
         val rawTemplateId = root.optString("templateId", "ltr-portal")
-        val resolvedId = postTemplate(rawTemplateId).id
+        val spec = postTemplate(rawTemplateId)
+        val resolvedId = spec.id
         val size = PostSize.fromKey(root.optString("size", "LANDSCAPE"))
         val texts = mutableMapOf<String, String>()
         root.optJSONObject("texts")?.let { obj ->
             obj.keys().forEach { k -> texts[k] = obj.optString(k, "") }
         }
-        val specSlots = postTemplate(resolvedId).slots
+        val specSlots = spec.slots
         val hydratedTexts = PostSlots.withDerivedSlots(texts, specSlots)
 
         val hidden = mutableSetOf<String>()
@@ -596,6 +679,30 @@ object PostCodec {
             LogoContrast.values().firstOrNull { it.name == name } ?: LogoContrast.AUTO
         }
 
+        val slotAdjustMap = linkedMapOf<Int, PhotoSlotAdjust>()
+        root.optJSONObject("photoSlotAdjust")?.let { adjObj ->
+            adjObj.keys().forEach { k ->
+                val idx = k.toIntOrNull() ?: return@forEach
+                val o = adjObj.optJSONObject(k) ?: return@forEach
+                slotAdjustMap[idx] = PhotoSlotAdjust(
+                    zoom = o.optDouble("zoom", 1.0).toFloat().coerceIn(0.5f, 4f),
+                    focusX = o.optDouble("focusX", 0.5).toFloat().coerceIn(0f, 1f),
+                    focusY = o.optDouble("focusY", 0.5).toFloat().coerceIn(0f, 1f)
+                )
+            }
+        }
+
+        val rawAccent = root.optString("accentHex", "").takeIf { it.isNotBlank() }
+        val explicitManualAccent = root.optBoolean("manualAccent", false)
+        val rawBgMode = root.optString("bgMode", "").let { name ->
+            BgMode.values().firstOrNull { it.name == name } ?: BgMode.TEMPLATE
+        }
+        val rawBgHex = root.optString("backgroundHex", "").takeIf { it.isNotBlank() }
+        val matchesLookBg = spec.looks.any { look ->
+            look.bgHex != null && look.bgHex.equals(rawBgHex ?: root.optString("bgStartHex", ""), ignoreCase = true)
+        }
+        val effectiveBgMode = if (rawBgMode == BgMode.SOLID && matchesLookBg && !explicitManualAccent) BgMode.TEMPLATE else rawBgMode
+
         return PostDoc(
             version = 4,
             templateId = resolvedId,
@@ -603,11 +710,11 @@ object PostCodec {
             texts = hydratedTexts,
             hiddenTextSlots = hidden,
             textHex = root.optString("textHex", "").takeIf { it.isNotBlank() },
-            accentHex = root.optString("accentHex", "").takeIf { it.isNotBlank() },
-            backgroundHex = root.optString("backgroundHex", "").takeIf { it.isNotBlank() },
-            bgMode = root.optString("bgMode", "").let { name ->
-                BgMode.values().firstOrNull { it.name == name } ?: BgMode.TEMPLATE
-            },
+            accentHex = rawAccent,
+            manualAccent = explicitManualAccent,
+            themeLock = root.optBoolean("themeLock", false),
+            backgroundHex = rawBgHex,
+            bgMode = effectiveBgMode,
             bgStartHex = root.optString("bgStartHex", "#0B1F3A"),
             bgEndHex = root.optString("bgEndHex", "#050910"),
             bgAngle = root.optDouble("bgAngle", 90.0).toFloat(),
@@ -623,6 +730,8 @@ object PostCodec {
             photoPanY = root.optDouble("photoPanY", 0.0).toFloat().coerceIn(-1f, 1f),
             photoFocusX = root.optDouble("photoFocusX", 0.5).toFloat().coerceIn(0f, 1f),
             photoFocusY = root.optDouble("photoFocusY", 0.5).toFloat().coerceIn(0f, 1f),
+            photoSlotAdjust = slotAdjustMap,
+            fillEmptyWithFirst = root.optBoolean("fillEmptyWithFirst", false),
             photoDim = if (root.has("photoDim")) root.optInt("photoDim").coerceIn(0, 255) else null,
             photoFrame = root.optString("photoFrame", "").takeIf { it.isNotBlank() }?.let { name ->
                 PhotoFrame.values().firstOrNull { it.name == name }
@@ -663,7 +772,11 @@ object PostCodec {
             showFooter = root.optBoolean("showFooter", true),
             offsets = offsets,
             slotStyles = decodeSlotStyles(root.optJSONObject("slotStyles")),
-            icons = icons
+            icons = icons,
+            sceneShadowStrength = root.optDouble("sceneShadowStrength", 0.75).toFloat().coerceIn(0f, 1f),
+            sceneLightAngle = root.optDouble("sceneLightAngle", 135.0).toFloat(),
+            sceneWarmth = root.optDouble("sceneWarmth", 0.5).toFloat().coerceIn(0f, 1f),
+            sceneDepth = root.optDouble("sceneDepth", 0.75).toFloat().coerceIn(0f, 1f)
         )
     }
 
@@ -749,6 +862,7 @@ object PostCodec {
         o.put("lightHex", brand.lightHex)
         o.put("darkHex", brand.darkHex)
         o.put("bgLook", brand.bgLook)
+        o.put("globalThemeId", brand.globalThemeId)
         brand.logoPath?.let { o.put("logoPath", it) }
         o.put("logoStamp", brand.logoStamp)
         o.put("logoScale", brand.logoScale.toDouble())
@@ -757,6 +871,7 @@ object PostCodec {
         o.put("logoContrast", brand.logoContrast.name)
         o.put("logoOpacity", brand.logoOpacity.toDouble())
         o.put("footerStyle", brand.footerStyle.name)
+        o.put("footerPosition", brand.footerPosition.name)
         o.put("footerMinimal", brand.footerMinimal)
         o.put("iconLook", brand.iconLook.name)
         o.put("iconScale", brand.iconScale.toDouble())
@@ -807,6 +922,7 @@ object PostCodec {
             lightHex = o.optString("lightHex", "#FFFFFF"),
             darkHex = o.optString("darkHex", "#060B14"),
             bgLook = o.optInt("bgLook", 1),
+            globalThemeId = o.optString("globalThemeId", PostThemes.DEFAULT_ID).ifBlank { PostThemes.DEFAULT_ID },
             logoPath = logoPath,
             logoStamp = o.optLong("logoStamp", 0L),
             logoScale = o.optDouble("logoScale", 1.0).toFloat(),
@@ -816,6 +932,9 @@ object PostCodec {
             logoOpacity = o.optDouble("logoOpacity", 1.0).toFloat().coerceIn(0.1f, 1f),
             footerStyle = o.optString("footerStyle", "").let { n ->
                 FooterStyle.values().firstOrNull { it.name == n } ?: FooterStyle.LINE
+            },
+            footerPosition = o.optString("footerPosition", "").let { n ->
+                FooterPosition.values().firstOrNull { it.name == n } ?: FooterPosition.SAFE
             },
             footerMinimal = o.optBoolean("footerMinimal", true),
             iconLook = o.optString("iconLook", "").let { n ->

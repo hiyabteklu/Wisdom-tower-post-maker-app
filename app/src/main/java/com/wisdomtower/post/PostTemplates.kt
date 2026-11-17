@@ -124,7 +124,23 @@ enum class DecorShape {
     SPEECH_STAGE,
     CHECK_CARDS,
     DATE_SLAB,
-    FLOATING_OBJECT
+    FLOATING_OBJECT,
+    SCENE_ESCKEY,
+    SCENE_BOOKPOOL,
+    SCENE_HOUSEDOOR,
+    SCENE_DESKFLAT,
+    SCENE_FACELIGHT,
+    SCENE_PENCILCITY,
+    SCENE_BACKPACKPORTAL,
+    SCENE_CLOCKHANG,
+    SCENE_EXAMCLIFF,
+    SCENE_CAPUFO,
+    SCENE_PAPERBOAT
+}
+
+enum class DecorLayer {
+    BEHIND_PHOTO,
+    FRONT_OF_PHOTO
 }
 
 data class DecorBox(
@@ -141,7 +157,8 @@ data class DecorBox(
     val tiltX: Float = 0f,
     val tiltY: Float = 0f,
     val variant: Int = 0,
-    val secondaryTone: PostTone? = null
+    val secondaryTone: PostTone? = null,
+    val layer: DecorLayer = DecorLayer.BEHIND_PHOTO
 )
 
 class SlotBox(
@@ -168,7 +185,10 @@ class SlotBox(
     val dimOthers: Float = 1f,
     val shadow: TextShadow? = null,
     val maxLines: Int = 0,
-    val stackFx: List<TextFx> = emptyList()
+    val stackFx: List<TextFx> = emptyList(),
+    val anchorsFrom: DecorShape? = null,
+    val drawnByDecor: Boolean = false,
+    val perspectiveQuad: FloatArray? = null
 ) {
     /**
      * Normalized fraction of min(width, height).
@@ -210,7 +230,10 @@ class SlotBox(
         dimOthers: Float = 1f,
         shadow: TextShadow? = null,
         maxLines: Int = 0,
-        stackFx: List<TextFx> = emptyList()
+        stackFx: List<TextFx> = emptyList(),
+        anchorsFrom: DecorShape? = null,
+        drawnByDecor: Boolean = false,
+        perspectiveQuad: FloatArray? = null
     ) : this(
         slot = slot,
         x = x,
@@ -235,7 +258,10 @@ class SlotBox(
         dimOthers = dimOthers,
         shadow = shadow,
         maxLines = maxLines,
-        stackFx = stackFx
+        stackFx = stackFx,
+        anchorsFrom = anchorsFrom,
+        drawnByDecor = drawnByDecor,
+        perspectiveQuad = perspectiveQuad
     )
 }
 
@@ -272,7 +298,10 @@ data class PostPhotoArea(
     val corner: Float = 0f,
     val scrim: ScrimMode = ScrimMode.NONE,
     val rimTone: PostTone? = null,
-    val shadow: Boolean = false
+    val shadow: Boolean = false,
+    val innerShadow: Boolean = false,
+    val lightSpill: Boolean = false,
+    val clipShape: ((RectF) -> android.graphics.Path)? = null
 ) {
     val mask: PhotoFrame?
         get() = when {
@@ -306,7 +335,8 @@ data class TemplateLayout(
     val logoKeepOut: RectF? = null,
     val cutoutShowDefault: Boolean = false,
     val cutoutStyle: CutoutStyle = CutoutStyle.RIM_GLOW,
-    val cutout: Any? = null
+    val cutout: Any? = null,
+    val safeFit: Boolean = true
 )
 
 data class TemplateLook(
@@ -353,6 +383,31 @@ class PostTemplateSpec(
 ) {
     val sample: Map<String, String> get() = samples
 
+    val photoSlotCount: Int
+        get() = listOf(PostSize.LANDSCAPE, PostSize.STORY, PostSize.WIDE).maxOf { size ->
+            val l = layout(size)
+            val areaCount = l.photo?.let { area ->
+                if (area.cells.isEmpty()) 1
+                else maxOf(area.cells.size, (area.cells.maxOfOrNull { it.photoIndex } ?: 0) + 1)
+            } ?: 0
+            val device3DCount = l.decor
+                .filter { it.shape == DecorShape.DEVICE_3D }
+                .maxOfOrNull { d ->
+                    when (d.variant) {
+                        0 -> 1
+                        1 -> 2
+                        2 -> 3
+                        3 -> 2
+                        else -> 1
+                    }
+                } ?: 0
+            val phoneCount = if (l.decor.any { it.shape == DecorShape.PHONE }) 1 else 0
+            maxOf(areaCount, device3DCount, phoneCount)
+        }
+
+    val usesPhoto: Boolean
+        get() = photoSlotCount > 0
+
     constructor(
         id: String,
         name: String,
@@ -383,6 +438,8 @@ fun rotBox(w: Float, h: Float, deg: Float): Pair<Float, Float> {
 fun PostDoc.withLook(look: TemplateLook): PostDoc = copy(
     accentHex = look.accentHex ?: accentHex,
     backgroundHex = look.bgHex ?: backgroundHex,
+    bgMode = BgMode.TEMPLATE,
+    manualAccent = false,
     meshStyle = if (look.mesh != MeshStyle.OFF) look.mesh else meshStyle,
     grain = look.grain || grain,
     photoFrame = look.frame ?: photoFrame,
@@ -396,6 +453,8 @@ fun PostDoc.withTemplate(spec: PostTemplateSpec): PostDoc {
     val base = copy(
         templateId = spec.id,
         lookIndex = 0,
+        bgMode = BgMode.TEMPLATE,
+        manualAccent = false,
         texts = mergedTexts
     )
     return spec.look?.let { base.withLook(it) } ?: base
@@ -512,7 +571,8 @@ val PostTemplates: List<PostTemplateSpec> by lazy {
         InfoTemplates +
         MarketingTemplates +
         StudyTemplates +
-        DeviceTemplates
+        DeviceTemplates +
+        SceneTemplates
 }
 
 fun postTemplate(id: String): PostTemplateSpec {

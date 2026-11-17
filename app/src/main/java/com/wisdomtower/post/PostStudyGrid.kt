@@ -338,18 +338,21 @@ internal object PostStudyGrid {
         val h: Int,
         val look: Look,
         val lastCell: Int,
-        val fitScale: Float = 1f
+        val fitScale: Float = 1f,
+        val brand: PostBrand = PostBrand()
     ) {
         val step: Float = h * (LAST - FIRST) / (RULES - 1)
         val left: Float = w * 0.065f
         val width: Float = w * 0.91f
+
+        val activeTheme: PostGlobalTheme? = if (!doc.themeLock) PostThemes.byId(brand.globalThemeId) else null
 
         /** A dark background lifts every ink (see isDark). */
         val dark: Boolean = isDark(doc)
 
         /** The post's Text color, if one was picked. It colors the body and the headings. */
         val userInk: Int? = parseColor(doc.textHex)
-        val bodyInk: Int = userInk ?: tone(INK)
+        val bodyInk: Int = userInk ?: tone(activeTheme?.notesInk ?: INK)
         var cell = 0
         val overflow = LinkedHashSet<String>()
 
@@ -746,21 +749,21 @@ internal object PostStudyGrid {
      * Draws the text slots of a study post on the line grid and returns the slots that did not fit (empty when everything fits).
      * slots: the text boxes the template has; text in other slots is ignored, as for every template.
      */
-    fun draw(context: Context, canvas: Canvas, doc: PostDoc, w: Int, h: Int, slots: Set<String>): List<String> =
-        drawFit(context, canvas, doc, w, h, slots).slots
+    fun draw(context: Context, canvas: Canvas, doc: PostDoc, w: Int, h: Int, slots: Set<String>, brand: PostBrand = PostBrand()): List<String> =
+        drawFit(context, canvas, doc, w, h, slots, brand).slots
 
     /**
      * Counts how many lines a post takes without drawing it anywhere visible.
      * Used by the review screens to show "Lines 24 / 29" or the "Does not fit" note next to the preview.
      */
-    fun measure(context: Context, doc: PostDoc): Fit {
+    fun measure(context: Context, doc: PostDoc, brand: PostBrand = PostBrand()): Fit {
         val w = doc.size.width
         val h = doc.size.height
         val slots = postTemplate(doc.templateId).layout(doc.size).slots
             .filter { it.literal == null }
             .map { it.slot }
             .toSet()
-        return drawFit(context, null, doc, w, h, slots)
+        return drawFit(context, null, doc, w, h, slots, brand)
     }
 
     /**
@@ -768,12 +771,12 @@ internal object PostStudyGrid {
      * Shrink-to-readable-minimum overflow policy: if the sheet overflows at 1.0x scale, automatically tries progressively
      * tighter body scales down to the readable floor (0.54 * step) before leaving any rows out.
      */
-    fun drawFit(context: Context, canvas: Canvas?, doc: PostDoc, w: Int, h: Int, slots: Set<String>): Fit {
+    fun drawFit(context: Context, canvas: Canvas?, doc: PostDoc, w: Int, h: Int, slots: Set<String>, brand: PostBrand = PostBrand()): Fit {
         val candidateScales = floatArrayOf(1.0f, 0.90f, 0.82f, 0.75f, 0.68f)
         var chosenScale = 1.0f
         var lastProbeFit: Fit? = null
         for (sc in candidateScales) {
-            val fit = drawFitOnce(context, null, doc, w, h, slots, sc)
+            val fit = drawFitOnce(context, null, doc, w, h, slots, sc, brand)
             lastProbeFit = fit
             chosenScale = sc
             if (fit.fits) break
@@ -781,7 +784,7 @@ internal object PostStudyGrid {
         if (canvas == null && lastProbeFit != null) {
             return lastProbeFit
         }
-        return drawFitOnce(context, canvas, doc, w, h, slots, chosenScale)
+        return drawFitOnce(context, canvas, doc, w, h, slots, chosenScale, brand)
     }
 
     private fun drawFitOnce(
@@ -791,10 +794,24 @@ internal object PostStudyGrid {
         w: Int,
         h: Int,
         slots: Set<String>,
-        fitScale: Float
+        fitScale: Float,
+        brand: PostBrand = PostBrand()
     ): Fit {
-        val look = lookFor(doc.templateId)
-        val page = Page(context, canvas, doc, w, h, look, if (doc.showFooter) LAST_CELL - 1 else LAST_CELL, fitScale)
+        val activeTheme = if (!doc.themeLock) PostThemes.byId(brand.globalThemeId) else null
+        val baseLook = lookFor(doc.templateId)
+        val look = if (activeTheme != null) {
+            baseLook.copy(
+                marker = activeTheme.accent,
+                card = Color.argb(36, Color.red(activeTheme.accent), Color.green(activeTheme.accent), Color.blue(activeTheme.accent)),
+                border = activeTheme.accent
+            )
+        } else {
+            baseLook
+        }
+        val headMain = activeTheme?.notesInk ?: NAVY
+        val headSub = activeTheme?.secondary ?: BLUE
+        val headRule = activeTheme?.accent ?: RED
+        val page = Page(context, canvas, doc, w, h, look, if (doc.showFooter) LAST_CELL - 1 else LAST_CELL, fitScale, brand)
 
         fun text(slot: String): String =
             if (slot in slots && slot !in doc.hiddenTextSlots) doc.texts[slot].orEmpty().trim() else ""
@@ -835,12 +852,12 @@ internal object PostStudyGrid {
                     continue
                 }
                 if (t.startsWith("## ")) {
-                    page.heading(slot, t.drop(3), 0.80f, BLUE, 1, 0.06f)
+                    page.heading(slot, t.drop(3), 0.80f, headSub, 1, 0.06f)
                     counter = 0
                     continue
                 }
                 if (t.startsWith("# ")) {
-                    page.heading(slot, t.drop(2), 0.88f, NAVY, 1, 0.07f, RED)
+                    page.heading(slot, t.drop(2), 0.88f, headMain, 1, 0.07f, headRule)
                     counter = 0
                     continue
                 }
@@ -917,10 +934,10 @@ internal object PostStudyGrid {
         val acronym = text(PostSlots.NUMBER)
         val headline = text(PostSlots.HEADLINE)
         if (headline.isNotEmpty()) {
-            page.heading(PostSlots.HEADLINE, headline, look.headScale, NAVY, look.headCells, 0.08f, RED)
+            page.heading(PostSlots.HEADLINE, headline, look.headScale, headMain, look.headCells, 0.08f, headRule)
         }
         if (acronym.isNotEmpty()) {
-            page.heading(PostSlots.NUMBER, acronym, 1.45f, PURPLE, 2, 0f)
+            page.heading(PostSlots.NUMBER, acronym, 1.45f, activeTheme?.secondary ?: PURPLE, 2, 0f)
         }
 
         flow(PostSlots.BODY, text(PostSlots.BODY), ListStyle.NONE)

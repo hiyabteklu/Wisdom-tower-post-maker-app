@@ -655,14 +655,14 @@ internal val InfoTemplates: List<PostTemplateSpec> = listOf(
                 backdrop = Backdrop.SPOT,
                 logoAnchor = LogoAnchor.TOP_LEFT,
                 decor = listOf(
-                    DecorBox(DecorShape.DEVICE_3D, 0.06f, 0.16f, 0.88f, 0.62f, PostTone.ACCENT, secondaryTone = PostTone.DEEP, tiltX = -12f, tiltY = 8f, variant = 1),
-                    DecorBox(DecorShape.PILL, 0.08f, 0.24f, 0.46f, 0.10f, PostTone.SOFT, alpha = 245, panel = true),
-                    DecorBox(DecorShape.PILL, 0.46f, 0.64f, 0.46f, 0.10f, PostTone.ACCENT, alpha = 250, panel = true)
+                    DecorBox(DecorShape.DEVICE_3D, 0.10f, 0.18f, 0.80f, 0.58f, PostTone.ACCENT, secondaryTone = PostTone.DEEP, tiltX = -12f, tiltY = 8f, variant = 1),
+                    DecorBox(DecorShape.PILL, 0.10f, 0.24f, 0.44f, 0.10f, PostTone.SOFT, alpha = 245, panel = true),
+                    DecorBox(DecorShape.PILL, 0.46f, 0.64f, 0.44f, 0.10f, PostTone.ACCENT, alpha = 250, panel = true)
                 ),
                 slots = listOf(
-                    SlotBox(PostSlots.EYEBROW, 0.20f, 0.09f, 0.60f, 0.042f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.18f),
-                    SlotBox(PostSlots.WORD, 0.11f, 0.255f, 0.40f, 0.07f, size = 44f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER),
-                    SlotBox(PostSlots.HEADLINE, 0.49f, 0.655f, 0.40f, 0.07f, size = 44f, font = PostFont.DISPLAY, tone = PostTone.DARK, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER)
+                    SlotBox(PostSlots.EYEBROW, 0.20f, 0.135f, 0.60f, 0.042f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.18f),
+                    SlotBox(PostSlots.WORD, 0.12f, 0.255f, 0.40f, 0.07f, size = 44f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER),
+                    SlotBox(PostSlots.HEADLINE, 0.48f, 0.655f, 0.40f, 0.07f, size = 44f, font = PostFont.DISPLAY, tone = PostTone.DARK, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER)
                 )
             ),
             standard = TemplateLayout(
@@ -795,7 +795,7 @@ internal val InfoTemplates: List<PostTemplateSpec> = listOf(
                 slots = listOf(
                     SlotBox(PostSlots.EYEBROW, 0.20f, 0.09f, 0.60f, 0.042f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.18f),
                     SlotBox(PostSlots.HEADLINE, 0.08f, 0.15f, 0.84f, 0.14f, size = 96f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 0.94f),
-                    SlotBox(PostSlots.LIST, 0.26f, 0.34f, 0.62f, 0.50f, size = 44f, font = PostFont.DISPLAY, tone = PostTone.TEXT, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.65f)
+                    SlotBox(PostSlots.LIST, 0.26f, 0.34f, 0.62f, 0.50f, size = 44f, font = PostFont.DISPLAY, tone = PostTone.TEXT, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, list = ListStyle.NONE, anchorsFrom = DecorShape.CHECK_CARDS)
                 )
             ),
             standard = TemplateLayout(
@@ -808,7 +808,7 @@ internal val InfoTemplates: List<PostTemplateSpec> = listOf(
                 slots = listOf(
                     SlotBox(PostSlots.EYEBROW, 0.07f, 0.22f, 0.34f, 0.048f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.16f),
                     SlotBox(PostSlots.HEADLINE, 0.07f, 0.29f, 0.34f, 0.36f, size = 88f, font = PostFont.DISPLAY, tone = PostTone.TEXT, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 0.94f),
-                    SlotBox(PostSlots.LIST, 0.56f, 0.16f, 0.34f, 0.68f, size = 38f, font = PostFont.DISPLAY, tone = PostTone.TEXT, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.70f)
+                    SlotBox(PostSlots.LIST, 0.56f, 0.16f, 0.34f, 0.68f, size = 38f, font = PostFont.DISPLAY, tone = PostTone.TEXT, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, list = ListStyle.NONE, anchorsFrom = DecorShape.CHECK_CARDS)
                 )
             ),
             wide = TemplateLayout(
@@ -821,7 +821,7 @@ internal val InfoTemplates: List<PostTemplateSpec> = listOf(
                 slots = listOf(
                     SlotBox(PostSlots.EYEBROW, 0.07f, 0.22f, 0.34f, 0.052f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.16f),
                     SlotBox(PostSlots.HEADLINE, 0.07f, 0.29f, 0.34f, 0.38f, size = 92f, font = PostFont.DISPLAY, tone = PostTone.TEXT, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 0.94f),
-                    SlotBox(PostSlots.LIST, 0.56f, 0.14f, 0.34f, 0.72f, size = 38f, font = PostFont.DISPLAY, tone = PostTone.TEXT, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.70f)
+                    SlotBox(PostSlots.LIST, 0.56f, 0.14f, 0.34f, 0.72f, size = 38f, font = PostFont.DISPLAY, tone = PostTone.TEXT, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, list = ListStyle.NONE, anchorsFrom = DecorShape.CHECK_CARDS)
                 )
             )
         )
@@ -921,7 +921,7 @@ internal val InfoTemplates: List<PostTemplateSpec> = listOf(
                 slots = listOf(
                     SlotBox(PostSlots.EYEBROW, 0.20f, 0.09f, 0.60f, 0.042f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.18f),
                     SlotBox(PostSlots.HEADLINE, 0.08f, 0.15f, 0.84f, 0.14f, size = 96f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 0.94f),
-                    SlotBox(PostSlots.LIST, 0.12f, 0.34f, 0.76f, 0.48f, size = 54f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.60f)
+                    SlotBox(PostSlots.LIST, 0.12f, 0.34f, 0.76f, 0.48f, size = 54f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, list = ListStyle.NONE, anchorsFrom = DecorShape.RIBBON_PATH)
                 )
             ),
             standard = TemplateLayout(
@@ -934,7 +934,7 @@ internal val InfoTemplates: List<PostTemplateSpec> = listOf(
                 slots = listOf(
                     SlotBox(PostSlots.EYEBROW, 0.07f, 0.22f, 0.34f, 0.048f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.16f),
                     SlotBox(PostSlots.HEADLINE, 0.07f, 0.29f, 0.34f, 0.36f, size = 88f, font = PostFont.DISPLAY, tone = PostTone.TEXT, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 0.94f),
-                    SlotBox(PostSlots.LIST, 0.48f, 0.18f, 0.42f, 0.64f, size = 46f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.65f)
+                    SlotBox(PostSlots.LIST, 0.48f, 0.18f, 0.42f, 0.64f, size = 46f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, list = ListStyle.NONE, anchorsFrom = DecorShape.RIBBON_PATH)
                 )
             ),
             wide = TemplateLayout(
@@ -947,7 +947,7 @@ internal val InfoTemplates: List<PostTemplateSpec> = listOf(
                 slots = listOf(
                     SlotBox(PostSlots.EYEBROW, 0.07f, 0.22f, 0.34f, 0.052f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.16f),
                     SlotBox(PostSlots.HEADLINE, 0.07f, 0.29f, 0.34f, 0.38f, size = 92f, font = PostFont.DISPLAY, tone = PostTone.TEXT, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 0.94f),
-                    SlotBox(PostSlots.LIST, 0.48f, 0.16f, 0.42f, 0.68f, size = 48f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.65f)
+                    SlotBox(PostSlots.LIST, 0.48f, 0.16f, 0.42f, 0.68f, size = 48f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, list = ListStyle.NONE, anchorsFrom = DecorShape.RIBBON_PATH)
                 )
             )
         )
@@ -981,7 +981,7 @@ internal val InfoTemplates: List<PostTemplateSpec> = listOf(
                 ),
                 slots = listOf(
                     SlotBox(PostSlots.EYEBROW, 0.20f, 0.10f, 0.60f, 0.042f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.18f),
-                    SlotBox(PostSlots.HEADLINE, 0.18f, 0.30f, 0.64f, 0.28f, size = 96f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 0.94f),
+                    SlotBox(PostSlots.HEADLINE, 0.18f, 0.30f, 0.64f, 0.28f, size = 96f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 0.94f, anchorsFrom = DecorShape.CARD_FAN),
                     SlotBox(PostSlots.BUTTON, 0.24f, 0.78f, 0.52f, 0.06f, size = 24f, font = PostFont.BOLD, tone = PostTone.DARK, centered = true, caps = true, fit = FitMode.FILL, chip = PostTone.ACCENT)
                 )
             ),
@@ -994,7 +994,7 @@ internal val InfoTemplates: List<PostTemplateSpec> = listOf(
                 ),
                 slots = listOf(
                     SlotBox(PostSlots.EYEBROW, 0.24f, 0.09f, 0.52f, 0.045f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.18f),
-                    SlotBox(PostSlots.HEADLINE, 0.20f, 0.28f, 0.60f, 0.32f, size = 92f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 0.94f),
+                    SlotBox(PostSlots.HEADLINE, 0.20f, 0.28f, 0.60f, 0.32f, size = 92f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 0.94f, anchorsFrom = DecorShape.CARD_FAN),
                     SlotBox(PostSlots.BUTTON, 0.28f, 0.80f, 0.44f, 0.068f, size = 22f, font = PostFont.BOLD, tone = PostTone.DARK, centered = true, caps = true, fit = FitMode.FILL, chip = PostTone.ACCENT)
                 )
             ),
@@ -1007,7 +1007,7 @@ internal val InfoTemplates: List<PostTemplateSpec> = listOf(
                 ),
                 slots = listOf(
                     SlotBox(PostSlots.EYEBROW, 0.28f, 0.08f, 0.44f, 0.05f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.18f),
-                    SlotBox(PostSlots.HEADLINE, 0.24f, 0.26f, 0.52f, 0.36f, size = 96f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 0.94f),
+                    SlotBox(PostSlots.HEADLINE, 0.24f, 0.26f, 0.52f, 0.36f, size = 96f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 0.94f, anchorsFrom = DecorShape.CARD_FAN),
                     SlotBox(PostSlots.BUTTON, 0.34f, 0.81f, 0.32f, 0.075f, size = 22f, font = PostFont.BOLD, tone = PostTone.DARK, centered = true, caps = true, fit = FitMode.FILL, chip = PostTone.ACCENT)
                 )
             )

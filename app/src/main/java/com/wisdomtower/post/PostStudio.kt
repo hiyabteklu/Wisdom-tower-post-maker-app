@@ -179,6 +179,7 @@ fun PostStudioScreen(
     var moreSheetOpen by rememberSaveable { mutableStateOf(false) }
     var exportSheetOpen by rememberSaveable { mutableStateOf(false) }
     var quickTarget by rememberSaveable { mutableStateOf<String?>(null) }
+    var showSafeZones by rememberSaveable { mutableStateOf(false) }
 
     val spec = postTemplate(doc.templateId).withLookIndex(doc.lookIndex)
     val layout = spec.layout(doc.size)
@@ -324,7 +325,8 @@ fun PostStudioScreen(
                         selectedIcon = selectedIcon,
                         onSelectIcon = { selectedIcon = it },
                         moveLogo = moveLogo,
-                        moveOn = moveOn
+                        moveOn = moveOn,
+                        showSafeZones = showSafeZones
                     )
                 } else {
                     NeighborPreviewPage(
@@ -417,7 +419,9 @@ fun PostStudioScreen(
             onOpenMore = { moreSheetOpen = true },
             quickTarget = quickTarget,
             onQuickTarget = { quickTarget = if (quickTarget == it) null else it },
-            onPickBackgroundPhoto = onPickBackgroundPhoto
+            onPickBackgroundPhoto = onPickBackgroundPhoto,
+            showSafeZones = showSafeZones,
+            onToggleSafeZones = { showSafeZones = !showSafeZones }
         )
 
         // 5. 3-snap-state Bottom Sheet (0 = PEEK, 1 = HALF, 2 = FULL) above the Bottom Nav
@@ -439,6 +443,7 @@ fun PostStudioScreen(
             doc = doc,
             onDoc = onDoc,
             brand = brand,
+            onBrand = onBrand,
             library = library,
             selectedSlot = selectedSlot,
             onSelectSlot = { selectedSlot = it },
@@ -571,7 +576,8 @@ private fun ActivePreviewPage(
     selectedIcon: Int,
     onSelectIcon: (Int) -> Unit,
     moveLogo: Boolean,
-    moveOn: Boolean
+    moveOn: Boolean,
+    showSafeZones: Boolean = false
 ) {
     val latestDoc by rememberUpdatedState(doc)
     val latestOnDoc by rememberUpdatedState(onDoc)
@@ -710,6 +716,49 @@ private fun ActivePreviewPage(
                 )
             }
 
+            // Editor-only TikTok / Reels / Shorts safe-zone overlay (never drawn in exports)
+            if (showSafeZones) {
+                Canvas(Modifier.fillMaxSize()) {
+                    val w = size.width
+                    val h = size.height
+                    val dangerColor = Color(0x55EF4444)
+                    // Top status/search bar zone (0..13%)
+                    drawRect(
+                        color = dangerColor,
+                        topLeft = ComposeOffset(0f, 0f),
+                        size = ComposeSize(w, h * PostSafeArea.STORY_SAFE_TOP)
+                    )
+                    // Bottom caption/scrub bar zone (79..100%)
+                    drawRect(
+                        color = dangerColor,
+                        topLeft = ComposeOffset(0f, h * PostSafeArea.STORY_SAFE_BOTTOM),
+                        size = ComposeSize(w, h * (1f - PostSafeArea.STORY_SAFE_BOTTOM))
+                    )
+                    // Right icon rail zone (91..100% between top and bottom)
+                    drawRect(
+                        color = dangerColor,
+                        topLeft = ComposeOffset(w * PostSafeArea.STORY_SAFE_RIGHT, h * PostSafeArea.STORY_SAFE_TOP),
+                        size = ComposeSize(w * (1f - PostSafeArea.STORY_SAFE_RIGHT), h * (PostSafeArea.STORY_SAFE_BOTTOM - PostSafeArea.STORY_SAFE_TOP))
+                    )
+                    // Left margin zone (0..9% between top and bottom)
+                    drawRect(
+                        color = Color(0x33EF4444),
+                        topLeft = ComposeOffset(0f, h * PostSafeArea.STORY_SAFE_TOP),
+                        size = ComposeSize(w * PostSafeArea.STORY_SAFE_LEFT, h * (PostSafeArea.STORY_SAFE_BOTTOM - PostSafeArea.STORY_SAFE_TOP))
+                    )
+                    // Safe box outline
+                    drawRect(
+                        color = Color(0xFF42E6A4),
+                        topLeft = ComposeOffset(w * PostSafeArea.STORY_SAFE_LEFT, h * PostSafeArea.STORY_SAFE_TOP),
+                        size = ComposeSize(
+                            w * (PostSafeArea.STORY_SAFE_RIGHT - PostSafeArea.STORY_SAFE_LEFT),
+                            h * (PostSafeArea.STORY_SAFE_BOTTOM - PostSafeArea.STORY_SAFE_TOP)
+                        ),
+                        style = Stroke(width = 1.5.dp.toPx())
+                    )
+                }
+            }
+
             // Subtle selection outline around selected text box on the preview
             if (selectedSlot != null) {
                 val slotBox = layout.slots.firstOrNull { it.slot == selectedSlot }
@@ -754,10 +803,12 @@ private fun NeighborPreviewPage(
         baseDoc.size,
         baseDoc.texts.hashCode(),
         baseDoc.photoUri,
+        baseDoc.secondaryPhotoUri,
+        baseDoc.tertiaryPhotoUri,
         baseDoc.backgroundPhotoUri,
         brand.hashCode()
     ) {
-        "${neighborSpec.id}:${baseDoc.size.name}:${baseDoc.texts.hashCode()}:${baseDoc.photoUri}:${baseDoc.backgroundPhotoUri}:${brand.hashCode()}"
+        "${neighborSpec.id}:${baseDoc.size.name}:${baseDoc.texts.hashCode()}:${baseDoc.photoUri}:${baseDoc.secondaryPhotoUri}:${baseDoc.tertiaryPhotoUri}:${baseDoc.backgroundPhotoUri}:${brand.hashCode()}"
     }
 
     val bmp by produceState<Bitmap?>(NeighborPreviewCache.get(cacheKey), cacheKey) {
@@ -1036,7 +1087,9 @@ private fun CompactQuickStrip(
     onOpenMore: () -> Unit,
     quickTarget: String?,
     onQuickTarget: (String) -> Unit,
-    onPickBackgroundPhoto: () -> Unit
+    onPickBackgroundPhoto: () -> Unit,
+    showSafeZones: Boolean = false,
+    onToggleSafeZones: () -> Unit = {}
 ) {
     val scroll = rememberScrollState()
     Column(
@@ -1146,7 +1199,7 @@ private fun CompactQuickStrip(
                 )
             }
         } else {
-            // One scrollable row of Ratio + Quick chips (Size, Shadow, Color, Bg photo, Panels)
+            // One scrollable row of Ratio + Quick chips (Size, Shadow, Color, Bg photo, Panels, Safe zones)
             Row(
                 Modifier.fillMaxWidth().horizontalScrollWithFade(scroll, PostPalette.Ink),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -1164,6 +1217,12 @@ private fun CompactQuickStrip(
                         .width(1.dp)
                         .height(18.dp)
                         .background(PostPalette.Line)
+                )
+                CompactChip(
+                    label = "Safe zones",
+                    icon = Icons.Outlined.AspectRatio,
+                    selected = showSafeZones,
+                    onClick = onToggleSafeZones
                 )
                 CompactChip(
                     label = "Size ${(doc.textScale * 100).roundToInt()}%",
@@ -1213,10 +1272,10 @@ private fun CompactQuickStrip(
                 ) { onDoc(doc.copy(shadowAll = doc.shadowAll.copy(strength = it.roundToInt().coerceIn(0, 100)))) }
 
                 "color" -> PaletteStrip(
-                    currentHex = doc.accentHex,
+                    currentHex = if (doc.manualAccent) doc.accentHex else null,
                     brandHex = brand.accentHex,
                     allowAuto = true,
-                    onPick = { hex -> onDoc(doc.copy(accentHex = hex)) }
+                    onPick = { hex -> onDoc(doc.copy(accentHex = hex, manualAccent = hex != null)) }
                 )
 
                 "photo" -> {
@@ -1276,6 +1335,7 @@ private fun CollapsibleEditorSheet(
     doc: PostDoc,
     onDoc: (PostDoc) -> Unit,
     brand: PostBrand,
+    onBrand: (PostBrand) -> Unit = {},
     library: PostLibrary,
     selectedSlot: String?,
     onSelectSlot: (String?) -> Unit,
@@ -1416,6 +1476,7 @@ private fun CollapsibleEditorSheet(
                         doc = doc,
                         onDoc = onDoc,
                         brand = brand,
+                        onBrand = onBrand,
                         library = library,
                         selectedSlot = selectedSlot,
                         onSelectSlot = onSelectSlot,

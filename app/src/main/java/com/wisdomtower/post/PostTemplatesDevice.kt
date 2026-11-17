@@ -51,14 +51,19 @@ private fun dvScreen(p: DvPhone) = PostPhotoArea(p.sx, p.sy, p.sw, p.sh, rounded
 
 /** One big centred phone, no words, no logo header, no footer (the room under it is left for the ground shadow). */
 private fun dvHeroLayout(size: PostSize): TemplateLayout {
-    val p = dvPhone(size, 0.50f, 0.035f, 0.965f)
+    val p = if (size == PostSize.STORY) {
+        dvPhone(size, 0.50f, 0.135f, 0.785f)
+    } else {
+        dvPhone(size, 0.50f, 0.035f, 0.965f)
+    }
     return TemplateLayout(
         base = PostBase.DARK,
         backdrop = Backdrop.SPOT,
         photo = dvScreen(p),
         decor = listOf(dvBody(p)),
         slots = emptyList(),
-        bare = true
+        bare = true,
+        safeFit = true
     )
 }
 
@@ -99,7 +104,7 @@ internal val DeviceTemplates: List<PostTemplateSpec> = listOf(
         )
     ) { size ->
         size.pick3(
-            story = dvPhone(size, 0.50f, 0.252f, 0.902f).let { p ->
+            story = dvPhone(size, 0.50f, 0.30f, 0.73f).let { p ->
                 TemplateLayout(
                     base = PostBase.DARK,
                     backdrop = Backdrop.CORNER,
@@ -108,25 +113,25 @@ internal val DeviceTemplates: List<PostTemplateSpec> = listOf(
                     slots = listOf(
                         SlotBox(
                             slot = PostSlots.EYEBROW,
-                            x = 0.18f, y = 0.068f, w = 0.64f, h = 0.032f,
+                            x = 0.18f, y = 0.135f, w = 0.64f, h = 0.032f,
                             size = 19f, font = PostFont.BOLD, tone = PostTone.DARK,
                             centered = true, caps = true, fit = FitMode.FILL_WIDTH, chip = PostTone.ACCENT
                         ),
                         SlotBox(
                             slot = PostSlots.HEADLINE,
-                            x = 0.08f, y = 0.104f, w = 0.84f, h = 0.095f,
+                            x = 0.10f, y = 0.172f, w = 0.80f, h = 0.075f,
                             size = 38f, font = PostFont.DISPLAY, tone = PostTone.TEXT,
                             centered = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 1.04f
                         ),
                         SlotBox(
                             slot = PostSlots.BODY,
-                            x = 0.10f, y = 0.202f, w = 0.80f, h = 0.044f,
+                            x = 0.12f, y = 0.252f, w = 0.76f, h = 0.040f,
                             size = 22f, font = PostFont.REGULAR, tone = PostTone.MUTED,
                             centered = true, fit = FitMode.FILL, anchor = VAnchor.TOP
                         ),
                         SlotBox(
                             slot = PostSlots.BUTTON,
-                            x = 0.26f, y = 0.90f, w = 0.48f, h = 0.045f,
+                            x = 0.26f, y = 0.74f, w = 0.48f, h = 0.042f,
                             size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT,
                             centered = true, caps = true, fit = FitMode.FILL_WIDTH
                         )

@@ -407,6 +407,11 @@ internal fun SlotStyleEditor(
                             TextFx.ECHO -> "Echo"
                             TextFx.EXTRUDE -> "3D block"
                             TextFx.SPLIT_TONE -> "Split color"
+                            TextFx.GLITCH_SPLIT -> "Glitch split"
+                            TextFx.CURVE_ARC -> "Arc curve"
+                            TextFx.VERTICAL -> "Vertical"
+                            TextFx.STRIKE_REVEAL -> "Strike"
+                            TextFx.OUTLINE_STACK -> "Outline stack"
                         },
                         selected = style.fx == fx,
                         onClick = { onStyle(style.copy(fx = fx)) }

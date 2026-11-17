@@ -567,14 +567,9 @@ internal fun EditorTabs(
                                 Modifier.fillMaxWidth().horizontalScrollWithFade(anchorScroll, PostPalette.Surface),
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                CompactChip(
-                                    label = "Template default",
-                                    selected = doc.logoAnchor == null,
-                                    onClick = { onDoc(doc.copy(logoAnchor = null, logoCx = null, logoCy = null)) }
-                                )
                                 LogoAnchor.values().forEach { a ->
                                     CompactChip(
-                                        label = a.label,
+                                        label = if (a == LogoAnchor.AUTO) "Template default" else a.label,
                                         selected = doc.logoAnchor == a,
                                         onClick = { onDoc(doc.copy(logoAnchor = a, logoCx = null, logoCy = null)) }
                                     )
@@ -605,11 +600,6 @@ internal fun EditorTabs(
                                 Modifier.fillMaxWidth().horizontalScrollWithFade(lContrastScroll, PostPalette.Surface),
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                CompactChip(
-                                    label = "Brand default",
-                                    selected = doc.logoContrast == null,
-                                    onClick = { onDoc(doc.copy(logoContrast = null)) }
-                                )
                                 LogoContrast.values().forEach { cm ->
                                     CompactChip(
                                         label = cm.label,

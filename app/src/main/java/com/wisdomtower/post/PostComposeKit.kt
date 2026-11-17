@@ -898,9 +898,22 @@ object PostComposeKit {
         h: Float
     ) {
         val style = doc.cutoutStyle
+        val defaultCx = when (val c = layout.cutout) {
+            is CutoutBox -> c.x + c.w * 0.5f
+            is PostPhotoArea -> c.x + c.w * 0.5f
+            else -> 0.5f
+        }
+        val defaultBottomY = when (val c = layout.cutout) {
+            is CutoutBox -> c.y + c.h
+            is PostPhotoArea -> c.y + c.h
+            else -> 0.94f
+        }
+        val normCx = if (doc.cutoutX == 0.5f && doc.cutoutY == 0.94f) defaultCx else doc.cutoutX
+        val normBottomY = if (doc.cutoutX == 0.5f && doc.cutoutY == 0.94f) defaultBottomY else doc.cutoutY
+
         if (cutoutBitmap == null || cutoutBitmap.isRecycled) {
-            if (!layout.cutoutShowDefault) return
-            drawDefaultSubjectSilhouette(canvas, doc, accentColor, lightColor, darkColor, w, h)
+            if (!layout.cutoutShowDefault && layout.cutout == null) return
+            drawDefaultSubjectSilhouette(canvas, doc, normCx, normBottomY, accentColor, lightColor, darkColor, w, h)
             return
         }
 
@@ -908,8 +921,8 @@ object PostComposeKit {
         val targetH = h * 0.66f * scale
         val aspect = cutoutBitmap.width.toFloat() / max(1, cutoutBitmap.height).toFloat()
         val targetW = targetH * aspect
-        val cx = doc.cutoutX * w
-        val bottomY = doc.cutoutY * h
+        val cx = normCx * w
+        val bottomY = normBottomY * h
         val dst = RectF(cx - targetW / 2f, bottomY - targetH, cx + targetW / 2f, bottomY)
 
         // 1. Ground contact shadow ellipse
@@ -977,6 +990,8 @@ object PostComposeKit {
     private fun drawDefaultSubjectSilhouette(
         canvas: Canvas,
         doc: PostDoc,
+        normCx: Float,
+        normBottomY: Float,
         accentColor: Int,
         lightColor: Int,
         darkColor: Int,
@@ -984,8 +999,8 @@ object PostComposeKit {
         h: Float
     ) {
         val scale = doc.cutoutScale.coerceIn(0.4f, 2.2f)
-        val cx = doc.cutoutX * w
-        val bottomY = doc.cutoutY * h
+        val cx = normCx * w
+        val bottomY = normBottomY * h
         val figH = h * 0.50f * scale
         val figW = figH * 0.72f
 
@@ -1083,7 +1098,7 @@ object PostComposeKit {
 
                 // Glowing razor seam line across split
                 val seamPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    color = glowColor
+                    this.color = glowColor
                     strokeWidth = max(2.5f, fontSize * 0.018f)
                 }
                 canvas.drawLine(rect.left - shift, midY, rect.right + shift, midY, seamPaint)
@@ -1128,7 +1143,7 @@ object PostComposeKit {
                 val tw = p.measureText(text)
                 val strikeY = rect.centerY()
                 val slashPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    color = Color.rgb(239, 68, 68)
+                    this.color = Color.rgb(239, 68, 68)
                     strokeWidth = max(4f, fontSize * 0.09f)
                     strokeCap = Paint.Cap.ROUND
                 }
@@ -1145,7 +1160,7 @@ object PostComposeKit {
                 val outPaint = TextPaint(paint).apply {
                     style = Paint.Style.STROKE
                     strokeWidth = max(2.5f, fontSize * 0.032f)
-                    color = withAlpha(accentColor, 155)
+                    this.color = withAlpha(accentColor, 155)
                 }
                 val off = fontSize * 0.065f
                 canvas.drawText(text, drawX + off, drawY - off, outPaint)

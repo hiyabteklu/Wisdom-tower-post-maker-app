@@ -368,10 +368,10 @@ object PostRenderer {
             val studySlots = layout.slots.filter { it.literal == null }.map { it.slot }.toSet()
             overflow.addAll(PostStudyGrid.draw(context, canvas, doc, w, h, studySlots))
         } else {
-            val hasCutout = !doc.cutoutUri.isNullOrBlank() || layout.cutoutShowDefault
+            val hasCutout = !doc.cutoutUri.isNullOrBlank() || layout.cutoutShowDefault || layout.cutout != null
             val behindSet = if (doc.textBehind.isNotEmpty()) {
                 doc.textBehind
-            } else if (layout.cutoutShowDefault) {
+            } else if (layout.cutoutShowDefault || layout.cutout != null) {
                 setOf(PostSlots.WORD, PostSlots.LETTER)
             } else {
                 emptySet()

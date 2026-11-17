@@ -118,11 +118,6 @@ fun EngineControls(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            CompactChip(
-                label = "Template style",
-                selected = doc.cutoutStyle == null,
-                onClick = { onDoc(doc.copy(cutoutStyle = null)) }
-            )
             CutoutStyle.values().forEach { cs ->
                 CompactChip(
                     label = cs.label,

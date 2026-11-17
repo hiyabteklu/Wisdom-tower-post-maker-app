@@ -413,17 +413,20 @@ fun PostStudioScreen(
             onPickBackgroundPhoto = onPickBackgroundPhoto
         )
 
-        // 5. Collapsible Bottom Sheet above the Bottom Nav
+        // 5. 3-snap-state Bottom Sheet (0 = PEEK, 1 = HALF, 2 = FULL) above the Bottom Nav
         CollapsibleEditorSheet(
-            expanded = sheetExpanded,
-            onExpandedChange = { sheetExpanded = it },
+            snapState = sheetSnap,
+            onSnapChange = { sheetSnap = it.coerceIn(0, 2) },
             activeTab = activeTab,
             onTabSelect = { tapped ->
-                if (activeTab == tapped && sheetExpanded) {
-                    sheetExpanded = false
+                if (tapped == "template") {
+                    activeTab = "template"
+                    sheetSnap = if (sheetSnap == 0) 1 else 0
+                } else if (activeTab == tapped && sheetSnap > 0) {
+                    sheetSnap = if (sheetSnap == 1) 2 else 0
                 } else {
                     activeTab = tapped
-                    sheetExpanded = true
+                    if (sheetSnap == 0) sheetSnap = 1
                 }
             },
             doc = doc,

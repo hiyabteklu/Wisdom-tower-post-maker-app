@@ -40,11 +40,30 @@ data class Backdrop(
         val GRID = Backdrop(PostTone.SOFT, PostTone.DEEP, 90f, "Grid")
         val PAPER = Backdrop(PostTone.PAPER, PostTone.PAPER, 90f, "Paper")
         val MESH = Backdrop(PostTone.ACCENT, PostTone.DEEP, 140f, "Mesh")
+        val DIAG = Backdrop(PostTone.ACCENT, PostTone.DARK, 135f, "Diag")
+        val EDITORIAL = Backdrop(PostTone.DEEP, PostTone.SOFT, 160f, "Editorial")
 
-        private val ALL = listOf(SPOT, CORNER, RAYS, GRID, PAPER, MESH)
+        private val ALL = listOf(SPOT, CORNER, RAYS, GRID, PAPER, MESH, DIAG, EDITORIAL)
         fun values(): Array<Backdrop> = ALL.toTypedArray()
     }
 }
+
+enum class ScrimMode {
+    NONE,
+    TOP,
+    BOTTOM,
+    RIGHT,
+    FULL
+}
+
+data class CutoutBox(
+    val x: Float,
+    val y: Float,
+    val w: Float,
+    val h: Float,
+    val rimTone: PostTone? = null,
+    val shadow: Boolean = true
+)
 
 enum class PostFont {
     DISPLAY,
@@ -250,6 +269,8 @@ data class PostPhotoArea(
     val rotate: Float = 0f,
     val dim: Int = 0,
     val arch: Boolean = false,
+    val corner: Float = 0f,
+    val scrim: ScrimMode = ScrimMode.NONE,
     val rimTone: PostTone? = null,
     val shadow: Boolean = false
 ) {
@@ -257,7 +278,7 @@ data class PostPhotoArea(
         get() = when {
             arch -> PhotoFrame.ARCH
             circle -> PhotoFrame.CIRCLE
-            rounded -> PhotoFrame.ROUNDED
+            rounded || corner > 0f -> PhotoFrame.ROUNDED
             else -> null
         }
 }
@@ -284,7 +305,8 @@ data class TemplateLayout(
     val logoAnchor: LogoAnchor = LogoAnchor.TOP_LEFT,
     val logoKeepOut: RectF? = null,
     val cutoutShowDefault: Boolean = false,
-    val cutoutStyle: CutoutStyle = CutoutStyle.RIM_GLOW
+    val cutoutStyle: CutoutStyle = CutoutStyle.RIM_GLOW,
+    val cutout: Any? = null
 )
 
 data class TemplateLook(
@@ -302,7 +324,22 @@ data class TemplateLook(
     val cutoutY: Float = 0.94f,
     val cutoutScale: Float = 1f,
     val cutoutStyle: CutoutStyle? = null
-)
+) {
+    constructor(
+        name: String,
+        accentHex: String?,
+        bgHex: String?,
+        base: PostBase?,
+        cutoutStyle: CutoutStyle
+    ) : this(
+        name = name,
+        accentHex = accentHex,
+        bgHex = bgHex,
+        base = base,
+        backdrop = null,
+        cutoutStyle = cutoutStyle
+    )
+}
 
 class PostTemplateSpec(
     val id: String,

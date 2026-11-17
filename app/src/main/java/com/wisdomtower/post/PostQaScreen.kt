@@ -79,26 +79,26 @@ private enum class QaText(val label: String) {
 private val ChapterFixtureBody = """
 | Law | Formula | Unit | Domain | Condition |
 |---|---|---|---|---|
-| Gauss | $\oint \vec{E}\cdot d\vec{A} = \frac{Q}{\varepsilon_0}$ | $\text{N}\cdot\text{m}^2/\text{C}$ | Electrostatics | Closed surface |
-| Faraday | $\mathcal{E} = -\frac{d\Phi_B}{dt}$ | $\text{V}$ | Induction | Time-varying $\vec{B}$ |
+| Gauss | ${'$'}\oint \vec{E}\cdot d\vec{A} = \frac{Q}{\varepsilon_0}${'$'} | ${'$'}\text{N}\cdot\text{m}^2/\text{C}${'$'} | Electrostatics | Closed surface |
+| Faraday | ${'$'}\mathcal{E} = -\frac{d\Phi_B}{dt}${'$'} | ${'$'}\text{V}${'$'} | Induction | Time-varying ${'$'}\vec{B}${'$'} |
 
-$$\begin{bmatrix} 2 & -1 & 0 & 4 \\ 0 & 3 & -2 & 1 \\ 1 & 0 & 5 & -3 \\ -1 & 2 & 1 & 6 \end{bmatrix} \quad \left[\begin{array}{ccc|c} 1 & 2 & -1 & 4 \\ 0 & 1 & 3 & -2 \\ 0 & 0 & 1 & 5 \end{array}\right]$$
+${'$'}${'$'}\begin{bmatrix} 2 & -1 & 0 & 4 \\ 0 & 3 & -2 & 1 \\ 1 & 0 & 5 & -3 \\ -1 & 2 & 1 & 6 \end{bmatrix} \quad \left[\begin{array}{ccc|c} 1 & 2 & -1 & 4 \\ 0 & 1 & 3 & -2 \\ 0 & 0 & 1 & 5 \end{array}\right]${'$'}${'$'}
 
-$$f(x) = \begin{cases} \frac{\int_0^x e^{-t^2}\,dt}{1 + \frac{x^2}{1 + x}} & x \ge 0 \\ -\sqrt{1 - x^3} & x < 0 \end{cases}$$
+${'$'}${'$'}f(x) = \begin{cases} \frac{\int_0^x e^{-t^2}\,dt}{1 + \frac{x^2}{1 + x}} & x \ge 0 \\ -\sqrt{1 - x^3} & x < 0 \end{cases}${'$'}${'$'}
 
-$$\ce{N2(g) + 3H2(g)} \xrightleftharpoons[\text{450}^\circ\text{C}]{\text{Fe cat.}} \ce{2NH3(g)} \xrightarrow[\Delta]{\text{H2O}} \ce{2NH4+(aq) + 2OH-(aq)}$$
+${'$'}${'$'}\ce{N2(g) + 3H2(g)} \xrightleftharpoons[\text{450}^\circ\text{C}]{\text{Fe cat.}} \ce{2NH3(g)} \xrightarrow[\Delta]{\text{H2O}} \ce{2NH4+(aq) + 2OH-(aq)}${'$'}${'$'}
 
 የኒውተን ሁለተኛ ሕግ እና የኤሌክትሮማግኔቲክ መስክ መርሆዎች በከፍተኛ ትምህርት ፈተናዎች ውስጥ በጣም አስፈላጊ ናቸው።
 """.trimIndent()
 
 private val ChapterFixtureList = """
-1. Conservation of Energy: $\Delta E = W + Q$
-  - Kinetic: $K = \frac{1}{2}mv^2$
-  - Potential: $U = mgh$
+1. Conservation of Energy: ${'$'}\Delta E = W + Q${'$'}
+  - Kinetic: ${'$'}K = \frac{1}{2}mv^2${'$'}
+  - Potential: ${'$'}U = mgh${'$'}
 2. Linear Systems: Augmented matrix row reduction
   - Pivot selection and scaling
   - Back-substitution check
-3. Calculus & Integrals: $\int_a^b f'(x)\,dx = f(b) - f(a)$
+3. Calculus & Integrals: ${'$'}\int_a^b f'(x)\,dx = f(b) - f(a)${'$'}
   - Improper bounds and Gaussian tails
 4. Chemical Equilibrium: Le Chatelier shift under pressure
   - Forward catalyst rate vs reverse rate

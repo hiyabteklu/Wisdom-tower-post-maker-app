@@ -13,7 +13,7 @@ Reasons the page was flat (diagnosed from the code and the screenshots):
 4. Row-style sheets had no bullet mark.
 5. Formulas were plain text (and typed without `$...$`), so they got no styling and no real subscripts.
 
-Order of work now: **(1) build and test everything pushed since the first phone test** (the new text engine, and the Step 8 "Lines n / 29" chip), (2) real math layout (stacked fractions, root bars), (3) the raw-tag bug in `PostFonts.styled`, (4) the rest of the list below.
+Order of work now: **(1) build and test everything pushed since the first phone test** (the new text engine, and the Step 8 "Lines n / 35" chip), (2) real math layout (stacked fractions, root bars), (3) the raw-tag bug in `PostFonts.styled`, (4) the rest of the list below.
 
 Before editing: read the latest `main`, work on `main` only (see `CLAUDE.md`), and tell the owner after each change that it has not been compiled.
 
@@ -21,7 +21,7 @@ Before editing: read the latest `main`, work on `main` only (see `CLAUDE.md`), a
 
 Commits "PostStudyGrid: Fit ...", "PostStudio: Chapter summaries chip ...", "PostBatchScreen: Chapter summaries page chip ...", and a docs commit for `AI_CONTENT_DELIVERY.md`.
 
-- `PostStudyGrid.Fit` (new): cells used out of cells available, how many rows were left out, and the first row left out as short plain text (tags and list markers stripped, at most 34 characters). `fits` is true when nothing was left out. `counter()` gives `Lines 24 / 29` (29 cells, or 28 when the footer chips are on). `warning()` gives `Does not fit, split this sheet. Left out: "..." and N more.`
+- `PostStudyGrid.Fit` (new): cells used out of cells available, how many rows were left out, and the first row left out as short plain text (tags and list markers stripped, at most 34 characters). `fits` is true when nothing was left out. `counter()` gives `Lines 30 / 35` (29 cells, or 28 when the footer chips are on). `warning()` gives `Does not fit, split this sheet. Left out: "..." and N more.`
 - `PostStudyGrid.drawFit()` is the old `draw()` plus the `Fit`; `draw()` still returns the slot list, so `PostRenderer.kt` and every other caller are unchanged.
 - `PostStudyGrid.measure(context, doc)` lays the sheet out onto a recording `Picture` canvas (nothing visible is drawn) and returns the `Fit`. The review screens call it right after the preview render; it runs the layout a second time, which should be cheap.
 - Every place that used to say `overflow.add(slot)` now calls `Page.miss(slot, raw, count)`, which also counts the rows and remembers the first one. When the page is full, the rest of the list is counted as left out (blank `---` rows excluded).
@@ -89,7 +89,7 @@ What was wrong (the new commit addresses the first four, see above):
 
 ## Done earlier (pushed to main, built once by the owner)
 
-- [x] Step 3, line-grid engine: `PostStudyGrid.kt` (30 rules, 29 text cells, baselines on the rules, content from the top, no shrinking).
+- [x] Step 3, line-grid engine: `PostStudyGrid.kt` (36 rules, 35 text cells, baselines on the rules, content from the top, no shrinking).
 - [x] Step 4, small logo in the top-right corner and small footer chips on the last line (`PostRenderer.kt`).
 - [x] Step 6 (first version), formulas: `PostMath.kt` turns `$...$` into one-line Unicode text. Real layout still to do (below).
 - [x] Step 2, own family: `CHAPTER_FAMILY = "Chapter summaries"` (`PostTemplatesStudy.kt`); the template strip shows only this family for a chapter draft and never for a poster draft; the Library lists it as its own row.
@@ -139,4 +139,16 @@ Term: explanation  (the term becomes a colored bold label on every row style)
 ```
 
 Inline: `**bold**`, `*italic*`, `==highlight==`, `[[key term]]`, `#underline#`, `[[#D11A26;B:word]]`, `$math$`.
-Budget about 29 text lines per sheet (the footer takes the last one). A wrapped line costs one line. Aim for 24 to 27.
+Budget about 35 writing spaces per sheet (the footer takes the last one). A wrapped line costs one space. Aim for 29 to 32.
+
+
+## 2026-11-17: density and editing usability pass
+
+Committed to main:
+- Study grid capacity increased from 29 to 35 writing cells (36 paper rules); paper rule spacing and grid cell count now use the same 36-rule geometry.
+- Study paper ruling reaches closer to the page edges and spare text slots use a wider writing area.
+- Study heading/body scales reduced to make long chapter titles less likely to wrap and to give teaching content more room.
+- Patrick Hand is loaded before optional handwriting-folder fallback fonts when no explicit document/slot font is selected; an intentional font selection still takes precedence.
+- Batch design scope labels now explicitly read "Edit this only" and "Edit all"; the template label reflects the active scope.
+
+Not verified yet: Android compilation, 9:16/4:3/16:9 device rendering, exact footer interaction with the 35th writing cell, and batch template switching on a phone. Do not mark these as tested until a build and phone review happen.

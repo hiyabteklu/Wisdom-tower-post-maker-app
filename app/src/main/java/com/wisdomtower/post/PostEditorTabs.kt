@@ -106,7 +106,9 @@ internal fun filterTemplatesByFamily(family: String, library: PostLibrary? = nul
             it.family.equals("Info", ignoreCase = true) || it.family.equals("Information", ignoreCase = true)
         }
         "Device" -> PostTemplates.filter {
-            it.family.equals("Device", ignoreCase = true) || it.family.equals("Device mockup", ignoreCase = true)
+            it.family.equals("Device", ignoreCase = true) ||
+                it.family.equals("Device mockup", ignoreCase = true) ||
+                it.id == "ltr-coverline"
         }
         "Study" -> PostTemplates.filter {
             it.family.equals("Study", ignoreCase = true) || it.family.equals("Chapter", ignoreCase = true) || it.id.startsWith("study-")
@@ -236,9 +238,10 @@ internal fun TemplateStrip(
                     brand.logoStamp,
                     doc.photoUri,
                     doc.secondaryPhotoUri,
-                    doc.tertiaryPhotoUri
+                    doc.tertiaryPhotoUri,
+                    doc.quaternaryPhotoUri
                 ) {
-                    "${spec.id}:${doc.size.name}:${heroWord.hashCode()}:${brand.primaryHex}:${brand.darkHex}:${brand.globalThemeId}:${brand.logoStamp}:${doc.photoUri}:${doc.secondaryPhotoUri}:${doc.tertiaryPhotoUri}"
+                    "${spec.id}:${doc.size.name}:${heroWord.hashCode()}:${brand.primaryHex}:${brand.darkHex}:${brand.globalThemeId}:${brand.logoStamp}:${doc.photoUri}:${doc.secondaryPhotoUri}:${doc.tertiaryPhotoUri}:${doc.quaternaryPhotoUri}"
                 }
                 val thumbBmp by produceState<Bitmap?>(StripThumbCache.get(thumbKey), thumbKey) {
                     if (value != null) return@produceState
@@ -250,7 +253,8 @@ internal fun TemplateStrip(
                                     texts = PostSlots.withDerivedSlots(doc.texts, spec.slots),
                                     photoUri = doc.photoUri,
                                     secondaryPhotoUri = doc.secondaryPhotoUri,
-                                    tertiaryPhotoUri = doc.tertiaryPhotoUri
+                                    tertiaryPhotoUri = doc.tertiaryPhotoUri,
+                                    quaternaryPhotoUri = doc.quaternaryPhotoUri
                                 )
                                 PostRenderer.thumbnail(context, tDoc, brand, 168).bitmap
                             }.getOrNull()
@@ -378,7 +382,7 @@ internal fun EditorTabs(
     val spec = postTemplate(doc.templateId).withLookIndex(doc.lookIndex)
     val layout = spec.layout(doc.size)
     var styleSub by rememberSaveable { mutableStateOf("colors") }
-    var photoSub by rememberSaveable { mutableStateOf("bg") }
+    var photoSub by rememberSaveable(doc.templateId) { mutableStateOf(if (spec.photoSlotCount > 0) "window" else "bg") }
     var iconGroup by rememberSaveable { mutableStateOf("mine") }
 
     val tabs = listOf(
@@ -757,10 +761,16 @@ internal fun EditorTabs(
                 val multiPhotoPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
                     if (uris.isNotEmpty()) {
                         var updated = doc
-                        val maxSlots = slotCount.coerceIn(1, 3)
-                        // Find empty slots first, then fall back to 0..maxSlots-1 in order
+                        val maxSlots = slotCount.coerceIn(1, 4)
                         val emptyIndices = (0 until maxSlots).filter { updated.photoUriAt(it).isNullOrBlank() }
-                        val targetIndices = if (emptyIndices.isNotEmpty()) emptyIndices else (0 until maxSlots).toList()
+                        val targetIndices = if (emptyIndices.size >= uris.size) {
+                            emptyIndices
+                        } else {
+                            for (i in 0 until maxSlots) {
+                                updated = updated.withPhotoUriAt(i, null).withSlotAdjust(i, PhotoSlotAdjust())
+                            }
+                            (0 until maxSlots).toList()
+                        }
                         var assigned = 0
                         for (u in uris) {
                             if (assigned >= targetIndices.size) break
@@ -928,17 +938,31 @@ internal fun EditorTabs(
                                 )
                             } else {
                                 if (slotCount >= 2) {
+                                    val anyLoaded = (0 until slotCount).any { !doc.photoUriAt(it).isNullOrBlank() }
                                     Row(
                                         Modifier.fillMaxWidth().horizontalScrollWithFade(rememberScrollState(), PostPalette.Surface),
                                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         CompactButton(
-                                            label = "Pick multiple photos (up to $slotCount)",
+                                            label = "Pick 1–$slotCount photos",
                                             icon = Icons.Outlined.PhotoCamera,
                                             primary = true,
                                             onClick = { multiPhotoPicker.launch(arrayOf("image/*")) }
                                         )
+                                        if (anyLoaded) {
+                                            CompactButton(
+                                                label = "Clear all",
+                                                icon = Icons.Outlined.RestartAlt,
+                                                onClick = {
+                                                    var cleared = doc
+                                                    for (i in 0 until slotCount) {
+                                                        cleared = cleared.withPhotoUriAt(i, null).withSlotAdjust(i, PhotoSlotAdjust())
+                                                    }
+                                                    onDoc(cleared)
+                                                }
+                                            )
+                                        }
                                         CompactChip(
                                             label = "Fill empty with Photo 1",
                                             selected = doc.fillEmptyWithFirst,

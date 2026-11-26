@@ -558,6 +558,7 @@ object PostComposeKit {
         primaryPhoto: Bitmap?,
         secondaryPhoto: Bitmap?,
         tertiaryPhoto: Bitmap?,
+        quaternaryPhoto: Bitmap? = null,
         accentColor: Int,
         secondaryColor: Int,
         lightColor: Int,
@@ -647,6 +648,24 @@ object PostComposeKit {
                 drawSingle3DDevice(context, canvas, tabRect, -3.5f, 5f, 8f, slot2Photo, 1, secondaryColor, lightColor, darkColor, deepColor, doc, isTablet = true)
                 drawSingle3DDevice(context, canvas, phoneRect, 6.5f, 4f, -10f, primaryPhoto, 0, accentColor, lightColor, darkColor, deepColor, doc, isTablet = false)
             }
+            4 -> {
+                // Variant 4: 45° 3D Layered Mobile Mockup (1, 2, 3, or 4 images)
+                drawLayered45Phones(
+                    context = context,
+                    canvas = canvas,
+                    rect = rect,
+                    doc = doc,
+                    p1 = primaryPhoto,
+                    p2 = secondaryPhoto,
+                    p3 = tertiaryPhoto,
+                    p4 = quaternaryPhoto,
+                    accentColor = accentColor,
+                    secondaryColor = secondaryColor,
+                    lightColor = lightColor,
+                    darkColor = darkColor,
+                    deepColor = deepColor
+                )
+            }
             else -> {
                 // Variant 0: Single 3D tilted hero phone
                 drawSingle3DDevice(
@@ -667,6 +686,654 @@ object PostComposeKit {
                 )
             }
         }
+    }
+
+    private data class LayeredPhoneSlot(val bitmap: Bitmap?, val slotIndex: Int)
+
+    /**
+     * 45° 3D layered mobile screen mockup (normal phone screen ratio 1080:2436):
+     * - Dynamically adapts to 1, 2, 3, or 4 inserted images:
+     *   - 1 image inserted -> renders only the base 3D mobile mockup (1 layer, centered)
+     *   - 2 images inserted -> renders base 3D mobile mockup + 1 floating layer (2 layers)
+     *   - 3 images inserted -> renders base 3D mobile mockup + 2 floating layers (3 layers)
+     *   - 4 images inserted -> renders base 3D mobile mockup + 3 floating layers (4 layers)
+     *   - 0 images inserted (default gallery preview) -> renders all 4 layers with sleek app UI placeholders
+     * - Layer 0 (first image) sits inside the realistic 3D phone chassis at the bottom-left.
+     * - Higher layers step out to the top-right by ~half a screen width so half of each layer's face remains visible.
+     */
+    private fun drawLayered45Phones(
+        context: Context,
+        canvas: Canvas,
+        rect: RectF,
+        doc: PostDoc,
+        p1: Bitmap?,
+        p2: Bitmap?,
+        p3: Bitmap?,
+        p4: Bitmap?,
+        accentColor: Int,
+        secondaryColor: Int,
+        lightColor: Int,
+        darkColor: Int,
+        deepColor: Int
+    ) {
+        if (rect.width() <= 12f || rect.height() <= 12f) return
+
+        val rawSlots = listOf(
+            LayeredPhoneSlot(p1?.takeIf { !it.isRecycled }, 0),
+            LayeredPhoneSlot(p2?.takeIf { !it.isRecycled }, 1),
+            LayeredPhoneSlot(p3?.takeIf { !it.isRecycled }, 2),
+            LayeredPhoneSlot(p4?.takeIf { !it.isRecycled }, 3)
+        )
+        val loadedSlots = rawSlots.filter { it.bitmap != null }
+
+        val activeLayers: List<LayeredPhoneSlot> = when {
+            doc.fillEmptyWithFirst && loadedSlots.isNotEmpty() -> {
+                val firstBmp = loadedSlots.first().bitmap
+                val firstIdx = loadedSlots.first().slotIndex
+                rawSlots.map { slot ->
+                    if (slot.bitmap != null) slot else LayeredPhoneSlot(firstBmp, firstIdx)
+                }
+            }
+            loadedSlots.isNotEmpty() -> loadedSlots
+            else -> rawSlots // 0 images loaded yet: show 4-layer preview in template strip & canvas
+        }
+
+        val count = activeLayers.size.coerceIn(1, 4)
+
+        // Canonical phone screen dimensions with exact device mockup ratio (1080 / 2436 = 0.44335f)
+        val sh = 1000f
+        val sw = sh * (1080f / 2436f) // 443.35f
+        val screenR = sw * 0.115f
+        val bezel = sw * 0.040f
+        val rim = sw * 0.015f
+        val frontR = screenR + bezel * 0.85f
+        val bodyR = frontR + rim
+
+        // 45° 3D axonometric basis vectors matching the reference screenshot:
+        // Horizontal screen axis u -> (ux, uy), Vertical screen axis v -> (vx, vy)
+        val ux = 0.82f
+        val uy = 0.072f
+        val vx = 0.235f
+        val vy = 0.92f
+
+        // 2D projected screen width & height of one layer
+        val projScreenW = sw * ux
+        val projScreenH = sh * vy
+
+        // Each floating layer steps right by ~49% of the projected screen width and up along the 3D normal
+        val stepX = projScreenW * 0.49f
+        val stepY = -projScreenH * 0.123f
+
+        // 3D chassis thickness extrusion vector for the base phone (down and left, opposite to the normal)
+        val extX = -25f
+        val extY = 16f
+
+        // Compute exact unscaled 2D bounding box across all active layers (0 until count) + base 3D chassis
+        var minX = Float.POSITIVE_INFINITY
+        var minY = Float.POSITIVE_INFINITY
+        var maxX = Float.NEGATIVE_INFINITY
+        var maxY = Float.NEGATIVE_INFINITY
+
+        fun includeCanonicalPoint(layerIdx: Int, cx: Float, cy: Float, extraDx: Float = 0f, extraDy: Float = 0f) {
+            val px = layerIdx * stepX + cx * ux + cy * vx + extraDx
+            val py = layerIdx * stepY + cx * uy + cy * vy + extraDy
+            if (px < minX) minX = px
+            if (px > maxX) maxX = px
+            if (py < minY) minY = py
+            if (py > maxY) maxY = py
+        }
+
+        val bLeft = -bezel - rim
+        val bTop = -bezel - rim
+        val bRight = sw + bezel + rim
+        val bBottom = sh + bezel + rim
+
+        // Base layer (index 0) includes bezel, rim, and 3D chassis depth extrusion
+        for ((cx, cy) in arrayOf(
+            bLeft to bTop,
+            bRight to bTop,
+            bRight to bBottom,
+            bLeft to bBottom
+        )) {
+            includeCanonicalPoint(0, cx, cy, 0f, 0f)
+            includeCanonicalPoint(0, cx, cy, extX * 1.15f, extY * 1.15f)
+        }
+
+        // Floating layers (1 until count)
+        for (i in 1 until count) {
+            for ((cx, cy) in arrayOf(
+                0f to 0f,
+                sw to 0f,
+                sw to sh,
+                0f to sh
+            )) {
+                includeCanonicalPoint(i, cx, cy, 0f, 0f)
+            }
+        }
+
+        val unscaledW = (maxX - minX).coerceAtLeast(1f)
+        val unscaledH = (maxY - minY).coerceAtLeast(1f)
+        val fitScale = min(rect.width() / unscaledW, rect.height() / unscaledH)
+        val fitTx = rect.centerX() - (minX + maxX) * 0.5f * fitScale
+        val fitTy = rect.centerY() - (minY + maxY) * 0.5f * fitScale
+
+        fun buildLayerMatrix(layerIdx: Int, extraDx: Float = 0f, extraDy: Float = 0f): Matrix {
+            val ox = layerIdx * stepX + extraDx
+            val oy = layerIdx * stepY + extraDy
+            return Matrix().apply {
+                setValues(
+                    floatArrayOf(
+                        ux, vx, ox,
+                        uy, vy, oy,
+                        0f, 0f, 1f
+                    )
+                )
+                postScale(fitScale, fitScale)
+                postTranslate(fitTx, fitTy)
+            }
+        }
+
+        val screenRect = RectF(0f, 0f, sw, sh)
+        val frontRect = RectF(-bezel, -bezel, sw + bezel, sh + bezel)
+        val bodyRect = RectF(bLeft, bTop, bRight, bBottom)
+        val screenPath = Path().apply { addRoundRect(screenRect, screenR, screenR, Path.Direction.CW) }
+
+        // Draw layers in back-to-front order: Layer 0 (base 3D phone) -> Layer 1 -> Layer 2 -> Layer 3
+        for (layerIdx in 0 until count) {
+            val item = activeLayers[layerIdx]
+            if (layerIdx == 0) {
+                // ============================================================
+                // LAYER 0: BASE 3D MOBILE PHONE CHASSIS + SCREEN 1
+                // ============================================================
+                // 1. Deep floor drop shadow under the 3D phone chassis
+                canvas.save()
+                canvas.concat(buildLayerMatrix(0, extX * 1.75f, extY * 1.95f))
+                val baseShadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.argb((175 * doc.sceneShadowStrength.coerceIn(0.2f, 1f)).roundToInt(), 0, 0, 0)
+                    maskFilter = BlurMaskFilter(36f, BlurMaskFilter.Blur.NORMAL)
+                }
+                canvas.drawRoundRect(bodyRect, bodyR, bodyR, baseShadowPaint)
+                canvas.restore()
+
+                // 2. 3D Extruded metallic side rail (left wall, bottom-left curve, bottom wall)
+                val railPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    shader = LinearGradient(
+                        bodyRect.left,
+                        bodyRect.top,
+                        bodyRect.right,
+                        bodyRect.bottom,
+                        intArrayOf(
+                            Color.rgb(208, 216, 228), // Top-left corner specular
+                            Color.rgb(30, 35, 46),    // Upper-left dark anodized rail
+                            Color.rgb(92, 102, 118),  // Mid-left metallic sheen
+                            Color.rgb(24, 28, 38),    // Lower-left dark rail
+                            Color.rgb(225, 232, 242), // Bottom-left corner bright highlight
+                            Color.rgb(34, 40, 52),    // Bottom rail dark metal
+                            Color.rgb(120, 130, 148)  // Bottom-right corner glint
+                        ),
+                        floatArrayOf(0f, 0.14f, 0.36f, 0.56f, 0.72f, 0.88f, 1f),
+                        Shader.TileMode.CLAMP
+                    )
+                }
+                val sliceCount = 20
+                for (s in sliceCount downTo 1) {
+                    val f = s / sliceCount.toFloat()
+                    canvas.save()
+                    canvas.concat(buildLayerMatrix(0, extX * f, extY * f))
+                    canvas.drawRoundRect(bodyRect, bodyR, bodyR, railPaint)
+                    canvas.restore()
+                }
+
+                // 3. Hardware details on the 3D extruded left & bottom rails (antenna bands, button, speaker & USB-C)
+                canvas.save()
+                canvas.concat(buildLayerMatrix(0, extX * 0.52f, extY * 0.52f))
+                val antennaPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.argb(185, 210, 220, 235)
+                    style = Paint.Style.FILL
+                }
+                // Upper-left and lower-left antenna bands
+                canvas.drawRect(RectF(bodyRect.left - 3f, sh * 0.08f, bodyRect.left + rim * 1.4f, sh * 0.092f), antennaPaint)
+                canvas.drawRect(RectF(bodyRect.left - 3f, sh * 0.89f, bodyRect.left + rim * 1.4f, sh * 0.902f), antennaPaint)
+                // Bottom-left antenna band
+                canvas.drawRect(RectF(sw * 0.14f, bodyRect.bottom - rim * 1.2f, sw * 0.165f, bodyRect.bottom + 3f), antennaPaint)
+
+                // Side action/volume button on upper-left rail
+                val btnPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    shader = LinearGradient(
+                        bodyRect.left - 4f, sh * 0.21f, bodyRect.left + 4f, sh * 0.33f,
+                        intArrayOf(Color.rgb(180, 190, 206), Color.rgb(42, 48, 60), Color.rgb(150, 160, 176)),
+                        null, Shader.TileMode.CLAMP
+                    )
+                }
+                canvas.drawRoundRect(
+                    RectF(bodyRect.left - 3.2f, sh * 0.21f, bodyRect.left + 2.5f, sh * 0.31f),
+                    4f, 4f, btnPaint
+                )
+
+                // Bottom edge USB-C charging port and speaker grille dots
+                val portPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(10, 12, 16) }
+                val portRimPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    style = Paint.Style.STROKE
+                    strokeWidth = 2f
+                    color = Color.argb(150, 180, 192, 210)
+                }
+                val portRect = RectF(sw * 0.43f, bodyRect.bottom - 4.5f, sw * 0.57f, bodyRect.bottom + 4.5f)
+                canvas.drawRoundRect(portRect, 5f, 5f, portPaint)
+                canvas.drawRoundRect(portRect, 5f, 5f, portRimPaint)
+
+                val holePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(14, 17, 24) }
+                for (g in 0 until 5) {
+                    val lx = sw * (0.23f + g * 0.034f)
+                    val rx = sw * (0.63f + g * 0.034f)
+                    val cy = bodyRect.bottom + 0.5f
+                    canvas.drawCircle(lx, cy, 2.8f, holePaint)
+                    canvas.drawCircle(rx, cy, 2.8f, holePaint)
+                }
+                canvas.restore()
+
+                // 4. Front phone face (metallic rim + obsidian black glass bezel + screen 1)
+                canvas.save()
+                canvas.concat(buildLayerMatrix(0))
+
+                // Metallic outer rim
+                val frontRimPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    shader = LinearGradient(
+                        bodyRect.left, bodyRect.top, bodyRect.right, bodyRect.bottom,
+                        intArrayOf(
+                            Color.rgb(235, 240, 248),
+                            Color.rgb(95, 105, 122),
+                            Color.rgb(36, 42, 54),
+                            Color.rgb(195, 205, 220)
+                        ),
+                        floatArrayOf(0f, 0.35f, 0.72f, 1f),
+                        Shader.TileMode.CLAMP
+                    )
+                }
+                canvas.drawRoundRect(bodyRect, bodyR, bodyR, frontRimPaint)
+
+                // Specular highlight stroke on outer rim
+                val rimHighlight = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    style = Paint.Style.STROKE
+                    strokeWidth = 2.4f
+                    shader = LinearGradient(
+                        bodyRect.left, bodyRect.top, bodyRect.right, bodyRect.bottom,
+                        intArrayOf(
+                            Color.argb(245, 255, 255, 255),
+                            Color.argb(40, 255, 255, 255),
+                            Color.argb(190, 255, 255, 255)
+                        ),
+                        floatArrayOf(0f, 0.55f, 1f),
+                        Shader.TileMode.CLAMP
+                    )
+                }
+                canvas.drawRoundRect(bodyRect, bodyR, bodyR, rimHighlight)
+
+                // Black glass bezel
+                val bezelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    shader = LinearGradient(
+                        frontRect.left, frontRect.top, frontRect.right, frontRect.bottom,
+                        intArrayOf(Color.rgb(15, 18, 24), Color.rgb(5, 7, 10), Color.rgb(12, 15, 20)),
+                        floatArrayOf(0f, 0.5f, 1f),
+                        Shader.TileMode.CLAMP
+                    )
+                }
+                canvas.drawRoundRect(frontRect, frontR, frontR, bezelPaint)
+
+                // Dark groove between metallic rim and glass bezel
+                canvas.drawRoundRect(
+                    frontRect,
+                    frontR,
+                    frontR,
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        style = Paint.Style.STROKE
+                        strokeWidth = 2f
+                        color = Color.argb(210, 0, 0, 0)
+                    }
+                )
+
+                // Screen 1 bitmap or placeholder
+                canvas.save()
+                canvas.clipPath(screenPath)
+                drawLayeredPhoneScreenContent(
+                    context = context,
+                    canvas = canvas,
+                    screenRect = screenRect,
+                    item = item,
+                    layerIdx = 0,
+                    totalLayers = count,
+                    doc = doc,
+                    accentColor = accentColor,
+                    secondaryColor = secondaryColor,
+                    lightColor = lightColor,
+                    darkColor = darkColor,
+                    deepColor = deepColor
+                )
+                canvas.restore()
+
+                // Subtle inner rim around screen window
+                canvas.drawPath(
+                    screenPath,
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        style = Paint.Style.STROKE
+                        strokeWidth = 1.8f
+                        color = Color.argb(75, 255, 255, 255)
+                    }
+                )
+
+                // Solid black Dynamic Island pill + camera lens on the base phone
+                val islandW = sw * 0.255f
+                val islandH = sh * 0.0225f
+                val islandRect = RectF(
+                    sw * 0.5f - islandW * 0.5f,
+                    sh * 0.015f,
+                    sw * 0.5f + islandW * 0.5f,
+                    sh * 0.015f + islandH
+                )
+                canvas.drawRoundRect(
+                    islandRect,
+                    islandH * 0.5f,
+                    islandH * 0.5f,
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(5, 7, 11) }
+                )
+                // Subtle camera lens dot inside the right side of the Dynamic Island
+                val lensCx = islandRect.right - islandH * 0.52f
+                val lensCy = islandRect.centerY()
+                val lensR = islandH * 0.24f
+                canvas.drawCircle(
+                    lensCx,
+                    lensCy,
+                    lensR,
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(22, 32, 58) }
+                )
+                canvas.drawCircle(
+                    lensCx - lensR * 0.25f,
+                    lensCy - lensR * 0.25f,
+                    lensR * 0.35f,
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(160, 180, 215, 255) }
+                )
+
+                canvas.restore()
+            } else {
+                // ============================================================
+                // LAYERS 1..3: FLOATING OFFSET 3D SCREEN CARDS
+                // ============================================================
+                // 1. Soft 3D cast drop shadow onto the layer below (to the bottom-left)
+                canvas.save()
+                canvas.concat(buildLayerMatrix(layerIdx, -24f, 16f))
+                val wideShadow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.argb((155 * doc.sceneShadowStrength.coerceIn(0.2f, 1f)).roundToInt(), 0, 0, 0)
+                    maskFilter = BlurMaskFilter(28f, BlurMaskFilter.Blur.NORMAL)
+                }
+                canvas.drawRoundRect(screenRect, screenR, screenR, wideShadow)
+                canvas.restore()
+
+                canvas.save()
+                canvas.concat(buildLayerMatrix(layerIdx, -9f, 6f))
+                val tightShadow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.argb((110 * doc.sceneShadowStrength.coerceIn(0.2f, 1f)).roundToInt(), 0, 0, 0)
+                    maskFilter = BlurMaskFilter(10f, BlurMaskFilter.Blur.NORMAL)
+                }
+                canvas.drawRoundRect(screenRect, screenR, screenR, tightShadow)
+                canvas.restore()
+
+                // 2. Subtle 3D glass card edge thickness on the bottom-left rim
+                canvas.save()
+                canvas.concat(buildLayerMatrix(layerIdx, -2.6f, 1.8f))
+                val glassEdge = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    shader = LinearGradient(
+                        0f, 0f, sw, sh,
+                        intArrayOf(
+                            Color.argb(150, 225, 236, 255),
+                            Color.argb(95, 160, 185, 225),
+                            Color.argb(145, 215, 228, 250)
+                        ),
+                        null, Shader.TileMode.CLAMP
+                    )
+                }
+                canvas.drawRoundRect(screenRect, screenR, screenR, glassEdge)
+                canvas.restore()
+
+                // 3. Floating screen face
+                canvas.save()
+                canvas.concat(buildLayerMatrix(layerIdx))
+
+                canvas.save()
+                canvas.clipPath(screenPath)
+                drawLayeredPhoneScreenContent(
+                    context = context,
+                    canvas = canvas,
+                    screenRect = screenRect,
+                    item = item,
+                    layerIdx = layerIdx,
+                    totalLayers = count,
+                    doc = doc,
+                    accentColor = accentColor,
+                    secondaryColor = secondaryColor,
+                    lightColor = lightColor,
+                    darkColor = darkColor,
+                    deepColor = deepColor
+                )
+                canvas.restore()
+
+                // Crisp glass rim border around the floating screen card
+                val cardBorder = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    style = Paint.Style.STROKE
+                    strokeWidth = 2.0f
+                    shader = LinearGradient(
+                        0f, 0f, sw, sh,
+                        intArrayOf(
+                            Color.argb(190, 255, 255, 255),
+                            Color.argb(75, 255, 255, 255),
+                            Color.argb(135, 255, 255, 255)
+                        ),
+                        floatArrayOf(0f, 0.5f, 1f),
+                        Shader.TileMode.CLAMP
+                    )
+                }
+                canvas.drawPath(screenPath, cardBorder)
+
+                // Translucent glass Dynamic Island pill at top-center of floating screen (matching reference screenshot)
+                val islandW = sw * 0.24f
+                val islandH = sh * 0.021f
+                val islandRect = RectF(
+                    sw * 0.5f - islandW * 0.5f,
+                    sh * 0.015f,
+                    sw * 0.5f + islandW * 0.5f,
+                    sh * 0.015f + islandH
+                )
+                canvas.drawRoundRect(
+                    islandRect,
+                    islandH * 0.5f,
+                    islandH * 0.5f,
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(120, 10, 18, 36) }
+                )
+                canvas.drawRoundRect(
+                    islandRect,
+                    islandH * 0.5f,
+                    islandH * 0.5f,
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        style = Paint.Style.STROKE
+                        strokeWidth = 1.2f
+                        color = Color.argb(80, 255, 255, 255)
+                    }
+                )
+
+                canvas.restore()
+            }
+        }
+    }
+
+    private fun drawLayeredPhoneScreenContent(
+        context: Context,
+        canvas: Canvas,
+        screenRect: RectF,
+        item: LayeredPhoneSlot,
+        layerIdx: Int,
+        totalLayers: Int,
+        doc: PostDoc,
+        accentColor: Int,
+        secondaryColor: Int,
+        lightColor: Int,
+        darkColor: Int,
+        deepColor: Int
+    ) {
+        val bmp = item.bitmap
+        val adj = doc.slotAdjust(item.slotIndex)
+        if (bmp != null && !bmp.isRecycled) {
+            // Solid white backing in case a screenshot has transparent areas
+            canvas.drawRect(screenRect, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE })
+            drawBitmapCenterCrop(canvas, bmp, screenRect, adj.zoom, adj.focusX, adj.focusY)
+        } else {
+            // Sleek app-screen placeholder for empty gallery preview
+            val sw = screenRect.width()
+            val sh = screenRect.height()
+            val isLightCard = layerIdx > 0
+            val cardBg = if (isLightCard) Color.rgb(244, 247, 252) else Color.rgb(248, 250, 254)
+            canvas.drawRect(screenRect, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = cardBg })
+
+            // Top app bar header
+            val headerH = sh * 0.135f
+            val headerRect = RectF(0f, 0f, sw, headerH)
+            val headerColor = when (layerIdx) {
+                0 -> blendColors(Color.rgb(18, 88, 208), accentColor, 0.25f)
+                1 -> Color.rgb(12, 34, 78)
+                2 -> Color.rgb(22, 92, 206)
+                else -> Color.rgb(26, 102, 218)
+            }
+            canvas.drawRect(
+                headerRect,
+                Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    shader = LinearGradient(
+                        0f, 0f, sw, headerH,
+                        intArrayOf(headerColor, PostDepth.darken(headerColor, 0.18f)),
+                        null, Shader.TileMode.CLAMP
+                    )
+                }
+            )
+
+            // App bar title pill & back circle in the visible left portion
+            val backCx = sw * 0.12f
+            val backCy = headerH * 0.62f
+            canvas.drawCircle(
+                backCx,
+                backCy,
+                sw * 0.048f,
+                Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(55, 255, 255, 255) }
+            )
+            canvas.drawRoundRect(
+                RectF(sw * 0.20f, backCy - sh * 0.012f, sw * 0.56f, backCy + sh * 0.012f),
+                10f, 10f,
+                Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(215, 255, 255, 255) }
+            )
+
+            // "+ PHOTO N" badge positioned in the visible left side on overlapped layers (0..totalLayers-2), or centered on top layer
+            val isOverlapped = layerIdx < totalLayers - 1
+            val badgeCenterX = if (isOverlapped) sw * 0.27f else sw * 0.50f
+            val badgeW = if (isOverlapped) sw * 0.42f else sw * 0.56f
+            val badgeH = sh * 0.052f
+            val badgeTop = sh * 0.18f
+            val badgeRect = RectF(
+                badgeCenterX - badgeW * 0.5f,
+                badgeTop,
+                badgeCenterX + badgeW * 0.5f,
+                badgeTop + badgeH
+            )
+            canvas.drawRoundRect(
+                badgeRect,
+                badgeH * 0.5f,
+                badgeH * 0.5f,
+                Paint(Paint.ANTI_ALIAS_FLAG).apply { color = headerColor }
+            )
+
+            val hintLabel = "+ PHOTO ${item.slotIndex + 1}"
+            val hintTf = PostFonts.get(context, PostFont.BOLD, hintLabel, doc)
+            val hPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                typeface = hintTf
+                color = Color.WHITE
+                textSize = (badgeH * 0.42f).coerceIn(14f, 26f)
+            }
+            val hfm = hPaint.fontMetrics
+            canvas.drawText(
+                hintLabel,
+                badgeRect.centerX() - hPaint.measureText(hintLabel) * 0.5f,
+                badgeRect.centerY() - (hfm.ascent + hfm.descent) * 0.5f,
+                hPaint
+            )
+
+            // Decorative app UI cards below badge
+            val padX = sw * 0.06f
+            var curY = badgeRect.bottom + sh * 0.035f
+            val cardPalette = intArrayOf(
+                Color.rgb(218, 236, 224),
+                Color.rgb(214, 232, 250),
+                Color.rgb(225, 234, 252),
+                Color.rgb(238, 228, 248)
+            )
+            for (row in 0 until 4) {
+                val cardH = sh * 0.145f
+                val cardR = RectF(padX, curY, sw - padX, curY + cardH)
+                val fillCol = if (layerIdx == 1) cardPalette[row % cardPalette.size] else Color.WHITE
+                canvas.drawRoundRect(
+                    cardR,
+                    24f, 24f,
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply { color = fillCol }
+                )
+                canvas.drawRoundRect(
+                    cardR,
+                    24f, 24f,
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        style = Paint.Style.STROKE
+                        strokeWidth = 2f
+                        color = Color.argb(30, 15, 23, 42)
+                    }
+                )
+                val iconCx = cardR.left + sw * 0.14f
+                val iconCy = cardR.centerY()
+                canvas.drawCircle(
+                    iconCx,
+                    iconCy,
+                    sw * 0.075f,
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply { color = withAlpha(headerColor, 215) }
+                )
+                canvas.drawRoundRect(
+                    RectF(iconCx + sw * 0.11f, iconCy - sh * 0.016f, cardR.right - sw * 0.12f, iconCy - sh * 0.002f),
+                    8f, 8f,
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(30, 41, 59) }
+                )
+                canvas.drawRoundRect(
+                    RectF(iconCx + sw * 0.11f, iconCy + sh * 0.008f, cardR.right - sw * 0.24f, iconCy + sh * 0.020f),
+                    8f, 8f,
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(148, 163, 184) }
+                )
+                curY += cardH + sh * 0.022f
+            }
+
+            // Bottom navigation bar pill
+            val navRect = RectF(sw * 0.04f, sh * 0.90f, sw * 0.96f, sh * 0.978f)
+            canvas.drawRoundRect(
+                navRect,
+                32f, 32f,
+                Paint(Paint.ANTI_ALIAS_FLAG).apply { color = headerColor }
+            )
+        }
+
+        // Subtle diagonal glass sheen across the screen
+        val glassPath = Path().apply {
+            moveTo(screenRect.left, screenRect.top)
+            lineTo(screenRect.left + screenRect.width() * 0.55f, screenRect.top)
+            lineTo(screenRect.left + screenRect.width() * 0.15f, screenRect.bottom)
+            lineTo(screenRect.left, screenRect.bottom)
+            close()
+        }
+        val glassPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            shader = LinearGradient(
+                screenRect.left, screenRect.top,
+                screenRect.left + screenRect.width() * 0.55f, screenRect.bottom * 0.55f,
+                intArrayOf(Color.argb(28, 255, 255, 255), Color.TRANSPARENT),
+                null, Shader.TileMode.CLAMP
+            )
+        }
+        canvas.drawPath(glassPath, glassPaint)
     }
 
     private fun drawSingle3DDevice(

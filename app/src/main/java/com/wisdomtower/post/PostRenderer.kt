@@ -814,6 +814,7 @@ object PostRenderer {
                 // Do NOT fall back to backgroundPhotoUri for phone 2!
                 val p2 = PostImageCache.get(context, doc.secondaryPhotoUri, maxDim)
                 val p3 = PostImageCache.get(context, doc.tertiaryPhotoUri, maxDim)
+                val p4 = PostImageCache.get(context, doc.quaternaryPhotoUri, maxDim)
                 PostComposeKit.drawDevice3D(
                     context = context,
                     canvas = canvas,
@@ -823,6 +824,7 @@ object PostRenderer {
                     primaryPhoto = p1,
                     secondaryPhoto = p2,
                     tertiaryPhoto = p3,
+                    quaternaryPhoto = p4,
                     accentColor = tones.accent,
                     secondaryColor = tones.secondary,
                     lightColor = tones.light,

@@ -157,7 +157,7 @@ object PostDrafts {
 
     /** Photo files a post points to, as paths inside app storage. */
     private fun photoPaths(doc: PostDoc): Set<String> =
-        listOfNotNull(doc.photoUri, doc.secondaryPhotoUri, doc.tertiaryPhotoUri, doc.backgroundPhotoUri, doc.cutoutUri)
+        listOfNotNull(doc.photoUri, doc.secondaryPhotoUri, doc.tertiaryPhotoUri, doc.quaternaryPhotoUri, doc.backgroundPhotoUri, doc.cutoutUri)
             .mapNotNull { runCatching { Uri.parse(it).path }.getOrNull() }.toSet()
 
     /**

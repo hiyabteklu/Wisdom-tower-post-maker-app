@@ -723,6 +723,7 @@ fun PostBatchScreen(doc: PostDoc, brand: PostBrand, initialBatch: PostChatBatch?
                                     photoUri = targetDesign.photoUri,
                                     secondaryPhotoUri = targetDesign.secondaryPhotoUri,
                                     tertiaryPhotoUri = targetDesign.tertiaryPhotoUri,
+                                    quaternaryPhotoUri = targetDesign.quaternaryPhotoUri,
                                     photoZoom = targetDesign.photoZoom,
                                     photoFocusX = targetDesign.photoFocusX,
                                     photoFocusY = targetDesign.photoFocusY,

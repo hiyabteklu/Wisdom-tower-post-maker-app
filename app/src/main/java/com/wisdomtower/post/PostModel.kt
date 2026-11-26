@@ -363,6 +363,7 @@ data class PostDoc(
     val photoUri: String? = null,
     val secondaryPhotoUri: String? = null,
     val tertiaryPhotoUri: String? = null,
+    val quaternaryPhotoUri: String? = null,
     val photoZoom: Float = 1f,
     val photoPanX: Float = 0f,
     val photoPanY: Float = 0f,
@@ -444,6 +445,7 @@ data class PostDoc(
         0 -> photoUri
         1 -> secondaryPhotoUri
         2 -> tertiaryPhotoUri
+        3 -> quaternaryPhotoUri
         else -> null
     }
 
@@ -451,6 +453,7 @@ data class PostDoc(
         0 -> copy(photoUri = uri).let { if (uri == null) it.withSlotAdjust(0, PhotoSlotAdjust()) else it }
         1 -> copy(secondaryPhotoUri = uri).let { if (uri == null) it.withSlotAdjust(1, PhotoSlotAdjust()) else it }
         2 -> copy(tertiaryPhotoUri = uri).let { if (uri == null) it.withSlotAdjust(2, PhotoSlotAdjust()) else it }
+        3 -> copy(quaternaryPhotoUri = uri).let { if (uri == null) it.withSlotAdjust(3, PhotoSlotAdjust()) else it }
         else -> this
     }
 }
@@ -489,6 +492,7 @@ object PostCodec {
         doc.photoUri?.let { root.put("photoUri", it) }
         doc.secondaryPhotoUri?.let { root.put("secondaryPhotoUri", it) }
         doc.tertiaryPhotoUri?.let { root.put("tertiaryPhotoUri", it) }
+        doc.quaternaryPhotoUri?.let { root.put("quaternaryPhotoUri", it) }
         root.put("photoZoom", doc.photoZoom.toDouble())
         root.put("photoPanX", doc.photoPanX.toDouble())
         root.put("photoPanY", doc.photoPanY.toDouble())
@@ -725,6 +729,7 @@ object PostCodec {
             photoUri = root.optString("photoUri", "").takeIf { it.isNotBlank() },
             secondaryPhotoUri = root.optString("secondaryPhotoUri", "").takeIf { it.isNotBlank() },
             tertiaryPhotoUri = root.optString("tertiaryPhotoUri", "").takeIf { it.isNotBlank() },
+            quaternaryPhotoUri = root.optString("quaternaryPhotoUri", "").takeIf { it.isNotBlank() },
             photoZoom = root.optDouble("photoZoom", 1.0).toFloat().coerceIn(0.5f, 4f),
             photoPanX = root.optDouble("photoPanX", 0.0).toFloat().coerceIn(-1f, 1f),
             photoPanY = root.optDouble("photoPanY", 0.0).toFloat().coerceIn(-1f, 1f),

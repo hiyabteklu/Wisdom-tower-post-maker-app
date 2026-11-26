@@ -805,10 +805,11 @@ private fun NeighborPreviewPage(
         baseDoc.photoUri,
         baseDoc.secondaryPhotoUri,
         baseDoc.tertiaryPhotoUri,
+        baseDoc.quaternaryPhotoUri,
         baseDoc.backgroundPhotoUri,
         brand.hashCode()
     ) {
-        "${neighborSpec.id}:${baseDoc.size.name}:${baseDoc.texts.hashCode()}:${baseDoc.photoUri}:${baseDoc.secondaryPhotoUri}:${baseDoc.tertiaryPhotoUri}:${baseDoc.backgroundPhotoUri}:${brand.hashCode()}"
+        "${neighborSpec.id}:${baseDoc.size.name}:${baseDoc.texts.hashCode()}:${baseDoc.photoUri}:${baseDoc.secondaryPhotoUri}:${baseDoc.tertiaryPhotoUri}:${baseDoc.quaternaryPhotoUri}:${baseDoc.backgroundPhotoUri}:${brand.hashCode()}"
     }
 
     val bmp by produceState<Bitmap?>(NeighborPreviewCache.get(cacheKey), cacheKey) {

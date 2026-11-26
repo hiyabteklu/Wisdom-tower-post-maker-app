@@ -684,6 +684,24 @@ object PostComposeKit {
                     deepColor = deepColor
                 )
             }
+            in 6..35 -> {
+                PostEduMockups.draw(
+                    context = context,
+                    canvas = canvas,
+                    box = box,
+                    rect = rect,
+                    doc = doc,
+                    primaryPhoto = primaryPhoto,
+                    secondaryPhoto = secondaryPhoto,
+                    tertiaryPhoto = tertiaryPhoto,
+                    quaternaryPhoto = quaternaryPhoto,
+                    accentColor = accentColor,
+                    secondaryColor = secondaryColor,
+                    lightColor = lightColor,
+                    darkColor = darkColor,
+                    deepColor = deepColor
+                )
+            }
             else -> {
                 // Variant 0: Single 3D tilted hero phone
                 drawSingle3DDevice(

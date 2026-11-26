@@ -666,6 +666,24 @@ object PostComposeKit {
                     deepColor = deepColor
                 )
             }
+            5 -> {
+                // Variant 5: 45° 3D Layered Closed Book Mockup (1, 2, 3, or 4 images)
+                drawLayered45Books(
+                    context = context,
+                    canvas = canvas,
+                    rect = rect,
+                    doc = doc,
+                    p1 = primaryPhoto,
+                    p2 = secondaryPhoto,
+                    p3 = tertiaryPhoto,
+                    p4 = quaternaryPhoto,
+                    accentColor = accentColor,
+                    secondaryColor = secondaryColor,
+                    lightColor = lightColor,
+                    darkColor = darkColor,
+                    deepColor = deepColor
+                )
+            }
             else -> {
                 // Variant 0: Single 3D tilted hero phone
                 drawSingle3DDevice(
@@ -1334,6 +1352,733 @@ object PostComposeKit {
             )
         }
         canvas.drawPath(glassPath, glassPaint)
+    }
+
+    /**
+     * 45° 3D layered closed book mockup (same 45° axonometric angle and 1..4 dynamic layer design as drawLayered45Phones):
+     * - 1 image inserted -> renders only the base 3D closed book (1 layer, centered)
+     * - 2 images inserted -> renders base 3D closed book + 1 floating book layer (2 layers)
+     * - 3 images inserted -> renders base 3D closed book + 2 floating book layers (3 layers)
+     * - 4 images inserted -> renders base 3D closed book + 3 floating book layers (4 layers)
+     * - 0 images inserted (default gallery preview) -> renders all 4 layers with sleek book cover / chapter placeholders
+     * - Layer 0 (first image) is the 3D closed hardcover book at the bottom-left with a curved 3D spine on the left,
+     *   recessed cream paper page block with riffle lines on the bottom edge, overhanging back cover board, and
+     *   French-joint spine hinge groove on the front cover.
+     * - Higher layers (1..3) step out to the top-right by ~half a book width so half of each layer remains visible.
+     */
+    private fun drawLayered45Books(
+        context: Context,
+        canvas: Canvas,
+        rect: RectF,
+        doc: PostDoc,
+        p1: Bitmap?,
+        p2: Bitmap?,
+        p3: Bitmap?,
+        p4: Bitmap?,
+        accentColor: Int,
+        secondaryColor: Int,
+        lightColor: Int,
+        darkColor: Int,
+        deepColor: Int
+    ) {
+        if (rect.width() <= 12f || rect.height() <= 12f) return
+
+        val rawSlots = listOf(
+            LayeredPhoneSlot(p1?.takeIf { !it.isRecycled }, 0),
+            LayeredPhoneSlot(p2?.takeIf { !it.isRecycled }, 1),
+            LayeredPhoneSlot(p3?.takeIf { !it.isRecycled }, 2),
+            LayeredPhoneSlot(p4?.takeIf { !it.isRecycled }, 3)
+        )
+        val loadedSlots = rawSlots.filter { it.bitmap != null }
+
+        val activeLayers: List<LayeredPhoneSlot> = when {
+            doc.fillEmptyWithFirst && loadedSlots.isNotEmpty() -> {
+                val firstBmp = loadedSlots.first().bitmap
+                val firstIdx = loadedSlots.first().slotIndex
+                rawSlots.map { slot ->
+                    if (slot.bitmap != null) slot else LayeredPhoneSlot(firstBmp, firstIdx)
+                }
+            }
+            loadedSlots.isNotEmpty() -> loadedSlots
+            else -> rawSlots // 0 images loaded yet: show 4-layer book preview in template strip & canvas
+        }
+
+        val count = activeLayers.size.coerceIn(1, 4)
+
+        // Canonical hardcover book proportions (680 x 1000)
+        val bh = 1000f
+        val bw = 680f
+        val rSpine = 10f
+        val rFore = 24f
+        val coverRadii = floatArrayOf(
+            rSpine, rSpine,
+            rFore, rFore,
+            rFore, rFore,
+            rSpine, rSpine
+        )
+
+        // Exact same 45° 3D axonometric basis vectors as the layered phone screens:
+        val ux = 0.82f
+        val uy = 0.072f
+        val vx = 0.235f
+        val vy = 0.92f
+
+        val projBookW = bw * ux
+        val projBookH = bh * vy
+
+        // Each floating book layer steps right by ~49% of the projected book width and up along the 3D normal
+        val stepX = projBookW * 0.49f
+        val stepY = -projBookH * 0.123f
+
+        // 3D book thickness extrusion vector for the base closed book (down and left)
+        val extX = -44f
+        val extY = 29f
+
+        var minX = Float.POSITIVE_INFINITY
+        var minY = Float.POSITIVE_INFINITY
+        var maxX = Float.NEGATIVE_INFINITY
+        var maxY = Float.NEGATIVE_INFINITY
+
+        fun includeCanonicalPoint(layerIdx: Int, cx: Float, cy: Float, extraDx: Float = 0f, extraDy: Float = 0f) {
+            val px = layerIdx * stepX + cx * ux + cy * vx + extraDx
+            val py = layerIdx * stepY + cx * uy + cy * vy + extraDy
+            if (px < minX) minX = px
+            if (px > maxX) maxX = px
+            if (py < minY) minY = py
+            if (py > maxY) maxY = py
+        }
+
+        // Base layer (index 0) includes the 3D book spine & bottom page block thickness extrusion
+        for ((cx, cy) in arrayOf(
+            -8f to -4f,
+            bw + 4f to -4f,
+            bw + 4f to bh + 6f,
+            -8f to bh + 6f
+        )) {
+            includeCanonicalPoint(0, cx, cy, 0f, 0f)
+            includeCanonicalPoint(0, cx, cy, extX * 1.15f, extY * 1.15f)
+        }
+
+        // Floating layers (1 until count)
+        for (i in 1 until count) {
+            for ((cx, cy) in arrayOf(
+                0f to 0f,
+                bw to 0f,
+                bw to bh,
+                0f to bh
+            )) {
+                includeCanonicalPoint(i, cx, cy, 0f, 0f)
+            }
+        }
+
+        val unscaledW = (maxX - minX).coerceAtLeast(1f)
+        val unscaledH = (maxY - minY).coerceAtLeast(1f)
+        val fitScale = min(rect.width() / unscaledW, rect.height() / unscaledH)
+        val fitTx = rect.centerX() - (minX + maxX) * 0.5f * fitScale
+        val fitTy = rect.centerY() - (minY + maxY) * 0.5f * fitScale
+
+        fun buildLayerMatrix(layerIdx: Int, extraDx: Float = 0f, extraDy: Float = 0f): Matrix {
+            val ox = layerIdx * stepX + extraDx
+            val oy = layerIdx * stepY + extraDy
+            return Matrix().apply {
+                setValues(
+                    floatArrayOf(
+                        ux, vx, ox,
+                        uy, vy, oy,
+                        0f, 0f, 1f
+                    )
+                )
+                postScale(fitScale, fitScale)
+                postTranslate(fitTx, fitTy)
+            }
+        }
+
+        val coverRect = RectF(0f, 0f, bw, bh)
+        val coverPath = Path().apply { addRoundRect(coverRect, coverRadii, Path.Direction.CW) }
+
+        // Rich book-cloth / hardcover spine palette harmonized with the look accent
+        val spineBase = blendColors(Color.rgb(18, 28, 48), accentColor, 0.24f)
+        val spineDark = PostDepth.darken(spineBase, 0.48f)
+        val spineLight = PostDepth.lighten(spineBase, 0.30f)
+        val foilGold = blendColors(Color.rgb(245, 198, 92), accentColor, 0.35f)
+
+        // Draw layers in back-to-front order: Layer 0 (base 3D closed book) -> Layer 1 -> Layer 2 -> Layer 3
+        for (layerIdx in 0 until count) {
+            val item = activeLayers[layerIdx]
+            if (layerIdx == 0) {
+                // ============================================================
+                // LAYER 0: BASE 3D CLOSED HARDCOVER BOOK + COVER 1
+                // ============================================================
+                // 1. Deep floor drop shadow under the 3D closed book
+                canvas.save()
+                canvas.concat(buildLayerMatrix(0, extX * 1.65f, extY * 1.85f))
+                val baseShadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.argb((180 * doc.sceneShadowStrength.coerceIn(0.2f, 1f)).roundToInt(), 0, 0, 0)
+                    maskFilter = BlurMaskFilter(38f, BlurMaskFilter.Blur.NORMAL)
+                }
+                canvas.drawPath(coverPath, baseShadowPaint)
+                canvas.restore()
+
+                // 2. Back Hardcover Board (at full 3D extrusion depth f = 0.88..1.0)
+                val backBoardPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    shader = LinearGradient(
+                        0f, 0f, bw, bh,
+                        intArrayOf(spineDark, spineBase, spineDark),
+                        floatArrayOf(0f, 0.5f, 1f),
+                        Shader.TileMode.CLAMP
+                    )
+                }
+                for (s in 24 downTo 21) {
+                    val f = s / 24f
+                    canvas.save()
+                    canvas.concat(buildLayerMatrix(0, extX * f, extY * f))
+                    canvas.drawPath(coverPath, backBoardPaint)
+                    canvas.restore()
+                }
+
+                // 3. Recessed 3D Closed Paper Page Block (visible along the bottom & fore-edge between back and front covers)
+                // Inset slightly from the right and bottom so the hardcover boards overhang the paper block like a real book
+                val pageBlockRect = RectF(bw * 0.045f, bh * 0.015f, bw - 12f, bh - 7f)
+                val pageBlockRadii = floatArrayOf(
+                    4f, 4f,
+                    16f, 16f,
+                    16f, 16f,
+                    4f, 4f
+                )
+                val pageBlockPath = Path().apply { addRoundRect(pageBlockRect, pageBlockRadii, Path.Direction.CW) }
+                val totalSlices = 28
+                for (s in 24 downTo 4) {
+                    val f = s / totalSlices.toFloat()
+                    // Alternating fine cream/ivory paper tone across page slices for realistic paper riffle texture
+                    val riffle = if (s % 2 == 0) 0 else -11
+                    // Subtle shadow near the front cover overhang (s <= 6) and back cover (s >= 22)
+                    val shade = when {
+                        s <= 6 -> -18
+                        s >= 23 -> -12
+                        else -> 0
+                    }
+                    val rCol = (244 + riffle + shade).coerceIn(180, 252)
+                    val gCol = (239 + riffle + shade).coerceIn(175, 248)
+                    val bCol = (226 + riffle + shade).coerceIn(162, 238)
+                    val pagePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        shader = LinearGradient(
+                            pageBlockRect.left, pageBlockRect.bottom - 30f, pageBlockRect.right, pageBlockRect.bottom,
+                            intArrayOf(
+                                Color.rgb((rCol - 18).coerceAtLeast(150), (gCol - 18).coerceAtLeast(145), (bCol - 18).coerceAtLeast(135)),
+                                Color.rgb(rCol, gCol, bCol),
+                                Color.rgb((rCol - 10).coerceAtLeast(160), (gCol - 10).coerceAtLeast(155), (bCol - 10).coerceAtLeast(145))
+                            ),
+                            floatArrayOf(0f, 0.45f, 1f),
+                            Shader.TileMode.CLAMP
+                        )
+                    }
+                    canvas.save()
+                    canvas.concat(buildLayerMatrix(0, extX * f, extY * f))
+                    canvas.drawPath(pageBlockPath, pagePaint)
+                    canvas.restore()
+                }
+
+                // Cloth headband tucked at the bottom-left spine corner of the page block
+                canvas.save()
+                canvas.concat(buildLayerMatrix(0, extX * 0.50f, extY * 0.50f))
+                val headbandRect = RectF(bw * 0.035f, bh - 14f, bw * 0.088f, bh - 4f)
+                canvas.drawRoundRect(
+                    headbandRect,
+                    4f, 4f,
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply { color = foilGold }
+                )
+                canvas.restore()
+
+                // 4. 3D Curved Hardcover Book Spine along the Left Wall (extruded across f = 1.0 down to 0.0)
+                val spineStripRect = RectF(-4f, 0f, bw * 0.068f, bh)
+                val spineRadii = floatArrayOf(12f, 12f, 4f, 4f, 4f, 4f, 12f, 12f)
+                val spineStripPath = Path().apply { addRoundRect(spineStripRect, spineRadii, Path.Direction.CW) }
+                for (s in totalSlices downTo 1) {
+                    val f = s / totalSlices.toFloat()
+                    // Cylindrical lighting curve across the 3D rounded book spine
+                    val spineSliceColor = when {
+                        f > 0.78f -> blendColors(spineDark, Color.BLACK, ((f - 0.78f) / 0.22f) * 0.45f)
+                        f > 0.42f -> blendColors(spineBase, spineDark, (f - 0.42f) / 0.36f)
+                        f > 0.18f -> blendColors(spineLight, spineBase, (f - 0.18f) / 0.24f)
+                        else -> blendColors(spineBase, spineLight, f / 0.18f)
+                    }
+                    val spinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = spineSliceColor }
+                    // Bulge the middle slices slightly outward to the left so the spine has a true rounded 3D profile
+                    val curveBulge = kotlin.math.sin(f * Math.PI).toFloat() * (-5.5f)
+                    canvas.save()
+                    canvas.concat(buildLayerMatrix(0, extX * f + curveBulge, extY * f))
+                    canvas.drawPath(spineStripPath, spinePaint)
+                    canvas.restore()
+                }
+
+                // Raised spine ribs / gold foil bands wrapping across the curved 3D spine wall
+                val ribFractions = floatArrayOf(0.09f, 0.16f, 0.84f, 0.91f)
+                for (rf in ribFractions) {
+                    val ribRect = RectF(-4.5f, bh * rf - 3.5f, bw * 0.064f, bh * rf + 3.5f)
+                    for (s in totalSlices downTo 2 step 2) {
+                        val f = s / totalSlices.toFloat()
+                        val curveBulge = kotlin.math.sin(f * Math.PI).toFloat() * (-6.2f)
+                        val ribCol = if (f in 0.18f..0.52f) PostDepth.lighten(foilGold, 0.22f) else PostDepth.darken(foilGold, 0.25f)
+                        canvas.save()
+                        canvas.concat(buildLayerMatrix(0, extX * f + curveBulge, extY * f))
+                        canvas.drawRoundRect(
+                            ribRect,
+                            3f, 3f,
+                            Paint(Paint.ANTI_ALIAS_FLAG).apply { color = withAlpha(ribCol, 210) }
+                        )
+                        canvas.restore()
+                    }
+                }
+
+                // 5. Front Hardcover Board Thickness Lip (f = 0.11 down to 0.02)
+                val frontBoardEdgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    shader = LinearGradient(
+                        0f, 0f, bw, bh,
+                        intArrayOf(spineLight, spineBase, spineDark, spineLight),
+                        floatArrayOf(0f, 0.35f, 0.75f, 1f),
+                        Shader.TileMode.CLAMP
+                    )
+                }
+                for (s in 3 downTo 1) {
+                    val f = s / totalSlices.toFloat()
+                    canvas.save()
+                    canvas.concat(buildLayerMatrix(0, extX * f, extY * f))
+                    canvas.drawPath(coverPath, frontBoardEdgePaint)
+                    canvas.restore()
+                }
+
+                // 6. Front Hardcover Face (Book Cover 1)
+                canvas.save()
+                canvas.concat(buildLayerMatrix(0))
+
+                canvas.save()
+                canvas.clipPath(coverPath)
+                drawLayeredBookContent(
+                    context = context,
+                    canvas = canvas,
+                    bookRect = coverRect,
+                    item = item,
+                    layerIdx = 0,
+                    totalLayers = count,
+                    doc = doc,
+                    accentColor = accentColor,
+                    secondaryColor = secondaryColor,
+                    lightColor = lightColor,
+                    darkColor = darkColor,
+                    deepColor = deepColor
+                )
+
+                // Physical 3D Book Spine Wrap & French-Joint Hinge Groove overlaid on the front cover
+                val hingeX = bw * 0.064f
+                // Left spine wrap shading (0..hingeX)
+                val spineWrapPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    shader = LinearGradient(
+                        0f, 0f, hingeX, 0f,
+                        intArrayOf(
+                            Color.argb(120, 0, 0, 0),
+                            Color.argb(55, 255, 255, 255),
+                            Color.argb(25, 255, 255, 255),
+                            Color.argb(145, 0, 0, 0)
+                        ),
+                        floatArrayOf(0f, 0.28f, 0.72f, 1f),
+                        Shader.TileMode.CLAMP
+                    )
+                }
+                canvas.drawRect(RectF(0f, 0f, hingeX, bh), spineWrapPaint)
+
+                // Indented French-joint hinge crease + bright board ridge highlight
+                val grooveW = bw * 0.022f
+                val groovePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    shader = LinearGradient(
+                        hingeX, 0f, hingeX + grooveW, 0f,
+                        intArrayOf(
+                            Color.argb(175, 0, 0, 0),
+                            Color.argb(45, 0, 0, 0),
+                            Color.argb(140, 255, 255, 255),
+                            Color.TRANSPARENT
+                        ),
+                        floatArrayOf(0f, 0.38f, 0.68f, 1f),
+                        Shader.TileMode.CLAMP
+                    )
+                }
+                canvas.drawRect(RectF(hingeX, 0f, hingeX + grooveW, bh), groovePaint)
+                canvas.restore()
+
+                // Crisp hardcover board rim highlight around the front cover
+                val coverRimPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    style = Paint.Style.STROKE
+                    strokeWidth = 2.4f
+                    shader = LinearGradient(
+                        0f, 0f, bw, bh,
+                        intArrayOf(
+                            Color.argb(220, 255, 255, 255),
+                            Color.argb(70, 255, 255, 255),
+                            Color.argb(165, 255, 255, 255)
+                        ),
+                        floatArrayOf(0f, 0.55f, 1f),
+                        Shader.TileMode.CLAMP
+                    )
+                }
+                canvas.drawPath(coverPath, coverRimPaint)
+
+                canvas.restore()
+            } else {
+                // ============================================================
+                // LAYERS 1..3: FLOATING OFFSET 3D BOOK COVER / PAGE LAYERS
+                // ============================================================
+                // 1. Soft 3D cast drop shadow onto the book layer below (to the bottom-left)
+                canvas.save()
+                canvas.concat(buildLayerMatrix(layerIdx, -26f, 18f))
+                val wideShadow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.argb((160 * doc.sceneShadowStrength.coerceIn(0.2f, 1f)).roundToInt(), 0, 0, 0)
+                    maskFilter = BlurMaskFilter(30f, BlurMaskFilter.Blur.NORMAL)
+                }
+                canvas.drawPath(coverPath, wideShadow)
+                canvas.restore()
+
+                canvas.save()
+                canvas.concat(buildLayerMatrix(layerIdx, -10f, 7f))
+                val tightShadow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.argb((115 * doc.sceneShadowStrength.coerceIn(0.2f, 1f)).roundToInt(), 0, 0, 0)
+                    maskFilter = BlurMaskFilter(11f, BlurMaskFilter.Blur.NORMAL)
+                }
+                canvas.drawPath(coverPath, tightShadow)
+                canvas.restore()
+
+                // 2. 3D Book Page / Cover Card Thickness on the bottom-left edge
+                val cardEdgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    shader = LinearGradient(
+                        0f, 0f, bw, bh,
+                        intArrayOf(
+                            Color.rgb(225, 220, 208),
+                            Color.rgb(190, 184, 172),
+                            Color.rgb(236, 232, 222)
+                        ),
+                        floatArrayOf(0f, 0.5f, 1f),
+                        Shader.TileMode.CLAMP
+                    )
+                }
+                for (s in 3 downTo 1) {
+                    val f = s / 3f
+                    canvas.save()
+                    canvas.concat(buildLayerMatrix(layerIdx, -4.8f * f, 3.2f * f))
+                    canvas.drawPath(coverPath, cardEdgePaint)
+                    canvas.restore()
+                }
+
+                // 3. Floating Book Layer Face
+                canvas.save()
+                canvas.concat(buildLayerMatrix(layerIdx))
+
+                canvas.save()
+                canvas.clipPath(coverPath)
+                drawLayeredBookContent(
+                    context = context,
+                    canvas = canvas,
+                    bookRect = coverRect,
+                    item = item,
+                    layerIdx = layerIdx,
+                    totalLayers = count,
+                    doc = doc,
+                    accentColor = accentColor,
+                    secondaryColor = secondaryColor,
+                    lightColor = lightColor,
+                    darkColor = darkColor,
+                    deepColor = deepColor
+                )
+
+                // Subtle book page/cover binding crease along the left margin of each floating layer
+                val pageHingeX = bw * 0.052f
+                val pageCreasePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    shader = LinearGradient(
+                        0f, 0f, pageHingeX + bw * 0.018f, 0f,
+                        intArrayOf(
+                            Color.argb(65, 0, 0, 0),
+                            Color.argb(25, 255, 255, 255),
+                            Color.argb(85, 0, 0, 0),
+                            Color.argb(95, 255, 255, 255),
+                            Color.TRANSPARENT
+                        ),
+                        floatArrayOf(0f, 0.55f, 0.76f, 0.88f, 1f),
+                        Shader.TileMode.CLAMP
+                    )
+                }
+                canvas.drawRect(RectF(0f, 0f, pageHingeX + bw * 0.018f, bh), pageCreasePaint)
+                canvas.restore()
+
+                // Crisp book page/cover rim border
+                val layerBorder = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    style = Paint.Style.STROKE
+                    strokeWidth = 2.0f
+                    shader = LinearGradient(
+                        0f, 0f, bw, bh,
+                        intArrayOf(
+                            Color.argb(200, 255, 255, 255),
+                            Color.argb(85, 255, 255, 255),
+                            Color.argb(150, 255, 255, 255)
+                        ),
+                        floatArrayOf(0f, 0.5f, 1f),
+                        Shader.TileMode.CLAMP
+                    )
+                }
+                canvas.drawPath(coverPath, layerBorder)
+
+                canvas.restore()
+            }
+        }
+    }
+
+    private fun drawLayeredBookContent(
+        context: Context,
+        canvas: Canvas,
+        bookRect: RectF,
+        item: LayeredPhoneSlot,
+        layerIdx: Int,
+        totalLayers: Int,
+        doc: PostDoc,
+        accentColor: Int,
+        secondaryColor: Int,
+        lightColor: Int,
+        darkColor: Int,
+        deepColor: Int
+    ) {
+        val bmp = item.bitmap
+        val adj = doc.slotAdjust(item.slotIndex)
+        val bw = bookRect.width()
+        val bh = bookRect.height()
+
+        if (bmp != null && !bmp.isRecycled) {
+            canvas.drawRect(bookRect, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(250, 248, 244) })
+            drawBitmapCenterCrop(canvas, bmp, bookRect, adj.zoom, adj.focusX, adj.focusY)
+        } else {
+            val isOverlapped = layerIdx < totalLayers - 1
+            if (layerIdx == 0) {
+                // Base Layer 0 Placeholder: Rich 3D Hardcover Book Cover
+                val coverPrimary = blendColors(Color.rgb(14, 52, 124), accentColor, 0.32f)
+                val coverDeep = PostDepth.darken(coverPrimary, 0.42f)
+                canvas.drawRect(
+                    bookRect,
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        shader = LinearGradient(
+                            0f, 0f, bw, bh,
+                            intArrayOf(coverPrimary, coverDeep, PostDepth.darken(coverDeep, 0.25f)),
+                            floatArrayOf(0f, 0.62f, 1f),
+                            Shader.TileMode.CLAMP
+                        )
+                    }
+                )
+
+                // Top gold/accent editorial band on book cover
+                val bandPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = blendColors(Color.rgb(245, 185, 66), accentColor, 0.35f)
+                }
+                canvas.drawRect(RectF(bw * 0.064f, bh * 0.06f, bw, bh * 0.072f), bandPaint)
+                canvas.drawRect(RectF(bw * 0.064f, bh * 0.91f, bw, bh * 0.918f), bandPaint)
+
+                // Book cover decorative frame & emblem in visible region
+                val contentLeft = bw * 0.12f
+                val contentRight = if (isOverlapped) bw * 0.48f else bw * 0.90f
+                val centerX = (contentLeft + contentRight) * 0.5f
+
+                // "+ PHOTO 1" pill badge
+                val badgeW = (contentRight - contentLeft).coerceAtLeast(bw * 0.34f)
+                val badgeH = bh * 0.056f
+                val badgeTop = bh * 0.14f
+                val badgeRect = RectF(centerX - badgeW * 0.5f, badgeTop, centerX + badgeW * 0.5f, badgeTop + badgeH)
+                canvas.drawRoundRect(
+                    badgeRect,
+                    badgeH * 0.5f,
+                    badgeH * 0.5f,
+                    bandPaint
+                )
+
+                val hintLabel = "+ PHOTO ${item.slotIndex + 1}"
+                val hintTf = PostFonts.get(context, PostFont.BOLD, hintLabel, doc)
+                val hPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                    typeface = hintTf
+                    color = Color.rgb(12, 18, 30)
+                    textSize = (badgeH * 0.42f).coerceIn(15f, 26f)
+                }
+                val hfm = hPaint.fontMetrics
+                canvas.drawText(
+                    hintLabel,
+                    badgeRect.centerX() - hPaint.measureText(hintLabel) * 0.5f,
+                    badgeRect.centerY() - (hfm.ascent + hfm.descent) * 0.5f,
+                    hPaint
+                )
+
+                // Cover title lines & emblem illustration
+                val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(230, 255, 255, 255) }
+                val subLinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(145, 220, 232, 255) }
+                canvas.drawRoundRect(RectF(contentLeft, bh * 0.25f, contentRight, bh * 0.282f), 8f, 8f, linePaint)
+                canvas.drawRoundRect(RectF(contentLeft, bh * 0.302f, contentLeft + (contentRight - contentLeft) * 0.78f, bh * 0.332f), 8f, 8f, linePaint)
+                canvas.drawRoundRect(RectF(contentLeft, bh * 0.352f, contentLeft + (contentRight - contentLeft) * 0.58f, bh * 0.372f), 6f, 6f, subLinePaint)
+
+                // Geometric book cover centerpiece card
+                val artRect = RectF(contentLeft, bh * 0.43f, contentRight, bh * 0.78f)
+                canvas.drawRoundRect(
+                    artRect,
+                    20f, 20f,
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(48, 255, 255, 255) }
+                )
+                canvas.drawRoundRect(
+                    artRect,
+                    20f, 20f,
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        style = Paint.Style.STROKE
+                        strokeWidth = 2.2f
+                        color = Color.argb(120, 255, 255, 255)
+                    }
+                )
+                val emblemR = min(artRect.width(), artRect.height()) * 0.28f
+                canvas.drawCircle(artRect.centerX(), artRect.centerY(), emblemR, bandPaint)
+                canvas.drawCircle(
+                    artRect.centerX(),
+                    artRect.centerY(),
+                    emblemR * 0.58f,
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply { color = coverDeep }
+                )
+            } else {
+                // Floating Book Layers 1..3 Placeholder: Crisp Book Chapter / Textbook Pages
+                val pageBg = if (layerIdx % 2 == 1) Color.rgb(250, 248, 242) else Color.rgb(245, 247, 252)
+                canvas.drawRect(bookRect, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = pageBg })
+
+                val headerH = bh * 0.13f
+                val headerColor = when (layerIdx) {
+                    1 -> Color.rgb(16, 44, 96)
+                    2 -> blendColors(Color.rgb(20, 88, 198), accentColor, 0.28f)
+                    else -> Color.rgb(24, 102, 214)
+                }
+                canvas.drawRect(
+                    RectF(0f, 0f, bw, headerH),
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        shader = LinearGradient(
+                            0f, 0f, bw, headerH,
+                            intArrayOf(headerColor, PostDepth.darken(headerColor, 0.18f)),
+                            null, Shader.TileMode.CLAMP
+                        )
+                    }
+                )
+
+                // Chapter header bars
+                canvas.drawRoundRect(
+                    RectF(bw * 0.10f, headerH * 0.30f, bw * 0.28f, headerH * 0.44f),
+                    6f, 6f,
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(150, 255, 255, 255) }
+                )
+                canvas.drawRoundRect(
+                    RectF(bw * 0.10f, headerH * 0.54f, bw * 0.46f, headerH * 0.74f),
+                    8f, 8f,
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(235, 255, 255, 255) }
+                )
+
+                // "+ PHOTO N" badge in visible left column when overlapped, or centered on top layer
+                val badgeCenterX = if (isOverlapped) bw * 0.28f else bw * 0.52f
+                val badgeW = if (isOverlapped) bw * 0.38f else bw * 0.48f
+                val badgeH = bh * 0.052f
+                val badgeTop = bh * 0.17f
+                val badgeRect = RectF(
+                    badgeCenterX - badgeW * 0.5f,
+                    badgeTop,
+                    badgeCenterX + badgeW * 0.5f,
+                    badgeTop + badgeH
+                )
+                canvas.drawRoundRect(
+                    badgeRect,
+                    badgeH * 0.5f,
+                    badgeH * 0.5f,
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply { color = headerColor }
+                )
+
+                val hintLabel = "+ PHOTO ${item.slotIndex + 1}"
+                val hintTf = PostFonts.get(context, PostFont.BOLD, hintLabel, doc)
+                val hPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                    typeface = hintTf
+                    color = Color.WHITE
+                    textSize = (badgeH * 0.42f).coerceIn(15f, 26f)
+                }
+                val hfm = hPaint.fontMetrics
+                canvas.drawText(
+                    hintLabel,
+                    badgeRect.centerX() - hPaint.measureText(hintLabel) * 0.5f,
+                    badgeRect.centerY() - (hfm.ascent + hfm.descent) * 0.5f,
+                    hPaint
+                )
+
+                // Structured textbook blocks & lines below badge
+                val padL = bw * 0.10f
+                val padR = bw * 0.92f
+                var curY = badgeRect.bottom + bh * 0.035f
+                val inkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(34, 45, 66) }
+                val mutedInkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(148, 160, 180) }
+
+                for (sec in 0 until 3) {
+                    val boxH = bh * 0.19f
+                    val boxRect = RectF(padL, curY, padR, curY + boxH)
+                    canvas.drawRoundRect(
+                        boxRect,
+                        18f, 18f,
+                        Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
+                    )
+                    canvas.drawRoundRect(
+                        boxRect,
+                        18f, 18f,
+                        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                            style = Paint.Style.STROKE
+                            strokeWidth = 1.8f
+                            color = Color.argb(32, 15, 23, 42)
+                        }
+                    )
+                    // Left accent callout bar inside textbook card
+                    canvas.drawRoundRect(
+                        RectF(boxRect.left + bw * 0.025f, boxRect.top + boxH * 0.16f, boxRect.left + bw * 0.042f, boxRect.bottom - boxH * 0.16f),
+                        6f, 6f,
+                        Paint(Paint.ANTI_ALIAS_FLAG).apply { color = withAlpha(headerColor, 215) }
+                    )
+                    val textL = boxRect.left + bw * 0.07f
+                    canvas.drawRoundRect(
+                        RectF(textL, boxRect.top + boxH * 0.22f, boxRect.right - bw * 0.14f, boxRect.top + boxH * 0.34f),
+                        6f, 6f,
+                        inkPaint
+                    )
+                    canvas.drawRoundRect(
+                        RectF(textL, boxRect.top + boxH * 0.46f, boxRect.right - bw * 0.08f, boxRect.top + boxH * 0.56f),
+                        6f, 6f,
+                        mutedInkPaint
+                    )
+                    canvas.drawRoundRect(
+                        RectF(textL, boxRect.top + boxH * 0.66f, boxRect.right - bw * 0.22f, boxRect.top + boxH * 0.76f),
+                        6f, 6f,
+                        mutedInkPaint
+                    )
+                    curY += boxH + bh * 0.028f
+                }
+
+                // Bottom book page rule & folio bar
+                canvas.drawRect(
+                    RectF(padL, bh * 0.92f, padR, bh * 0.924f),
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(45, 15, 23, 42) }
+                )
+            }
+        }
+
+        // Subtle paper/lamination sheen across the book cover/page
+        val sheenPath = Path().apply {
+            moveTo(bookRect.left, bookRect.top)
+            lineTo(bookRect.left + bw * 0.56f, bookRect.top)
+            lineTo(bookRect.left + bw * 0.16f, bookRect.bottom)
+            lineTo(bookRect.left, bookRect.bottom)
+            close()
+        }
+        val sheenPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            shader = LinearGradient(
+                bookRect.left, bookRect.top,
+                bookRect.left + bw * 0.56f, bookRect.bottom * 0.56f,
+                intArrayOf(Color.argb(32, 255, 255, 255), Color.TRANSPARENT),
+                null, Shader.TileMode.CLAMP
+            )
+        }
+        canvas.drawPath(sheenPath, sheenPaint)
     }
 
     private fun drawSingle3DDevice(

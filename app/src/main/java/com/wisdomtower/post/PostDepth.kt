@@ -87,7 +87,16 @@ object PostSafeArea {
                 DecorShape.SCENE_CLOCKHANG,
                 DecorShape.SCENE_EXAMCLIFF,
                 DecorShape.SCENE_CAPUFO,
-                DecorShape.SCENE_PAPERBOAT -> true
+                DecorShape.SCENE_PAPERBOAT,
+                DecorShape.SUSPENDED_MOBILES,
+                DecorShape.LAPTOP_16_9,
+                DecorShape.PORTAL_FRAME_BREAKER,
+                DecorShape.ORBITAL_HALO,
+                DecorShape.TYPOGRAPHIC_PLINTH,
+                DecorShape.DARKROOM_APERTURE,
+                DecorShape.KINETIC_SLICED_LOUVERS,
+                DecorShape.CONTACT_SHEET_FILM,
+                DecorShape.ECLIPSE_HALO_STAGE -> true
                 DecorShape.CARD -> !(d.x <= 0.02f && d.y <= 0.02f && d.w >= 0.96f && d.h >= 0.96f)
                 else -> false
             }

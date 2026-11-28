@@ -382,8 +382,17 @@ internal fun EditorTabs(
     val spec = postTemplate(doc.templateId).withLookIndex(doc.lookIndex)
     val layout = spec.layout(doc.size)
     var styleSub by rememberSaveable { mutableStateOf("colors") }
-    var photoSub by rememberSaveable(doc.templateId) { mutableStateOf(if (spec.photoSlotCount > 0) "window" else "bg") }
+    var photoSub by rememberSaveable(doc.templateId) {
+        mutableStateOf(
+            when {
+                spec.photoSlotCount > 0 -> "window"
+                layout.cutout != null || layout.cutoutShowDefault -> "cutout"
+                else -> "bg"
+            }
+        )
+    }
     var iconGroup by rememberSaveable { mutableStateOf("mine") }
+    val hasRisingMist = layout.decor.any { it.shape == DecorShape.RISING_MIST }
 
     val tabs = listOf(
         Triple("template", "Template", Icons.Outlined.Dashboard),
@@ -570,6 +579,9 @@ internal fun EditorTabs(
                     }
 
                     "backdrop" -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        if (hasRisingMist) {
+                            RisingMistControls(doc = doc, brand = brand, onDoc = onDoc)
+                        }
                         PostSmallLabel("Background pattern")
                         val patScroll = rememberScrollState()
                         Row(
@@ -918,6 +930,10 @@ internal fun EditorTabs(
                                     }
                                 }
                             }
+
+                            if (hasRisingMist) {
+                                RisingMistControls(doc = doc, brand = brand, onDoc = onDoc)
+                            }
                         }
 
                         "window" -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1159,5 +1175,47 @@ internal fun EditorTabs(
             }
         }
         Spacer(Modifier.height(4.dp))
+    }
+}
+
+@Composable
+private fun RisingMistControls(
+    doc: PostDoc,
+    brand: PostBrand,
+    onDoc: (PostDoc) -> Unit
+) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(PostPalette.Card)
+            .border(1.dp, PostPalette.Line, RoundedCornerShape(10.dp))
+            .padding(8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        PostSmallLabel("Rising Mist gradient (Height · Opacity · Color)")
+        PostLabeledSlider(
+            label = "Height",
+            value = doc.mistHeight.coerceIn(0.15f, 0.95f),
+            range = 0.15f..0.95f,
+            display = "${(doc.mistHeight.coerceIn(0.15f, 0.95f) * 100f).roundToInt()}%"
+        ) { v ->
+            onDoc(doc.copy(mistHeight = v.coerceIn(0.15f, 0.95f)))
+        }
+        PostLabeledSlider(
+            label = "Opacity",
+            value = doc.mistOpacity.coerceIn(0.05f, 1.0f),
+            range = 0.05f..1.0f,
+            display = "${(doc.mistOpacity.coerceIn(0.05f, 1.0f) * 100f).roundToInt()}%"
+        ) { v ->
+            onDoc(doc.copy(mistOpacity = v.coerceIn(0.05f, 1.0f)))
+        }
+        PostSmallLabel("Mist color (A = template mood)")
+        PaletteStrip(
+            currentHex = doc.mistColorHex,
+            brandHex = brand.primaryHex,
+            allowAuto = true,
+            onPick = { hex -> onDoc(doc.copy(mistColorHex = hex)) }
+        )
     }
 }

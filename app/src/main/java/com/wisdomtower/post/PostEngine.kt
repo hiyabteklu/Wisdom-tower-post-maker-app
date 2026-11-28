@@ -280,13 +280,31 @@ object PostEngine {
     fun hitSlot(layout: TemplateLayout, doc: PostDoc, normX: Float, normY: Float): String? =
         hitSlot(doc, layout, normX, normY)
 
+    fun resolvedCutoutPos(doc: PostDoc): Pair<Float, Float> {
+        val layout = postTemplate(doc.templateId).withLookIndex(doc.lookIndex).layout(doc.size)
+        val defaultCx = when (val c = layout.cutout) {
+            is CutoutBox -> c.x + c.w * 0.5f
+            is PostPhotoArea -> c.x + c.w * 0.5f
+            else -> 0.5f
+        }
+        val defaultBottomY = when (val c = layout.cutout) {
+            is CutoutBox -> c.y + c.h
+            is PostPhotoArea -> c.y + c.h
+            else -> 0.94f
+        }
+        val isDefault = doc.cutoutX == 0.5f && doc.cutoutY == 0.94f
+        return (if (isDefault) defaultCx else doc.cutoutX) to (if (isDefault) defaultBottomY else doc.cutoutY)
+    }
+
     fun hitCutout(doc: PostDoc, normX: Float, normY: Float): Boolean {
-        if (doc.cutoutUri.isNullOrBlank()) return false
-        val halfW = 0.24f * doc.cutoutScale.coerceIn(0.3f, 2.5f)
-        val height = 0.56f * doc.cutoutScale.coerceIn(0.3f, 2.5f)
-        val left = doc.cutoutX - halfW
-        val right = doc.cutoutX + halfW
-        val bottom = doc.cutoutY
+        val layout = postTemplate(doc.templateId).withLookIndex(doc.lookIndex).layout(doc.size)
+        if (doc.cutoutUri.isNullOrBlank() && !layout.cutoutShowDefault && layout.cutout == null) return false
+        val (cx, bottom) = resolvedCutoutPos(doc)
+        val scale = doc.cutoutScale.coerceIn(0.3f, 2.5f)
+        val halfW = 0.24f * scale
+        val height = 0.58f * scale
+        val left = cx - halfW
+        val right = cx + halfW
         val top = bottom - height
         return normX in left..right && normY in top..bottom
     }

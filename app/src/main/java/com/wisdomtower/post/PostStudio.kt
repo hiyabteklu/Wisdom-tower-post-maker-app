@@ -696,10 +696,11 @@ private fun ActivePreviewPage(
                         val normX = (centroid.x / w).coerceIn(0f, 1f)
                         val normY = (centroid.y / h).coerceIn(0f, 1f)
                         if (latestMoveOn && PostEngine.hitCutout(curDoc, normX, normY)) {
+                            val (baseX, baseY) = PostEngine.resolvedCutoutPos(curDoc)
                             latestOnDoc(
                                 curDoc.copy(
-                                    cutoutX = (curDoc.cutoutX + dx).coerceIn(0.05f, 0.95f),
-                                    cutoutY = (curDoc.cutoutY + dy).coerceIn(0.1f, 1.05f),
+                                    cutoutX = (baseX + dx).coerceIn(0.05f, 0.95f),
+                                    cutoutY = (baseY + dy).coerceIn(0.15f, 1.05f),
                                     cutoutScale = (curDoc.cutoutScale * zoom).coerceIn(0.3f, 2.5f)
                                 )
                             )

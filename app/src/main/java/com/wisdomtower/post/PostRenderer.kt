@@ -379,8 +379,16 @@ object PostRenderer {
             }
 
             // 6c. Foreground 3D scene & overlay decor shapes (FRONT_OF_PHOTO layer)
+            // Note: Cutout-wrapping & depth-sandwich overlays are layered inside step 8 so cutouts weave between layers cleanly.
             for (decor in layout.decor) {
-                if (decor.layer == DecorLayer.FRONT_OF_PHOTO) {
+                if (decor.layer == DecorLayer.FRONT_OF_PHOTO &&
+                    decor.shape != DecorShape.LAPTOP_16_9 &&
+                    decor.shape != DecorShape.RISING_MIST &&
+                    decor.shape != DecorShape.ORBITAL_HALO &&
+                    decor.shape != DecorShape.KINETIC_RIBBON_WEAVE &&
+                    decor.shape != DecorShape.DUOTONE_GEL_BEAM &&
+                    decor.shape != DecorShape.TORN_ZINE_COLLAGE
+                ) {
                     drawDecor(context, canvas, doc, layout, decor, tones, w, h, unit, maxDim)
                 }
             }
@@ -403,29 +411,164 @@ object PostRenderer {
                 overflow.addAll(PostStudyGrid.draw(context, canvas, doc, w, h, studySlots, brand))
             } else {
                 val hasCutout = !doc.cutoutUri.isNullOrBlank() || layout.cutoutShowDefault || layout.cutout != null
+                val hasLaptopFront = layout.decor.any { it.layer == DecorLayer.FRONT_OF_PHOTO && it.shape == DecorShape.LAPTOP_16_9 }
+                val hasRisingMistFront = layout.decor.any { it.layer == DecorLayer.FRONT_OF_PHOTO && it.shape == DecorShape.RISING_MIST }
+                val hasObsidianMirror = layout.decor.any { it.shape == DecorShape.OBSIDIAN_MIRROR_STAGE }
+                val hasOrbitalHaloFront = layout.decor.any { it.layer == DecorLayer.FRONT_OF_PHOTO && it.shape == DecorShape.ORBITAL_HALO }
+                val hasKineticRibbonFront = layout.decor.any { it.layer == DecorLayer.FRONT_OF_PHOTO && it.shape == DecorShape.KINETIC_RIBBON_WEAVE }
+                val hasDuotoneGel = layout.decor.any { it.shape == DecorShape.DUOTONE_GEL_BEAM }
+                val hasTornZineFront = layout.decor.any { it.layer == DecorLayer.FRONT_OF_PHOTO && it.shape == DecorShape.TORN_ZINE_COLLAGE }
+                val keepWordInFront = layout.decor.any {
+                    it.shape == DecorShape.TORN_ZINE_COLLAGE || it.shape == DecorShape.ARCHITECTURAL_BLUEPRINT
+                }
                 val behindSet = if (doc.textBehind.isNotEmpty()) {
                     doc.textBehind
-                } else if (layout.cutoutShowDefault || layout.cutout != null) {
+                } else if (!keepWordInFront && (layout.cutoutShowDefault || layout.cutout != null || hasLaptopFront)) {
                     setOf(PostSlots.WORD, PostSlots.LETTER)
                 } else {
                     emptySet()
                 }
-                val behindBoxes = if (hasCutout) {
+                val behindBoxes = if (hasCutout || hasLaptopFront) {
                     layout.slots.filter { it.slot in behindSet }
                 } else {
                     emptyList()
                 }
-                val frontBoxes = if (hasCutout) {
+                val frontBoxes = if (hasCutout || hasLaptopFront) {
                     layout.slots.filter { it.slot !in behindSet }
                 } else {
                     layout.slots
                 }
 
+                // Back typography pass (behind cutout and/or 16:9 laptop lid)
                 drawSlotPass(context, canvas, bitmap, doc, layout, behindBoxes, tones, fillSourceBitmap, w, h, unit, overflow, slotDrawCounts)
+
+                // Precision 16:9 laptop renders cleanly in front of architectural background word
+                if (hasLaptopFront) {
+                    for (decor in layout.decor) {
+                        if (decor.layer == DecorLayer.FRONT_OF_PHOTO && decor.shape == DecorShape.LAPTOP_16_9) {
+                            drawDecor(context, canvas, doc, layout, decor, tones, w, h, unit, maxDim)
+                        }
+                    }
+                }
+
+                // Live glossy mirror reflection on Wet Obsidian Mirror Stage beneath the cutout subject
+                if (hasObsidianMirror && hasCutout) {
+                    val cutoutBmp = PostImageCache.get(context, doc.cutoutUri, maxDim)
+                    PostEditorialKitBatch2.drawObsidianMirrorCutoutReflection(
+                        canvas = canvas,
+                        cutoutBitmap = cutoutBmp,
+                        doc = doc,
+                        layout = layout,
+                        accentColor = tones.accent,
+                        w = w.toFloat(),
+                        h = h.toFloat()
+                    )
+                }
+
+                // Movable BG-removed cutout subject
                 if (hasCutout) {
                     drawCutout(context, canvas, doc, layout, tones, w, h, maxDim)
                 }
+
+                // Rising mist rises smoothly over both the photo and the lower base of any cutout, while staying behind foreground copy
+                if (hasRisingMistFront) {
+                    for (decor in layout.decor) {
+                        if (decor.layer == DecorLayer.FRONT_OF_PHOTO && decor.shape == DecorShape.RISING_MIST) {
+                            drawDecor(context, canvas, doc, layout, decor, tones, w, h, unit, maxDim)
+                        }
+                    }
+                }
+
+                // Front 3D Orbital Halo arc wraps cleanly IN FRONT of the cutout subject
+                if (hasOrbitalHaloFront) {
+                    for (decor in layout.decor) {
+                        if (decor.layer == DecorLayer.FRONT_OF_PHOTO && decor.shape == DecorShape.ORBITAL_HALO) {
+                            drawDecor(context, canvas, doc, layout, decor, tones, w, h, unit, maxDim)
+                        }
+                    }
+                }
+
+                // Front Kinetic Ribbon ticker sweeps cleanly IN FRONT of the cutout with cast drop shadow
+                if (hasKineticRibbonFront) {
+                    for (decor in layout.decor) {
+                        if (decor.layer == DecorLayer.FRONT_OF_PHOTO && decor.shape == DecorShape.KINETIC_RIBBON_WEAVE) {
+                            drawDecor(context, canvas, doc, layout, decor, tones, w, h, unit, maxDim)
+                        }
+                    }
+                }
+
+                // Subtle studio gel light sheen over cutout intersecting the Duotone Studio Gel Beam
+                if (hasDuotoneGel && hasCutout) {
+                    PostEditorialKitBatch2.drawDuotoneGelFrontRim(
+                        canvas = canvas,
+                        doc = doc,
+                        accentColor = tones.accent,
+                        w = w.toFloat(),
+                        h = h.toFloat()
+                    )
+                }
+
+                // Front Torn-Edge Zine ripped paper lip overlaps the cutout's base so the subject rises out of the tear!
+                if (hasTornZineFront) {
+                    for (decor in layout.decor) {
+                        if (decor.layer == DecorLayer.FRONT_OF_PHOTO && decor.shape == DecorShape.TORN_ZINE_COLLAGE) {
+                            drawDecor(context, canvas, doc, layout, decor, tones, w, h, unit, maxDim)
+                        }
+                    }
+                }
+
+                // True 3-layer Depth Sandwich: crisp hairline outline ghost pass drawn OVER the cutout
+                if (doc.templateId == "info-bignumber" && doc.cutoutFrontOutline && hasCutout && behindBoxes.isNotEmpty()) {
+                    val ghostBoxes = behindBoxes.map { b ->
+                        SlotBox(
+                            slot = b.slot,
+                            x = b.x, y = b.y, w = b.w, h = b.h,
+                            size = b.size, font = b.font, tone = PostTone.TEXT,
+                            centered = b.centered, caps = b.caps, list = b.list,
+                            literal = b.literal, fit = b.fit, anchor = b.anchor,
+                            rotate = b.rotate, tracking = b.tracking, leading = b.leading,
+                            fx = TextFx.OUTLINE, fxTo = b.fxTo, chip = null,
+                            dimOthers = b.dimOthers, shadow = null, maxLines = b.maxLines
+                        )
+                    }
+                    val ghostDoc = doc.copy(
+                        slotStyles = doc.slotStyles.mapValues { (k, st) ->
+                            if (k in behindSet) st.copy(fx = TextFx.OUTLINE, shadow = null) else st
+                        },
+                        shadowAll = TextShadow()
+                    )
+                    drawSlotPass(context, canvas, bitmap, ghostDoc, layout, ghostBoxes, tones, fillSourceBitmap, w, h, unit, mutableSetOf(), mutableMapOf())
+                }
+
+                // Front typography pass
                 drawSlotPass(context, canvas, bitmap, doc, layout, frontBoxes, tones, fillSourceBitmap, w, h, unit, overflow, slotDrawCounts)
+
+                // Duotone Studio Gel Beam: true dual-gel color-inverting typography clip pass inside the hard light shaft
+                if (hasDuotoneGel) {
+                    val invertSlots = frontBoxes.filter { it.slot == PostSlots.NUMBER || it.slot == PostSlots.HEADLINE }
+                    if (invertSlots.isNotEmpty()) {
+                        val accentLum = (0.299f * Color.red(tones.accent) + 0.587f * Color.green(tones.accent) + 0.114f * Color.blue(tones.accent)) / 255f
+                        val invertTone = if (accentLum > 0.42f) PostTone.DARK else PostTone.LIGHT
+                        val beamPath = PostEditorialKitBatch2.buildDuotoneBeamPath(doc, w.toFloat(), h.toFloat())
+                        val invertedBoxes = invertSlots.map { b ->
+                            SlotBox(
+                                slot = b.slot,
+                                x = b.x, y = b.y, w = b.w, h = b.h,
+                                size = b.size, font = b.font, tone = invertTone,
+                                centered = b.centered, caps = b.caps, list = b.list,
+                                literal = b.literal, fit = b.fit, anchor = b.anchor,
+                                rotate = b.rotate, tracking = b.tracking, leading = b.leading,
+                                fx = b.fx, fxTo = b.fxTo, chip = b.chip,
+                                dimOthers = b.dimOthers, shadow = null, maxLines = b.maxLines
+                            )
+                        }
+                        val invertedDoc = doc.copy(textHex = null, shadowAll = TextShadow())
+                        canvas.save()
+                        canvas.clipPath(beamPath)
+                        drawSlotPass(context, canvas, bitmap, invertedDoc, layout, invertedBoxes, tones, fillSourceBitmap, w, h, unit, mutableSetOf(), mutableMapOf())
+                        canvas.restore()
+                    }
+                }
             }
 
             // 9. Social grid cards (`mkt-follow`)
@@ -877,6 +1020,277 @@ object PostRenderer {
                     secondaryColor = tones.secondary,
                     inkColor = tones.text,
                     doc = doc
+                )
+            }
+            DecorShape.SUSPENDED_MOBILES -> {
+                PostEditorialKit.drawSuspendedMobiles(
+                    context = context,
+                    canvas = canvas,
+                    rect = rect,
+                    doc = doc,
+                    accentColor = tones.accent,
+                    secondaryColor = tones.secondary,
+                    glowColor = tones.glow,
+                    lightColor = tones.light,
+                    darkColor = tones.dark,
+                    deepColor = tones.deep,
+                    isLightBase = layout.base == PostBase.LIGHT,
+                    w = w.toFloat(),
+                    h = h.toFloat(),
+                    unit = unit
+                )
+            }
+            DecorShape.RISING_MIST -> {
+                PostEditorialKit.drawRisingMist(
+                    canvas = canvas,
+                    doc = doc,
+                    accentColor = tones.accent,
+                    darkColor = tones.dark,
+                    deepColor = tones.deep,
+                    w = w.toFloat(),
+                    h = h.toFloat()
+                )
+            }
+            DecorShape.LAPTOP_16_9 -> {
+                val p1 = PostImageCache.get(context, doc.photoUri, maxDim)
+                PostEditorialKit.drawLaptop16x9(
+                    context = context,
+                    canvas = canvas,
+                    rect = rect,
+                    doc = doc,
+                    primaryPhoto = p1,
+                    accentColor = tones.accent,
+                    lightColor = tones.light,
+                    darkColor = tones.dark,
+                    deepColor = tones.deep,
+                    isLightBase = layout.base == PostBase.LIGHT,
+                    unit = unit
+                )
+            }
+            DecorShape.PORTAL_FRAME_BREAKER -> {
+                PostEditorialKit.drawPortalFrameBreaker(
+                    canvas = canvas,
+                    rect = rect,
+                    doc = doc,
+                    accentColor = tones.accent,
+                    lightColor = tones.light,
+                    darkColor = tones.dark,
+                    isLightBase = layout.base == PostBase.LIGHT,
+                    unit = unit
+                )
+            }
+            DecorShape.PRISM_GLASS_STRIPS -> {
+                val p1 = PostImageCache.get(context, doc.photoUri, maxDim)
+                    ?: PostImageCache.get(context, doc.backgroundPhotoUri, maxDim)
+                PostEditorialKit.drawPrismGlassStrips(
+                    canvas = canvas,
+                    doc = doc,
+                    sourcePhoto = p1,
+                    accentColor = tones.accent,
+                    lightColor = tones.light,
+                    darkColor = tones.dark,
+                    w = w.toFloat(),
+                    h = h.toFloat(),
+                    unit = unit
+                )
+            }
+            DecorShape.ORBITAL_HALO -> {
+                PostEditorialKitBatch2.drawOrbitalHalo(
+                    context = context,
+                    canvas = canvas,
+                    rect = rect,
+                    doc = doc,
+                    accentColor = tones.accent,
+                    secondaryColor = tones.secondary,
+                    glowColor = tones.glow,
+                    lightColor = tones.light,
+                    darkColor = tones.dark,
+                    deepColor = tones.deep,
+                    isLightBase = layout.base == PostBase.LIGHT,
+                    isFrontPass = decor.layer == DecorLayer.FRONT_OF_PHOTO,
+                    unit = unit
+                )
+            }
+            DecorShape.OBSIDIAN_MIRROR_STAGE -> {
+                PostEditorialKitBatch2.drawObsidianMirrorStage(
+                    canvas = canvas,
+                    rect = rect,
+                    doc = doc,
+                    accentColor = tones.accent,
+                    secondaryColor = tones.secondary,
+                    glowColor = tones.glow,
+                    darkColor = tones.dark,
+                    deepColor = tones.deep,
+                    isLightBase = layout.base == PostBase.LIGHT,
+                    w = w.toFloat(),
+                    h = h.toFloat(),
+                    unit = unit
+                )
+            }
+            DecorShape.KINETIC_RIBBON_WEAVE -> {
+                PostEditorialKitBatch2.drawKineticRibbonWeave(
+                    context = context,
+                    canvas = canvas,
+                    rect = rect,
+                    doc = doc,
+                    accentColor = tones.accent,
+                    secondaryColor = tones.secondary,
+                    glowColor = tones.glow,
+                    lightColor = tones.light,
+                    darkColor = tones.dark,
+                    deepColor = tones.deep,
+                    isLightBase = layout.base == PostBase.LIGHT,
+                    isFrontPass = decor.layer == DecorLayer.FRONT_OF_PHOTO,
+                    w = w.toFloat(),
+                    h = h.toFloat(),
+                    unit = unit
+                )
+            }
+            DecorShape.DUOTONE_GEL_BEAM -> {
+                PostEditorialKitBatch2.drawDuotoneGelBeamBack(
+                    canvas = canvas,
+                    doc = doc,
+                    accentColor = tones.accent,
+                    secondaryColor = tones.secondary,
+                    glowColor = tones.glow,
+                    darkColor = tones.dark,
+                    isLightBase = layout.base == PostBase.LIGHT,
+                    w = w.toFloat(),
+                    h = h.toFloat(),
+                    unit = unit
+                )
+            }
+            DecorShape.TYPOGRAPHIC_PLINTH -> {
+                PostEditorialKitBatch2.drawTypographicPlinth(
+                    context = context,
+                    canvas = canvas,
+                    rect = rect,
+                    doc = doc,
+                    accentColor = tones.accent,
+                    secondaryColor = tones.secondary,
+                    glowColor = tones.glow,
+                    lightColor = tones.light,
+                    darkColor = tones.dark,
+                    deepColor = tones.deep,
+                    isLightBase = layout.base == PostBase.LIGHT,
+                    unit = unit
+                )
+            }
+            DecorShape.DARKROOM_APERTURE -> {
+                PostEditorialKitBatch2.drawDarkroomAperture(
+                    canvas = canvas,
+                    rect = rect,
+                    doc = doc,
+                    accentColor = tones.accent,
+                    glowColor = tones.glow,
+                    lightColor = tones.light,
+                    darkColor = tones.dark,
+                    deepColor = tones.deep,
+                    isLightBase = layout.base == PostBase.LIGHT,
+                    w = w.toFloat(),
+                    h = h.toFloat(),
+                    unit = unit
+                )
+            }
+            DecorShape.TORN_ZINE_COLLAGE -> {
+                PostEditorialKitBatch3.drawTornZineCollage(
+                    canvas = canvas,
+                    rect = rect,
+                    doc = doc,
+                    accentColor = tones.accent,
+                    lightColor = tones.light,
+                    darkColor = tones.dark,
+                    deepColor = tones.deep,
+                    paperColor = tones.paper,
+                    isLightBase = layout.base == PostBase.LIGHT,
+                    isFrontPass = decor.layer == DecorLayer.FRONT_OF_PHOTO,
+                    isVerticalSplit = decor.variant == 1,
+                    w = w.toFloat(),
+                    h = h.toFloat(),
+                    unit = unit
+                )
+            }
+            DecorShape.ARCHITECTURAL_BLUEPRINT -> {
+                PostEditorialKitBatch3.drawArchitecturalBlueprint(
+                    canvas = canvas,
+                    rect = rect,
+                    doc = doc,
+                    accentColor = tones.accent,
+                    glowColor = tones.glow,
+                    lightColor = tones.light,
+                    darkColor = tones.dark,
+                    isLightBase = layout.base == PostBase.LIGHT,
+                    w = w.toFloat(),
+                    h = h.toFloat(),
+                    unit = unit
+                )
+            }
+            DecorShape.PERSPECTIVE_RUNWAY -> {
+                PostEditorialKitBatch3.drawPerspectiveRunway(
+                    canvas = canvas,
+                    rect = rect,
+                    doc = doc,
+                    accentColor = tones.accent,
+                    secondaryColor = tones.secondary,
+                    glowColor = tones.glow,
+                    lightColor = tones.light,
+                    darkColor = tones.dark,
+                    deepColor = tones.deep,
+                    isLightBase = layout.base == PostBase.LIGHT,
+                    w = w.toFloat(),
+                    h = h.toFloat(),
+                    unit = unit
+                )
+            }
+            DecorShape.KINETIC_SLICED_LOUVERS -> {
+                val p1 = PostImageCache.get(context, doc.photoUri, maxDim)
+                    ?: PostImageCache.get(context, doc.backgroundPhotoUri, maxDim)
+                PostEditorialKitBatch3.drawKineticSlicedLouvers(
+                    canvas = canvas,
+                    rect = rect,
+                    doc = doc,
+                    sourcePhoto = p1,
+                    accentColor = tones.accent,
+                    secondaryColor = tones.secondary,
+                    glowColor = tones.glow,
+                    lightColor = tones.light,
+                    darkColor = tones.dark,
+                    deepColor = tones.deep,
+                    isLightBase = layout.base == PostBase.LIGHT,
+                    unit = unit
+                )
+            }
+            DecorShape.CONTACT_SHEET_FILM -> {
+                val p1 = PostImageCache.get(context, doc.photoUri, maxDim)
+                val p2 = PostImageCache.get(context, doc.secondaryPhotoUri, maxDim)
+                val p3 = PostImageCache.get(context, doc.tertiaryPhotoUri, maxDim)
+                PostEditorialKitBatch3.drawContactSheetFilm(
+                    canvas = canvas,
+                    rect = rect,
+                    doc = doc,
+                    photos = listOf(p1, p2, p3),
+                    accentColor = tones.accent,
+                    glowColor = tones.glow,
+                    lightColor = tones.light,
+                    darkColor = tones.dark,
+                    isLightBase = layout.base == PostBase.LIGHT,
+                    unit = unit
+                )
+            }
+            DecorShape.ECLIPSE_HALO_STAGE -> {
+                PostEditorialKitBatch3.drawEclipseHaloStage(
+                    canvas = canvas,
+                    rect = rect,
+                    doc = doc,
+                    accentColor = tones.accent,
+                    secondaryColor = tones.secondary,
+                    glowColor = tones.glow,
+                    lightColor = tones.light,
+                    darkColor = tones.dark,
+                    isLightBase = layout.base == PostBase.LIGHT,
+                    w = w.toFloat(),
+                    h = h.toFloat(),
+                    unit = unit
                 )
             }
             DecorShape.DOTS, DecorShape.STRIPES, DecorShape.WAVE, DecorShape.GEM,
@@ -2083,12 +2497,13 @@ object PostRenderer {
                 canvas.drawText(text, drawX, drawY, p)
             }
             TextFx.OUTLINE -> {
+                val isSandwich = doc.templateId == "info-bignumber"
                 val p = TextPaint(paint).apply {
                     style = Paint.Style.STROKE
-                    strokeWidth = max(2f, fontSize * 0.03f)
+                    strokeWidth = if (isSandwich) max(1.8f, fontSize * 0.013f) else max(2f, fontSize * 0.03f)
                     strokeJoin = Paint.Join.ROUND
                     strokeCap = Paint.Cap.ROUND
-                    this.color = color
+                    this.color = if (isSandwich) withAlpha(color, 215) else color
                 }
                 canvas.drawText(text, drawX, drawY, p)
             }
@@ -2390,10 +2805,12 @@ object PostRenderer {
                 canvas.restore()
             }
             TextFx.OUTLINE -> {
+                val isSandwich = doc.templateId == "info-bignumber"
                 val p = TextPaint(paint).apply {
                     style = Paint.Style.STROKE
-                    strokeWidth = max(2f, finalSizePx * 0.03f)
+                    strokeWidth = if (isSandwich) max(1.8f, finalSizePx * 0.013f) else max(2f, finalSizePx * 0.03f)
                     strokeJoin = Paint.Join.ROUND
+                    if (isSandwich) this.color = withAlpha(this.color, 215)
                 }
                 val outLay = buildStaticLayout(stripInlineMarkup(rawText), p, availW.toInt(), align, leading)
                 canvas.save()

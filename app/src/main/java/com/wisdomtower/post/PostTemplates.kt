@@ -135,7 +135,24 @@ enum class DecorShape {
     SCENE_CLOCKHANG,
     SCENE_EXAMCLIFF,
     SCENE_CAPUFO,
-    SCENE_PAPERBOAT
+    SCENE_PAPERBOAT,
+    SUSPENDED_MOBILES,
+    RISING_MIST,
+    LAPTOP_16_9,
+    PORTAL_FRAME_BREAKER,
+    PRISM_GLASS_STRIPS,
+    ORBITAL_HALO,
+    OBSIDIAN_MIRROR_STAGE,
+    KINETIC_RIBBON_WEAVE,
+    DUOTONE_GEL_BEAM,
+    TYPOGRAPHIC_PLINTH,
+    DARKROOM_APERTURE,
+    TORN_ZINE_COLLAGE,
+    ARCHITECTURAL_BLUEPRINT,
+    PERSPECTIVE_RUNWAY,
+    KINETIC_SLICED_LOUVERS,
+    CONTACT_SHEET_FILM,
+    ECLIPSE_HALO_STAGE
 }
 
 enum class DecorLayer {
@@ -401,8 +418,16 @@ class PostTemplateSpec(
                         else -> 1
                     }
                 } ?: 0
-            val phoneCount = if (l.decor.any { it.shape == DecorShape.PHONE }) 1 else 0
-            maxOf(areaCount, device3DCount, phoneCount)
+            val editorialPhotoCount = when {
+                l.decor.any { it.shape == DecorShape.CONTACT_SHEET_FILM } -> 3
+                l.decor.any {
+                    it.shape == DecorShape.PHONE ||
+                        it.shape == DecorShape.LAPTOP_16_9 ||
+                        it.shape == DecorShape.KINETIC_SLICED_LOUVERS
+                } -> 1
+                else -> 0
+            }
+            maxOf(areaCount, device3DCount, editorialPhotoCount)
         }
 
     val usesPhoto: Boolean

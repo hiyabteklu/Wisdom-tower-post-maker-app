@@ -126,8 +126,10 @@ fun EngineControls(
                 )
             }
         }
-        val hasActiveCutout = doc.cutoutUri != null || postTemplate(doc.templateId).layout(doc.size).cutoutShowDefault
+        val activeLayout = postTemplate(doc.templateId).withLookIndex(doc.lookIndex).layout(doc.size)
+        val hasActiveCutout = doc.cutoutUri != null || activeLayout.cutoutShowDefault || activeLayout.cutout != null
         if (hasActiveCutout) {
+            val (curX, curY) = PostEngine.resolvedCutoutPos(doc)
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("Subject size", color = PostPalette.Text, fontSize = 13.sp, modifier = Modifier.weight(1f))
                 Text("${(doc.cutoutScale * 100).toInt()}%", color = PostPalette.Muted, fontSize = 13.sp)
@@ -137,6 +139,42 @@ fun EngineControls(
                 onValueChange = { onDoc(doc.copy(cutoutScale = it)) },
                 valueRange = 0.3f..2.5f
             )
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("Position X", color = PostPalette.Text, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                Text("${(curX * 100).toInt()}%", color = PostPalette.Muted, fontSize = 13.sp)
+            }
+            Slider(
+                value = curX.coerceIn(0.05f, 0.95f),
+                onValueChange = { onDoc(doc.copy(cutoutX = it, cutoutY = curY)) },
+                valueRange = 0.05f..0.95f
+            )
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("Position Y", color = PostPalette.Text, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                Text("${(curY * 100).toInt()}%", color = PostPalette.Muted, fontSize = 13.sp)
+            }
+            Slider(
+                value = curY.coerceIn(0.15f, 1.05f),
+                onValueChange = { onDoc(doc.copy(cutoutX = curX, cutoutY = it)) },
+                valueRange = 0.15f..1.05f
+            )
+            Row(
+                Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (doc.cutoutX != 0.5f || doc.cutoutY != 0.94f || doc.cutoutScale != 1f) {
+                    OutlinedButton(onClick = { onDoc(doc.copy(cutoutX = 0.5f, cutoutY = 0.94f, cutoutScale = 1f)) }) {
+                        Text("Center subject", fontSize = 13.sp)
+                    }
+                }
+                if (doc.templateId == "info-bignumber") {
+                    FilterChip(
+                        selected = doc.cutoutFrontOutline,
+                        onClick = { onDoc(doc.copy(cutoutFrontOutline = !doc.cutoutFrontOutline)) },
+                        label = { Text("Front outline wrap", fontSize = 13.sp) }
+                    )
+                }
+            }
             Heading("Words behind the subject")
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 slots.forEach { slot ->

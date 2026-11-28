@@ -284,57 +284,129 @@ internal val DeviceTemplates: List<PostTemplateSpec> = listOf(
         )
     },
 
-    // 4. device-tablet-duo — Tablet & Phone Pair
+    // 4. device-tablet-duo — Clean 16:9 Studio Laptop (Batch 1 replacement)
     PostTemplateSpec(
         id = "device-tablet-duo",
-        name = "Tablet & Phone Pair",
+        name = "16:9 Studio Laptop",
         family = "Device mockup",
-        slots = listOf(PostSlots.EYEBROW, PostSlots.HEADLINE),
+        slots = listOf(PostSlots.WORD, PostSlots.EYEBROW, PostSlots.HEADLINE, PostSlots.BUTTON),
         sample = mapOf(
-            PostSlots.EYEBROW to "CROSS-DEVICE SYNC",
-            PostSlots.HEADLINE to "STUDY ANYWHERE"
+            PostSlots.WORD to "WISDOM",
+            PostSlots.EYEBROW to "WEB & APP PLATFORM · 16:9",
+            PostSlots.HEADLINE to "BUILT FOR DEEP STUDY.",
+            PostSlots.BUTTON to "EXPLORE NOW"
         ),
         looks = listOf(
-            TemplateLook("Gold duo", "#F59E0B", "#070910", PostBase.DARK),
-            TemplateLook("Emerald duo", "#10B981", "#05100C", PostBase.DARK),
-            TemplateLook("Light duo", "#2563EB", "#F8FAFC", PostBase.LIGHT)
+            TemplateLook("Obsidian cyan", "#22D3EE", "#050914", PostBase.DARK),
+            TemplateLook("Studio silver", "#2563EB", "#F5F7FB", PostBase.LIGHT),
+            TemplateLook("Midnight gold", "#F59E0B", "#070910", PostBase.DARK),
+            TemplateLook("Emerald stage", "#10B981", "#05100C", PostBase.DARK)
         )
     ) { size ->
         size.pick3(
             story = TemplateLayout(
                 base = PostBase.DARK,
                 backdrop = Backdrop.SPOT,
-                logoAnchor = LogoAnchor.TOP_LEFT,
+                logoAnchor = LogoAnchor.TOP_RIGHT,
                 decor = listOf(
-                    DecorBox(DecorShape.DEVICE_3D, 0.06f, 0.26f, 0.88f, 0.58f, PostTone.ACCENT, secondaryTone = PostTone.DEEP, tiltX = -10f, tiltY = 6f, variant = 3)
+                    DecorBox(DecorShape.LAPTOP_16_9, 0.04f, 0.34f, 0.92f, 0.34f, PostTone.ACCENT, layer = DecorLayer.FRONT_OF_PHOTO)
                 ),
                 slots = listOf(
-                    SlotBox(PostSlots.EYEBROW, 0.20f, 0.09f, 0.60f, 0.042f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.18f),
-                    SlotBox(PostSlots.HEADLINE, 0.08f, 0.15f, 0.84f, 0.10f, size = 88f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER)
+                    SlotBox(
+                        slot = PostSlots.EYEBROW,
+                        x = 0.12f, y = 0.14f, w = 0.76f, h = 0.036f,
+                        size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT,
+                        centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.18f, maxLines = 1
+                    ),
+                    SlotBox(
+                        slot = PostSlots.WORD,
+                        x = 0.02f, y = 0.19f, w = 0.96f, h = 0.24f,
+                        size = 220f, font = PostFont.CONDENSED, tone = PostTone.MUTED,
+                        centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER,
+                        fx = TextFx.OUTLINE
+                    ),
+                    SlotBox(
+                        slot = PostSlots.HEADLINE,
+                        x = 0.08f, y = 0.70f, w = 0.84f, h = 0.085f,
+                        size = 64f, font = PostFont.DISPLAY, tone = PostTone.TEXT,
+                        centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER
+                    ),
+                    SlotBox(
+                        slot = PostSlots.BUTTON,
+                        x = 0.24f, y = 0.80f, w = 0.52f, h = 0.052f,
+                        size = 22f, font = PostFont.BOLD, tone = PostTone.DARK,
+                        centered = true, caps = true, fit = FitMode.FILL, chip = PostTone.ACCENT, maxLines = 1
+                    )
                 )
             ),
             standard = TemplateLayout(
                 base = PostBase.DARK,
                 backdrop = Backdrop.SPOT,
-                logoAnchor = LogoAnchor.TOP_LEFT,
+                logoAnchor = LogoAnchor.TOP_RIGHT,
                 decor = listOf(
-                    DecorBox(DecorShape.DEVICE_3D, 0.08f, 0.24f, 0.84f, 0.62f, PostTone.ACCENT, secondaryTone = PostTone.DEEP, tiltX = -10f, tiltY = 6f, variant = 3)
+                    DecorBox(DecorShape.LAPTOP_16_9, 0.08f, 0.25f, 0.84f, 0.50f, PostTone.ACCENT, layer = DecorLayer.FRONT_OF_PHOTO)
                 ),
                 slots = listOf(
-                    SlotBox(PostSlots.EYEBROW, 0.24f, 0.08f, 0.52f, 0.045f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.18f),
-                    SlotBox(PostSlots.HEADLINE, 0.10f, 0.14f, 0.80f, 0.10f, size = 84f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER)
+                    SlotBox(
+                        slot = PostSlots.EYEBROW,
+                        x = 0.16f, y = 0.06f, w = 0.68f, h = 0.042f,
+                        size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT,
+                        centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.18f, maxLines = 1
+                    ),
+                    SlotBox(
+                        slot = PostSlots.WORD,
+                        x = 0.04f, y = 0.10f, w = 0.92f, h = 0.28f,
+                        size = 240f, font = PostFont.CONDENSED, tone = PostTone.MUTED,
+                        centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER,
+                        fx = TextFx.OUTLINE
+                    ),
+                    SlotBox(
+                        slot = PostSlots.HEADLINE,
+                        x = 0.08f, y = 0.77f, w = 0.56f, h = 0.095f,
+                        size = 56f, font = PostFont.DISPLAY, tone = PostTone.TEXT,
+                        caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER
+                    ),
+                    SlotBox(
+                        slot = PostSlots.BUTTON,
+                        x = 0.67f, y = 0.785f, w = 0.25f, h = 0.065f,
+                        size = 21f, font = PostFont.BOLD, tone = PostTone.DARK,
+                        centered = true, caps = true, fit = FitMode.FILL, chip = PostTone.ACCENT, maxLines = 1
+                    )
                 )
             ),
             wide = TemplateLayout(
                 base = PostBase.DARK,
                 backdrop = Backdrop.SPOT,
-                logoAnchor = LogoAnchor.TOP_LEFT,
+                logoAnchor = LogoAnchor.TOP_RIGHT,
                 decor = listOf(
-                    DecorBox(DecorShape.DEVICE_3D, 0.12f, 0.24f, 0.76f, 0.64f, PostTone.ACCENT, secondaryTone = PostTone.DEEP, tiltX = -10f, tiltY = 6f, variant = 3)
+                    DecorBox(DecorShape.LAPTOP_16_9, 0.36f, 0.18f, 0.60f, 0.68f, PostTone.ACCENT, layer = DecorLayer.FRONT_OF_PHOTO)
                 ),
                 slots = listOf(
-                    SlotBox(PostSlots.EYEBROW, 0.28f, 0.08f, 0.44f, 0.05f, size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.18f),
-                    SlotBox(PostSlots.HEADLINE, 0.12f, 0.14f, 0.76f, 0.10f, size = 88f, font = PostFont.DISPLAY, tone = PostTone.TEXT, centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER)
+                    SlotBox(
+                        slot = PostSlots.WORD,
+                        x = 0.30f, y = 0.05f, w = 0.68f, h = 0.30f,
+                        size = 240f, font = PostFont.CONDENSED, tone = PostTone.MUTED,
+                        centered = true, caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER,
+                        fx = TextFx.OUTLINE
+                    ),
+                    SlotBox(
+                        slot = PostSlots.EYEBROW,
+                        x = 0.05f, y = 0.25f, w = 0.28f, h = 0.050f,
+                        size = 20f, font = PostFont.BOLD, tone = PostTone.ACCENT,
+                        caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.16f, maxLines = 1
+                    ),
+                    SlotBox(
+                        slot = PostSlots.HEADLINE,
+                        x = 0.05f, y = 0.33f, w = 0.29f, h = 0.28f,
+                        size = 68f, font = PostFont.DISPLAY, tone = PostTone.TEXT,
+                        caps = true, fit = FitMode.FILL, anchor = VAnchor.CENTER, leading = 0.96f
+                    ),
+                    SlotBox(
+                        slot = PostSlots.BUTTON,
+                        x = 0.05f, y = 0.66f, w = 0.22f, h = 0.075f,
+                        size = 21f, font = PostFont.BOLD, tone = PostTone.DARK,
+                        centered = true, caps = true, fit = FitMode.FILL, chip = PostTone.ACCENT, maxLines = 1
+                    )
                 )
             )
         )

@@ -6,78 +6,84 @@ package com.wisdomtower.post
  * Built for 4:3, 9:16, and 16:9 using PostSize.pick3.
  */
 internal val MarketingTemplates: List<PostTemplateSpec> = listOf(
-    // 1. mkt-poster — 3D Study Streak & XP Level-Up Cohort Launch Card (2 photo slots)
+    // 1. mkt-poster — Wet Obsidian Mirror Stage (Batch 2 replacement: glossy studio floor auto-reflecting cutout PNG)
     PostTemplateSpec(
         id = "mkt-poster",
-        name = "3D Streak & XP Card",
+        name = "Wet Obsidian Mirror",
         family = "Marketing",
         slots = listOf(PostSlots.EYEBROW, PostSlots.HEADLINE, PostSlots.BODY, PostSlots.BUTTON),
         sample = mapOf(
             PostSlots.EYEBROW to "NEW SEASON LAUNCH · 2026 COHORT",
-            PostSlots.HEADLINE to "Build your daily study streak and level up.",
-            PostSlots.BODY to "Live classes, structured chapter summaries, and daily XP exam drills.",
-            PostSlots.BUTTON to "JOIN COHORT TODAY"
+            PostSlots.HEADLINE to "Built for top scholars.",
+            PostSlots.BODY to "Insert any BG-removed person, book, or device — the wet studio mirror floor reflects it automatically.",
+            PostSlots.BUTTON to "EXPLORE NOW"
         ),
         looks = listOf(
-            TemplateLook("Launch gold", "#F59E0B", "#07162C", PostBase.DARK),
-            TemplateLook("Emerald XP", "#10B981", "#051412", PostBase.DARK),
-            TemplateLook("Cobalt streak", "#38BDF8", "#071830", PostBase.DARK),
-            TemplateLook("Paper poster", "#2563EB", "#F5F7FC", PostBase.LIGHT)
+            TemplateLook("Obsidian gold", "#F59E0B", "#05070D", PostBase.DARK),
+            TemplateLook("Emerald mirror", "#10B981", "#040D0B", PostBase.DARK),
+            TemplateLook("Cobalt keynote", "#38BDF8", "#050B18", PostBase.DARK),
+            TemplateLook("Marble studio", "#2563EB", "#F5F7FC", PostBase.LIGHT)
         )
     ) { size ->
         size.pick3(
             story = TemplateLayout(
                 base = PostBase.DARK,
                 backdrop = Backdrop.SPOT,
+                cutout = CutoutBox(0.18f, 0.22f, 0.64f, 0.40f),
+                cutoutShowDefault = true,
                 decor = listOf(
                     DecorBox(
-                        shape = DecorShape.DEVICE_3D,
-                        x = 0.04f, y = 0.19f, w = 0.92f, h = 0.45f,
+                        shape = DecorShape.OBSIDIAN_MIRROR_STAGE,
+                        x = 0.0f, y = 0.62f, w = 1.0f, h = 0.38f,
                         tone = PostTone.ACCENT, secondaryTone = PostTone.DEEP,
-                        variant = 17
+                        layer = DecorLayer.BEHIND_PHOTO, panel = true
                     )
                 ),
                 slots = listOf(
-                    SlotBox(PostSlots.EYEBROW, 0.12f, 0.135f, 0.76f, 0.036f, 20f, PostFont.BOLD, PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.14f),
-                    SlotBox(PostSlots.HEADLINE, 0.08f, 0.655f, 0.84f, 0.08f, 44f, PostFont.DISPLAY, PostTone.TEXT, centered = true, fit = FitMode.FILL),
-                    SlotBox(PostSlots.BODY, 0.12f, 0.742f, 0.76f, 0.042f, 22f, PostFont.REGULAR, PostTone.MUTED, centered = true, fit = FitMode.FILL),
-                    SlotBox(PostSlots.BUTTON, 0.24f, 0.80f, 0.52f, 0.052f, 22f, PostFont.BOLD, PostTone.DARK, centered = true, caps = true, fit = FitMode.FILL, chip = PostTone.ACCENT)
+                    SlotBox(PostSlots.EYEBROW, 0.12f, 0.13f, 0.76f, 0.036f, 20f, PostFont.BOLD, PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.16f),
+                    SlotBox(PostSlots.HEADLINE, 0.08f, 0.66f, 0.84f, 0.080f, 52f, PostFont.DISPLAY, PostTone.TEXT, centered = true, fit = FitMode.FILL),
+                    SlotBox(PostSlots.BODY, 0.12f, 0.748f, 0.76f, 0.048f, 22f, PostFont.REGULAR, PostTone.MUTED, centered = true, fit = FitMode.FILL),
+                    SlotBox(PostSlots.BUTTON, 0.26f, 0.808f, 0.48f, 0.050f, 21f, PostFont.BOLD, PostTone.DARK, centered = true, caps = true, fit = FitMode.FILL, chip = PostTone.ACCENT)
                 )
             ),
             standard = TemplateLayout(
                 base = PostBase.DARK,
                 backdrop = Backdrop.SPOT,
+                cutout = CutoutBox(0.24f, 0.15f, 0.52f, 0.49f),
+                cutoutShowDefault = true,
                 decor = listOf(
                     DecorBox(
-                        shape = DecorShape.DEVICE_3D,
-                        x = 0.06f, y = 0.12f, w = 0.88f, h = 0.56f,
+                        shape = DecorShape.OBSIDIAN_MIRROR_STAGE,
+                        x = 0.0f, y = 0.64f, w = 1.0f, h = 0.36f,
                         tone = PostTone.ACCENT, secondaryTone = PostTone.DEEP,
-                        variant = 17
+                        layer = DecorLayer.BEHIND_PHOTO, panel = true
                     )
                 ),
                 slots = listOf(
-                    SlotBox(PostSlots.EYEBROW, 0.10f, 0.05f, 0.80f, 0.04f, 20f, PostFont.BOLD, PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.14f),
-                    SlotBox(PostSlots.HEADLINE, 0.08f, 0.70f, 0.84f, 0.10f, 46f, PostFont.DISPLAY, PostTone.TEXT, centered = true, fit = FitMode.FILL),
-                    SlotBox(PostSlots.BODY, 0.12f, 0.81f, 0.76f, 0.045f, 22f, PostFont.REGULAR, PostTone.MUTED, centered = true, fit = FitMode.FILL),
-                    SlotBox(PostSlots.BUTTON, 0.30f, 0.87f, 0.40f, 0.058f, 21f, PostFont.BOLD, PostTone.DARK, centered = true, caps = true, fit = FitMode.FILL, chip = PostTone.ACCENT)
+                    SlotBox(PostSlots.EYEBROW, 0.12f, 0.06f, 0.76f, 0.040f, 20f, PostFont.BOLD, PostTone.ACCENT, centered = true, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.16f),
+                    SlotBox(PostSlots.HEADLINE, 0.08f, 0.68f, 0.84f, 0.105f, 54f, PostFont.DISPLAY, PostTone.TEXT, centered = true, fit = FitMode.FILL),
+                    SlotBox(PostSlots.BODY, 0.14f, 0.79f, 0.72f, 0.052f, 22f, PostFont.REGULAR, PostTone.MUTED, centered = true, fit = FitMode.FILL),
+                    SlotBox(PostSlots.BUTTON, 0.32f, 0.858f, 0.36f, 0.056f, 21f, PostFont.BOLD, PostTone.DARK, centered = true, caps = true, fit = FitMode.FILL, chip = PostTone.ACCENT)
                 )
             ),
             wide = TemplateLayout(
                 base = PostBase.DARK,
                 backdrop = Backdrop.SPOT,
+                cutout = CutoutBox(0.50f, 0.10f, 0.42f, 0.58f),
+                cutoutShowDefault = true,
                 decor = listOf(
                     DecorBox(
-                        shape = DecorShape.DEVICE_3D,
-                        x = 0.42f, y = 0.07f, w = 0.54f, h = 0.86f,
+                        shape = DecorShape.OBSIDIAN_MIRROR_STAGE,
+                        x = 0.0f, y = 0.68f, w = 1.0f, h = 0.32f,
                         tone = PostTone.ACCENT, secondaryTone = PostTone.DEEP,
-                        variant = 17
+                        layer = DecorLayer.BEHIND_PHOTO, panel = true
                     )
                 ),
                 slots = listOf(
-                    SlotBox(PostSlots.EYEBROW, 0.06f, 0.16f, 0.34f, 0.05f, 20f, PostFont.BOLD, PostTone.ACCENT, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.14f),
-                    SlotBox(PostSlots.HEADLINE, 0.06f, 0.24f, 0.34f, 0.32f, 50f, PostFont.DISPLAY, PostTone.TEXT, fit = FitMode.FILL),
-                    SlotBox(PostSlots.BODY, 0.06f, 0.59f, 0.34f, 0.14f, 23f, PostFont.REGULAR, PostTone.MUTED, fit = FitMode.FILL),
-                    SlotBox(PostSlots.BUTTON, 0.06f, 0.76f, 0.28f, 0.08f, 21f, PostFont.BOLD, PostTone.DARK, centered = true, caps = true, fit = FitMode.FILL, chip = PostTone.ACCENT)
+                    SlotBox(PostSlots.EYEBROW, 0.06f, 0.16f, 0.40f, 0.048f, 20f, PostFont.BOLD, PostTone.ACCENT, caps = true, fit = FitMode.FILL_WIDTH, tracking = 0.16f),
+                    SlotBox(PostSlots.HEADLINE, 0.06f, 0.24f, 0.42f, 0.30f, 58f, PostFont.DISPLAY, PostTone.TEXT, fit = FitMode.FILL),
+                    SlotBox(PostSlots.BODY, 0.06f, 0.56f, 0.40f, 0.14f, 23f, PostFont.REGULAR, PostTone.MUTED, fit = FitMode.FILL),
+                    SlotBox(PostSlots.BUTTON, 0.06f, 0.74f, 0.28f, 0.082f, 21f, PostFont.BOLD, PostTone.DARK, centered = true, caps = true, fit = FitMode.FILL, chip = PostTone.ACCENT)
                 )
             )
         )

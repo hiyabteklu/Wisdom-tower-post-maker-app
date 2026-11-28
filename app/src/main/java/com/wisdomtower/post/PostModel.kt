@@ -409,7 +409,11 @@ data class PostDoc(
     val sceneShadowStrength: Float = 0.75f,
     val sceneLightAngle: Float = 135f,
     val sceneWarmth: Float = 0.5f,
-    val sceneDepth: Float = 0.75f
+    val sceneDepth: Float = 0.75f,
+    val mistHeight: Float = 0.56f,
+    val mistOpacity: Float = 0.92f,
+    val mistColorHex: String? = null,
+    val cutoutFrontOutline: Boolean = true
 ) {
     val backgroundPhotoAlpha: Float get() = backgroundPhotoOpacity
     fun hasOffsets(): Boolean = offsets.values.any { it.dx != 0f || it.dy != 0f }
@@ -572,6 +576,10 @@ object PostCodec {
         if (doc.sceneLightAngle != 135f) root.put("sceneLightAngle", doc.sceneLightAngle.toDouble())
         if (doc.sceneWarmth != 0.5f) root.put("sceneWarmth", doc.sceneWarmth.toDouble())
         if (doc.sceneDepth != 0.75f) root.put("sceneDepth", doc.sceneDepth.toDouble())
+        if (doc.mistHeight != 0.56f) root.put("mistHeight", doc.mistHeight.toDouble())
+        if (doc.mistOpacity != 0.92f) root.put("mistOpacity", doc.mistOpacity.toDouble())
+        doc.mistColorHex?.let { root.put("mistColorHex", it) }
+        if (!doc.cutoutFrontOutline) root.put("cutoutFrontOutline", false)
         return root.toString()
     }
 
@@ -781,7 +789,11 @@ object PostCodec {
             sceneShadowStrength = root.optDouble("sceneShadowStrength", 0.75).toFloat().coerceIn(0f, 1f),
             sceneLightAngle = root.optDouble("sceneLightAngle", 135.0).toFloat(),
             sceneWarmth = root.optDouble("sceneWarmth", 0.5).toFloat().coerceIn(0f, 1f),
-            sceneDepth = root.optDouble("sceneDepth", 0.75).toFloat().coerceIn(0f, 1f)
+            sceneDepth = root.optDouble("sceneDepth", 0.75).toFloat().coerceIn(0f, 1f),
+            mistHeight = root.optDouble("mistHeight", 0.56).toFloat().coerceIn(0.15f, 0.95f),
+            mistOpacity = root.optDouble("mistOpacity", 0.92).toFloat().coerceIn(0.05f, 1f),
+            mistColorHex = root.optString("mistColorHex", "").takeIf { it.isNotBlank() },
+            cutoutFrontOutline = root.optBoolean("cutoutFrontOutline", true)
         )
     }
 
